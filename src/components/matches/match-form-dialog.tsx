@@ -22,6 +22,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
@@ -172,11 +173,17 @@ function MatchForm({
           </Field>
 
           <Field label="Time" error={errors.time?.message}>
-            <Input
-              type="time"
-              disabled={pending}
-              aria-invalid={!!errors.time}
-              {...form.register("time")}
+            <Controller
+              control={form.control}
+              name="time"
+              render={({ field }) => (
+                <TimePicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={pending}
+                  invalid={!!errors.time}
+                />
+              )}
             />
           </Field>
 

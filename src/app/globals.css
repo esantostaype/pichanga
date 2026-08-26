@@ -108,11 +108,6 @@
     background: color-mix(in oklab, var(--primary) 30%, transparent);
   }
 
-  input[type="date"]::-webkit-calendar-picker-indicator,
-  input[type="time"]::-webkit-calendar-picker-indicator {
-    filter: invert(1) opacity(0.55);
-    cursor: pointer;
-  }
 }
 
 @layer utilities {

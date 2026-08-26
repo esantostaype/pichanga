@@ -4,14 +4,13 @@ import { Calendar03Icon } from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
 import { Calendar } from "@/components/ui/calendar";
-import { Icon } from "@/components/ui/icon";
+import { PickerTrigger } from "@/components/ui/picker-trigger";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { formatShortDate, fromDateInput, toDateInput } from "@/lib/date";
-import { cn } from "@/lib/utils";
 
 type DatePickerProps = {
   /** "yyyy-MM-dd", same contract as the native date input it replaces. */
@@ -37,33 +36,20 @@ export function DatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          type="button"
+        <PickerTrigger
+          icon={Calendar03Icon}
+          placeholder={placeholder}
+          invalid={invalid}
           disabled={disabled}
-          // `aria-invalid` is not valid on role=button, so the error state
-          // travels as a data attribute.
-          data-invalid={invalid ? "true" : undefined}
-          className={cn(
-            "flex h-10 w-full items-center gap-2 rounded-xl border border-input bg-muted/40 px-3.5 text-left text-sm transition-colors",
-            "hover:border-primary/40 focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            "data-[invalid=true]:border-destructive/70",
-            className,
-          )}
-        >
-          <Icon
-            icon={Calendar03Icon}
-            size={16}
-            className="text-muted-foreground"
-          />
-          {selected ? (
-            <span suppressHydrationWarning>
-              {formatShortDate(selected.getTime())}
-            </span>
-          ) : (
-            <span className="text-muted-foreground/70">{placeholder}</span>
-          )}
-        </button>
+          className={className}
+          display={
+            selected ? (
+              <span suppressHydrationWarning>
+                {formatShortDate(selected.getTime())}
+              </span>
+            ) : null
+          }
+        />
       </PopoverTrigger>
 
       <PopoverContent className="w-auto p-3">
