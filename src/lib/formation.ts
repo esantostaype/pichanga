@@ -1,0 +1,191 @@
+import { clamp } from "./utils";
+
+export type Orientation = "landscape" | "portrait";
+
+export type FormationSlot = {
+  /** Token center in px, relative to the pitch container. */
+  x: number;
+  y: number;
+  /** Row (goal-to-goal axis) and lane (touchline-to-touchline axis). */
+  row: number;
+  lane: number;
+};
+
+export type Formation = {
+  orientation: Orientation;
+  rows: number;
+  lanes: number;
+  slots: FormationSlot[];
+  /** Avatar diameter, in px. */
+  tokenSize: number;
+  /** Name plate width, in px. */
+  plateWidth: number;
+};
+
+/**
+ * The grid grows with the squad: there is no player cap, so the only thing
+ * bounding rows and lanes is how many fit on screen.
+ */
+
+/** Inner padding: tokens never sit on the touchlines. */
+const PAD_LENGTH = 0.085;
+const PAD_WIDTH = 0.075;
+
+/** Floor low enough that very large squads still shrink instead of colliding. */
+const MIN_TOKEN = 16;
+const MAX_TOKEN = 84;
+
+/** Total token height is roughly avatar + name plate. */
+export const TOKEN_HEIGHT_FACTOR = 1.78;
+
+/**
+ * Spreads `count` players across `rows` rows, giving the leftovers to the most
+ * central rows so the lineup grows outwards from the middle.
+ */
+function distribute(count: number, rows: number): number[] {
+  const base = Math.floor(count / rows);
+  let remainder = count % rows;
+
+  const perRow = new Array<number>(rows).fill(base);
+  const mid = (rows - 1) / 2;
+
+  const byCentrality = Array.from({ length: rows }, (_, i) => i).sort(
+    (a, b) => Math.abs(a - mid) - Math.abs(b - mid) || a - b,
+  );
+
+  for (const row of byCentrality) {
+    if (remainder === 0) break;
+    perRow[row] += 1;
+    remainder -= 1;
+  }
+
+  return perRow;
+}
+
+/**
+ * Grid that makes the best use of the space: aims for cells as square as
+ * possible given the container aspect ratio.
+ */
+function gridFor(count: number, lengthPx: number, widthPx: number) {
+  const ratio = lengthPx / widthPx;
+  // Unbounded on purpose: `rows * lanes >= count` always holds, so no player
+  // is ever left without a slot no matter how big the squad gets.
+  const rows = Math.max(1, Math.round(Math.sqrt(count * ratio)));
+  const lanes = Math.max(1, Math.ceil(count / rows));
+
+  return { rows: Math.max(1, Math.ceil(count / lanes)), lanes };
+}
+
+/** Evenly spaced, centered positions inside [pad, 1 - pad]. */
+function spread(total: number, pad: number): number[] {
+  const usable = 1 - pad * 2;
+  return Array.from(
+    { length: total },
+    (_, i) => pad + (usable * (i + 0.5)) / total,
+  );
+}
+
+const EMPTY: Formation = {
+  orientation: "landscape",
+  rows: 0,
+  lanes: 0,
+  slots: [],
+  tokenSize: MIN_TOKEN,
+  plateWidth: MIN_TOKEN * 2,
+};
+
+/**
+ * Builds the whole lineup.
+ *
+ * Positions are sorted by distance to the center of the pitch: the first
+ * player signed up takes the center circle and every new one lands further
+ * out, always keeping mirror symmetry about the long axis.
+ */
+export function buildFormation(
+  count: number,
+  containerWidth: number,
+  containerHeight: number,
+  /**
+   * Vertical space reserved at the top *and* the bottom, in px, so the HUD
+   * never covers a token. Applied to both edges to preserve symmetry.
+   */
+  insetY = 0,
+): Formation {
+  const orientation: Orientation =
+    containerWidth >= containerHeight ? "landscape" : "portrait";
+
+  if (count <= 0 || containerWidth <= 0 || containerHeight <= 0) {
+    return { ...EMPTY, orientation };
+  }
+
+  const landscape = orientation === "landscape";
+
+  // Orientation stays tied to the real container, but players are laid out
+  // inside the safe band so a tall HUD cannot flip the whole formation.
+  // The cap keeps a big HUD from squeezing the lineup into a thin strip: the
+  // row padding below already adds clearance on top of this inset.
+  const safeInset = clamp(insetY, 0, containerHeight * 0.12);
+  const usableHeight = containerHeight - safeInset * 2;
+
+  // "Length" axis runs goal to goal, "width" axis touchline to touchline.
+  const lengthPx = landscape ? containerWidth : usableHeight;
+  const widthPx = landscape ? usableHeight : containerWidth;
+
+  const { rows, lanes } = gridFor(count, lengthPx, widthPx);
+  const perRow = distribute(count, rows);
+  const rowPositions = spread(rows, PAD_LENGTH);
+
+  const cellLength = (lengthPx * (1 - PAD_LENGTH * 2)) / rows;
+  const cellWidth = (widthPx * (1 - PAD_WIDTH * 2)) / Math.max(...perRow, 1);
+
+  // Rows stack along the length axis, so the real gap between neighbours
+  // depends on orientation. That is what drives the token size.
+  const horizontalGap = landscape ? cellLength : cellWidth;
+  const verticalGap = landscape ? cellWidth : cellLength;
+
+  const tokenSize = Math.round(
+    clamp(
+      Math.min(verticalGap / TOKEN_HEIGHT_FACTOR, horizontalGap * 0.7),
+      MIN_TOKEN,
+      MAX_TOKEN,
+    ),
+  );
+
+  const plateWidth = Math.round(
+    Math.max(Math.min(horizontalGap * 0.94, tokenSize * 2.6), tokenSize * 1.15),
+  );
+
+  const slots: FormationSlot[] = [];
+
+  for (let row = 0; row < rows; row++) {
+    const inRow = perRow[row];
+    if (inRow === 0) continue;
+
+    const lanePositions = spread(inRow, PAD_WIDTH);
+
+    for (let lane = 0; lane < inRow; lane++) {
+      const l = rowPositions[row] * lengthPx;
+      const w = lanePositions[lane] * widthPx;
+
+      slots.push({
+        x: landscape ? l : w,
+        y: safeInset + (landscape ? w : l),
+        row,
+        lane,
+      });
+    }
+  }
+
+  const cx = containerWidth / 2;
+  const cy = containerHeight / 2;
+
+  slots.sort((a, b) => {
+    const da = (a.x - cx) ** 2 + (a.y - cy) ** 2;
+    const db = (b.x - cx) ** 2 + (b.y - cy) ** 2;
+    if (Math.abs(da - db) > 0.5) return da - db;
+    // Tie between mirrored positions: keep a stable, predictable order.
+    return a.y - b.y || a.x - b.x;
+  });
+
+  return { orientation, rows, lanes, slots, tokenSize, plateWidth };
+}

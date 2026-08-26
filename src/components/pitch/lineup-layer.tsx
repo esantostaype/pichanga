@@ -1,0 +1,120 @@
+"use client";
+
+import { useGSAP } from "@gsap/react";
+import gsap from "gsap";
+import { useMemo, useRef } from "react";
+
+import { buildFormation } from "@/lib/formation";
+import type { Player } from "@/types";
+import { PlayerToken } from "./player-token";
+
+gsap.registerPlugin(useGSAP);
+
+type LineupLayerProps = {
+  players: Player[];
+  width: number;
+  height: number;
+  /** Space reserved top and bottom so the HUD never covers a token. */
+  insetY?: number;
+  onRemovePlayer?: (player: Player) => void;
+};
+
+/**
+ * Places the tokens on the pitch and animates every change: new players are
+ * born in the center circle and travel to their spot while the rest shuffle to
+ * keep the formation symmetric.
+ */
+export function LineupLayer({
+  players,
+  width,
+  height,
+  insetY = 0,
+  onRemovePlayer,
+}: LineupLayerProps) {
+  const scope = useRef<HTMLDivElement>(null);
+  /** Ids already animated: tells "first entrance" apart from "reposition". */
+  const placed = useRef(new Set<string>());
+
+  const formation = useMemo(
+    () => buildFormation(players.length, width, height, insetY),
+    [players.length, width, height, insetY],
+  );
+
+  // The array identity changes on every refresh; only the order matters.
+  const signature = players.map((player) => player.id).join(",");
+
+  useGSAP(
+    () => {
+      const root = scope.current;
+      if (!root || !formation.slots.length) return;
+
+      const cx = width / 2;
+      const cy = height / 2;
+      const alive = new Set<string>();
+
+      players.forEach((player, index) => {
+        const node = root.querySelector<HTMLElement>(
+          `[data-token="${player.id}"]`,
+        );
+        const slot = formation.slots[index];
+        if (!node || !slot) return;
+
+        alive.add(player.id);
+
+        // `overwrite: true` kills every tween on the node, not just the ones
+        // touching the same properties. Without it a layout change landing
+        // mid-entrance leaves two tweens interleaved and the token settles on
+        // a hybrid position (x from one slot, y from another).
+        if (placed.current.has(player.id)) {
+          gsap.to(node, {
+            x: slot.x,
+            y: slot.y,
+            duration: 0.6,
+            ease: "power3.out",
+            overwrite: true,
+          });
+          return;
+        }
+
+        gsap.fromTo(
+          node,
+          { x: cx, y: cy, scale: 0.3, autoAlpha: 0 },
+          {
+            x: slot.x,
+            y: slot.y,
+            scale: 1,
+            autoAlpha: 1,
+            duration: 0.85,
+            ease: "back.out(1.4)",
+            delay: Math.min(index * 0.045, 0.6),
+            overwrite: true,
+          },
+        );
+      });
+
+      placed.current = alive;
+    },
+    { dependencies: [formation, signature], scope },
+  );
+
+  return (
+    <div ref={scope} className="absolute inset-0">
+      {players.map((player) => (
+        <div
+          key={player.id}
+          data-token={player.id}
+          className="invisible absolute left-0 top-0 will-change-transform"
+        >
+          <div className="-translate-x-1/2 -translate-y-1/2">
+            <PlayerToken
+              player={player}
+              size={formation.tokenSize}
+              plateWidth={formation.plateWidth}
+              onRemove={onRemovePlayer}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
