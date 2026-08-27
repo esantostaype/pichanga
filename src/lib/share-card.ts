@@ -4,7 +4,7 @@ import { getArea } from "./constants";
 import { formatLongDate, formatTimeRange } from "./date";
 import { formatMoney, perPlayer } from "./money";
 import { thumbUrl } from "./media-url";
-import { SITE } from "./site";
+import { placeMapsUrl } from "./maps";
 import { initialsOf } from "./utils";
 import type { Match, Player } from "@/types";
 
@@ -98,7 +98,7 @@ export async function renderMatchCard(match: Match): Promise<Blob> {
   const rows = Math.ceil(players.length / columns);
 
   const headerH = 348;
-  const footerH = 96;
+  const footerH = PAD;
   const height = headerH + rows * ROW_H + footerH;
 
   const canvas = document.createElement("canvas");
@@ -122,10 +122,6 @@ export async function renderMatchCard(match: Match): Promise<Blob> {
 
   ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, height);
-
-  // A lime edge down the left, the same accent the app uses everywhere else.
-  ctx.fillStyle = LIME;
-  ctx.fillRect(0, 0, 10, height);
 
   /* -------------------------------- header ------------------------------- */
 
@@ -265,16 +261,6 @@ export async function renderMatchCard(match: Match): Promise<Blob> {
     ctx.fillText(fit(ctx, area.label.toUpperCase(), textW), textX, top + 70);
   });
 
-  /* -------------------------------- footer ------------------------------- */
-
-  ctx.fillStyle = MUTED;
-  ctx.font = `400 22px "Sofia Sans", sans-serif`;
-  ctx.fillText(
-    SITE.url.replace(/^https?:\/\//, ""),
-    PAD,
-    height - PAD + 8,
-  );
-
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
       (blob) =>
@@ -358,7 +344,8 @@ export function matchShareText(match: Match) {
   ];
 
   if (share !== null) lines.push(`${formatMoney(share)} each`);
-  if (match.place?.mapsUrl) lines.push(match.place.mapsUrl);
+  const maps = placeMapsUrl(match.place);
+  if (maps) lines.push(maps);
 
   const paid = new Set(match.paidPlayerIds);
   const owing = match.players.length - paid.size;
@@ -379,9 +366,6 @@ export function matchShareText(match: Match) {
       `${mark} ${index + 1}. ${player.firstName} ${player.lastName}${crown}`,
     );
   });
-
-  lines.push("");
-  lines.push(SITE.url);
 
   return lines.join("\n");
 }

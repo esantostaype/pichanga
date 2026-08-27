@@ -1,11 +1,12 @@
 "use client";
 
 import {
+  Copy01Icon,
   Download04Icon,
-  Share08Icon,
   WhatsappIcon,
 } from "@hugeicons/core-free-icons";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,8 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Icon } from "@/components/ui/icon";
+import { Icon, type IconSvgElement } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAction } from "@/hooks/use-action";
 import { formatShortDate } from "@/lib/date";
 import { matchShareText, renderMatchCard } from "@/lib/share-card";
@@ -41,6 +47,7 @@ export function ShareDialog({
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const file = useRef<Blob | null>(null);
+  const onPhone = useCoarsePointer();
 
   useEffect(() => {
     if (!open || !match) return;
@@ -77,24 +84,24 @@ export function ShareDialog({
     link.click();
   };
 
-  /**
-   * The native share sheet, which is the only way a picture reaches a specific
-   * chat: the app hands over the file and the person picks the conversation.
-   */
-  const share = useAction(async () => {
-    if (!match || !file.current) return;
+  /** The picture itself on the clipboard, to paste straight into a chat. */
+  const copyImage = useAction(async () => {
+    if (!file.current) return;
 
-    const image = new File([file.current], name, { type: "image/jpeg" });
-
-    if (navigator.canShare?.({ files: [image] })) {
-      await navigator.share({ files: [image], text: matchShareText(match) });
+    if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
+      toast.error("This browser cannot copy images. Download it instead.");
       return;
     }
 
-    // No share sheet (most desktops): the text goes to WhatsApp and the image
-    // is saved, so both halves are still available.
-    openWhatsApp(match);
-    download();
+    try {
+      // The card is a JPEG for its size, and clipboards only take PNG.
+      await navigator.clipboard.write([
+        new ClipboardItem({ "image/png": await asPng(file.current) }),
+      ]);
+      toast.success("Image copied. Paste it into the chat.");
+    } catch {
+      toast.error("This browser cannot copy images. Download it instead.");
+    }
   });
 
   return (
@@ -125,36 +132,112 @@ export function ShareDialog({
           )}
         </div>
 
-        <div className="grid gap-2 sm:grid-cols-3">
-          <Button
-            variant="secondary"
+        <div className="flex items-center justify-end gap-2">
+          <Action
+            label="Download the image"
+            icon={Download04Icon}
             disabled={!preview}
             onClick={download}
-          >
-            <Icon icon={Download04Icon} size={16} />
-            Download
-          </Button>
+          />
 
-          <Button
-            variant="secondary"
+          <Action
+            label="Copy the image"
+            icon={Copy01Icon}
+            disabled={!preview || copyImage.pending}
+            pending={copyImage.pending}
+            onClick={() => void copyImage.run()}
+          />
+
+          <Action
+            // A phone opens the app; a desktop already has WhatsApp Web in
+            // another tab and only needs the message to paste into it.
+            label={onPhone ? "Send with WhatsApp" : "Copy the text for WhatsApp"}
+            icon={WhatsappIcon}
             disabled={!match}
-            onClick={() => match && openWhatsApp(match)}
-          >
-            <Icon icon={WhatsappIcon} size={16} />
-            WhatsApp
-          </Button>
-
-          <Button
-            disabled={!preview || share.pending}
-            onClick={() => void share.run()}
-          >
-            {share.pending ? <Spinner /> : <Icon icon={Share08Icon} size={16} />}
-            Share
-          </Button>
+            onClick={() => {
+              if (!match) return;
+              if (onPhone) openWhatsApp(match);
+              else void copyText(match);
+            }}
+          />
         </div>
       </DialogContent>
     </Dialog>
   );
+}
+
+/** One of the three things you can do with the card, as an icon with its name. */
+function Action({
+  label,
+  icon,
+  disabled,
+  pending,
+  onClick,
+}: {
+  label: string;
+  icon: IconSvgElement;
+  disabled?: boolean;
+  pending?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="secondary"
+          size="icon"
+          aria-label={label}
+          disabled={disabled}
+          onClick={onClick}
+        >
+          {pending ? <Spinner /> : <Icon icon={icon} size={18} />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** The same picture, in the one format a clipboard will take. */
+async function asPng(jpeg: Blob) {
+  const bitmap = await createImageBitmap(jpeg);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error("No image to copy"))),
+      "image/png",
+    );
+  });
+}
+
+/** True on anything driven by a finger, which is where the app is worth opening. */
+function useCoarsePointer() {
+  return useSyncExternalStore(
+    (onChange) => {
+      const query = window.matchMedia("(pointer: coarse)");
+      query.addEventListener("change", onChange);
+      return () => query.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia("(pointer: coarse)").matches,
+    // The server has no pointer to ask about, and a desktop is the safer guess:
+    // it copies instead of opening a tab nobody asked for.
+    () => false,
+  );
+}
+
+/** The message on the clipboard, ready to paste into whatever chat is open. */
+async function copyText(match: Match) {
+  try {
+    await navigator.clipboard.writeText(matchShareText(match));
+    toast.success("Lineup copied. Paste it into WhatsApp.");
+  } catch {
+    toast.error("The clipboard is not available here.");
+  }
 }
 
 /**

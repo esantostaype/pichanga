@@ -368,16 +368,43 @@ exist.
 
 **A link cannot open one particular group.** WhatsApp has no URL scheme that
 addresses a chat, and its Business API does not address groups at all -- only
-one-to-one conversations with people who opted in. So the two things that do
-work are both one tap away from the group:
+one-to-one conversations with people who opted in. The chat is picked in
+WhatsApp itself, which costs one tap.
 
-- **Share** hands the image and the text to the native share sheet
-  (`navigator.share` with a file), where the group is picked in WhatsApp
-  itself. This is the mobile path.
-- **WhatsApp** opens `wa.me/?text=…` with the message already written: date,
-  time, venue, maps link, the split, and the numbered lineup with the
-  organizer marked. On a desktop, where there is no share sheet, the button
-  does this and downloads the image at the same time.
+Three icon buttons, no labels: the card above them is the subject, and three
+words under it were louder than the picture.
+
+- **Download** saves the JPEG.
+- **Copy the image** puts the picture itself on the clipboard, to paste
+  straight into a chat without a file ever touching the disk. Clipboards take
+  PNG and nothing else, so the card is redrawn as one on the way out.
+- **WhatsApp** reads the pointer. On a phone it opens `wa.me/?text=…` with the
+  message already written, which hands off to the app. On a desktop it copies
+  that message instead: WhatsApp Web is already open in another tab, and
+  opening a third one to hand it the same text is a detour.
+
+There is no share-sheet button. `navigator.share` was the only way to put the
+picture *and* the text into a chat in one gesture, and on a phone that now
+takes two: copy or download the card, then the text.
+
+The message is date, time, venue, maps link, the split, and the numbered lineup
+with the organizer marked and a ✅ or a ⏳ at the head of every line.
+
+**The maps link goes out exactly as Google wrote it**, `cid`, signed `g_mp`
+blob and all -- past 130 characters, every one of them printed above the
+preview. It was shortened twice and put back both times. Coordinates lose the
+card altogether: `?q=lat,lng` is a bare pin and the preview came back reading
+`12°05'56.2"S` where the venue name and photo had been. The bare `cid` reaches
+the same page, but only through a redirect the crawler does not follow, so the
+card never appeared. The long link is the one that draws the photo, the name
+and the rating, and that card is the whole point of sending it.
+
+There is no way to send that card without the link showing, either: WhatsApp
+has no syntax for a titled link, and the preview is generated from the URL in
+the message.
+
+**Neither the message nor the image carries a link back to the app.** Whoever
+is in that chat is being sent a lineup, not an advert for where it came from.
 
 
 ## Match galleries
