@@ -114,9 +114,9 @@ export async function renderMatchCard(
   const columns = Math.min(COLUMNS, Math.max(players.length, 1));
   const rows = Math.ceil(players.length / columns);
 
-  // The fixture card has no line about who has settled up, so it is shorter by
-  // exactly that line.
-  const headerH = paying ? 348 : 306;
+  // The fixture card carries neither the split nor the line about who has
+  // settled up, so it is shorter by exactly those two lines.
+  const headerH = paying ? 348 : 262;
   const footerH = PAD;
   const height = headerH + rows * ROW_H + footerH;
 
@@ -170,13 +170,31 @@ export async function renderMatchCard(
   ctx.fillText(fit(ctx, facts.join("   ·   "), W - PAD * 2), PAD, y + 20);
   y += 46;
 
+  // What it costs each of them is the ledger's business, not the fixture's.
   const share = perPlayer(match.place?.price, players.length);
-  if (share !== null) {
-    ctx.fillStyle = LIME;
-    ctx.font = `600 30px "Sofia Sans", sans-serif`;
-    ctx.fillText(`${formatMoney(share)} each`, PAD, y + 24);
+  if (paying) {
+    const total = match.place?.price ?? null;
+
+    if (total !== null && share !== null) {
+      ctx.font = `600 30px "Sofia Sans", sans-serif`;
+
+      // The whole rental first: it is the number the venue is owed, and every
+      // share below is a slice of it.
+      ctx.fillStyle = INK;
+      const totalLabel = `${formatMoney(total)} the pitch`;
+      ctx.fillText(totalLabel, PAD, y + 24);
+
+      let at = PAD + ctx.measureText(totalLabel).width;
+      ctx.fillStyle = MUTED;
+      ctx.fillText("   ·   ", at, y + 24);
+      at += ctx.measureText("   ·   ").width;
+
+      ctx.fillStyle = LIME;
+      ctx.fillText(`${formatMoney(share)} each`, at, y + 24);
+    }
+
+    y += 44;
   }
-  y += 44;
 
   // Where the rental stands, in one line. Only the ledger asks.
   if (paying) {
@@ -369,7 +387,10 @@ export function matchShareText(match: Match, scope: ShareScope = "match") {
     `${formatTimeRange(match.playedAt, match.endsAt)}${match.place ? ` · ${match.place.name}` : ""}`,
   ];
 
-  if (share !== null) lines.push(`${formatMoney(share)} each`);
+  const total = match.place?.price ?? null;
+  if (paying && total !== null && share !== null) {
+    lines.push(`${formatMoney(total)} the pitch, ${formatMoney(share)} each`);
+  }
   const maps = paying ? null : placeMapsUrl(match.place);
   if (maps) lines.push(maps);
 

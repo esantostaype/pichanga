@@ -385,6 +385,11 @@ carries the number of people still to pay.
 The two cards differ the same way: the fixture drops the paid marks from the
 rows and the settled-up line from the header, which makes it one line shorter.
 
+Switching tabs redraws the card, and the one already on screen stays there
+while it happens. Clearing it first put a spinner up for long enough to blink
+and took the dialog height with it, for a picture that was about to be replaced
+anyway.
+
 Three icon buttons, no labels: the card above them is the subject, and three
 words under it were louder than the picture.
 
