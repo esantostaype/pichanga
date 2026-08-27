@@ -15,6 +15,10 @@ const serverEnvSchema = z.object({
   CLOUDINARY_API_KEY: z.string().min(1),
   CLOUDINARY_API_SECRET: z.string().min(1),
   CLOUDINARY_UPLOAD_FOLDER: z.string().default("pichanga/players"),
+
+  // Optional: without it the place form simply drops the autocomplete and
+  // keeps working with manually typed name and address.
+  GOOGLE_MAPS_API_KEY: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

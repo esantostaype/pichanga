@@ -1,11 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { UserAdd01Icon } from "@hugeicons/core-free-icons";
+import { Location01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { PlaceFormDialog } from "@/components/places/place-form-dialog";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { PlayerPicker } from "@/components/players/player-picker";
 import { usePichanga } from "@/components/providers/pichanga-provider";
@@ -21,19 +22,30 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
-import { Input } from "@/components/ui/input";
-import { TimePicker } from "@/components/ui/time-picker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
+import { TimePicker } from "@/components/ui/time-picker";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
 import { suggestedMatchDate, toDateInput, toTimeInput } from "@/lib/date";
 import { toEpoch } from "@/lib/validators";
 import type { MatchSummary } from "@/types";
 
+/** Sentinel for "no venue": Radix Select cannot hold an empty string value. */
+const NO_PLACE = "none";
+
 const formSchema = z.object({
   date: z.string().min(1, "Pick a date"),
   time: z.string().min(1, "Pick a time"),
-  location: z.string().trim().max(80, "At most 80 characters").optional(),
+  placeId: z.string(),
+  recurring: z.boolean(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -87,10 +99,11 @@ function MatchForm({
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
 }) {
-  const { players, createMatch, updateMatch } = usePichanga();
+  const { players, places, createMatch, updateMatch } = usePichanga();
 
   const [selected, setSelected] = useState<string[]>([]);
   const [playerFormOpen, setPlayerFormOpen] = useState(false);
+  const [placeFormOpen, setPlaceFormOpen] = useState(false);
 
   const base = match?.playedAt ?? suggestedMatchDate();
 
@@ -99,7 +112,8 @@ function MatchForm({
     defaultValues: {
       date: toDateInput(base),
       time: toTimeInput(base),
-      location: match?.location ?? "",
+      placeId: match?.place?.id ?? NO_PLACE,
+      recurring: match?.recurrence === "weekly",
     },
   });
 
@@ -132,7 +146,8 @@ function MatchForm({
     async (values: FormValues) => {
       const payload = {
         playedAt: toEpoch(values.date, values.time),
-        location: values.location?.trim() || null,
+        placeId: values.placeId === NO_PLACE ? null : values.placeId,
+        recurrence: values.recurring ? ("weekly" as const) : null,
         playerIds: selected,
       };
 
@@ -156,7 +171,7 @@ function MatchForm({
           onBusyChange(false);
         })}
       >
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Date" error={errors.date?.message}>
             <Controller
               control={form.control}
@@ -186,16 +201,71 @@ function MatchForm({
               )}
             />
           </Field>
-
-          <Field label="Place" error={errors.location?.message}>
-            <Input
-              placeholder="Pitch 3"
-              autoComplete="off"
-              disabled={pending}
-              {...form.register("location")}
-            />
-          </Field>
         </div>
+
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Place
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={pending}
+              onClick={() => setPlaceFormOpen(true)}
+            >
+              <Icon icon={Location01Icon} size={15} />
+              New place
+            </Button>
+          </div>
+
+          <Controller
+            control={form.control}
+            name="placeId"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={field.onChange}
+                disabled={pending}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pick a place" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_PLACE}>No place yet</SelectItem>
+                  {places.map((place) => (
+                    <SelectItem key={place.id} value={place.id}>
+                      {place.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+
+        <Controller
+          control={form.control}
+          name="recurring"
+          render={({ field }) => (
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
+              <span className="space-y-0.5">
+                <span className="block text-sm font-medium">Repeat weekly</span>
+                <span className="block text-xs text-muted-foreground">
+                  Same weekday, time and place. The next date appears on its own
+                  with the same lineup.
+                </span>
+              </span>
+              <Switch
+                checked={field.value}
+                onCheckedChange={field.onChange}
+                disabled={pending}
+                aria-label="Repeat weekly"
+              />
+            </label>
+          )}
+        />
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
@@ -242,6 +312,14 @@ function MatchForm({
         open={playerFormOpen}
         onOpenChange={setPlayerFormOpen}
         onSaved={(player) => setSelected((prev) => [...prev, player.id])}
+      />
+
+      <PlaceFormDialog
+        open={placeFormOpen}
+        onOpenChange={setPlaceFormOpen}
+        onSaved={(place) =>
+          form.setValue("placeId", place.id, { shouldValidate: true })
+        }
       />
     </>
   );

@@ -2,6 +2,7 @@ import {
   assertPlayersExist,
   deleteMatch,
   getMatch,
+  placeExists,
   updateMatch,
 } from "@/db/queries";
 import { REALTIME } from "@/lib/constants";
@@ -29,6 +30,10 @@ export async function PATCH(request: Request, { params }: Context) {
 
     if (!(await assertPlayersExist(input.playerIds))) {
       return fail("One of the selected players no longer exists", 422);
+    }
+
+    if (!(await placeExists(input.placeId))) {
+      return fail("The selected place no longer exists", 422);
     }
 
     const match = await updateMatch(id, input);

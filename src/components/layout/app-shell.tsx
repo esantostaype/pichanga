@@ -8,6 +8,7 @@ import { useState } from "react";
 import { AddPlayersDialog } from "@/components/matches/add-players-dialog";
 import { MatchesDrawer } from "@/components/matches/matches-drawer";
 import { PitchScene } from "@/components/pitch/pitch-scene";
+import { PlacesDrawer } from "@/components/places/places-drawer";
 import { PlayersDrawer } from "@/components/players/players-drawer";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Button } from "@/components/ui/button";
@@ -96,6 +97,11 @@ export function AppShell() {
       <PlayersDrawer
         open={panel === "players"}
         onOpenChange={(open) => setPanel(open ? "players" : null)}
+      />
+
+      <PlacesDrawer
+        open={panel === "places"}
+        onOpenChange={(open) => setPanel(open ? "places" : null)}
       />
 
       <AddPlayersDialog open={addOpen} onOpenChange={setAddOpen} />

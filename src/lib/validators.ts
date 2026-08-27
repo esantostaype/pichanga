@@ -18,14 +18,22 @@ export const playerInputSchema = z.object({
 
 export type PlayerInput = z.infer<typeof playerInputSchema>;
 
+export const placeInputSchema = z.object({
+  name: z.string().trim().min(2, "At least 2 characters").max(80),
+  address: z.string().trim().max(200).nullable().optional(),
+  googlePlaceId: z.string().trim().max(200).nullable().optional(),
+  mapsUrl: z.string().url("Must be a valid URL").nullable().optional(),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
+});
+
+export type PlaceInput = z.infer<typeof placeInputSchema>;
+
 export const matchInputSchema = z.object({
   playedAt: z.coerce.number().int().positive("Pick a valid date"),
-  location: z
-    .string()
-    .trim()
-    .max(80, "At most 80 characters")
-    .nullable()
-    .optional(),
+  placeId: z.string().min(1).nullable().optional(),
+  /** `null` for a one-off fixture. */
+  recurrence: z.literal("weekly").nullable().optional(),
   /** No upper bound: a match takes as many players as sign up. */
   playerIds: z.array(z.string().min(1)).default([]),
 });

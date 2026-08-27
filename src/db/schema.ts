@@ -3,8 +3,10 @@ import {
   index,
   integer,
   primaryKey,
+  real,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
 const id = () =>
@@ -36,6 +38,27 @@ export const players = sqliteTable(
 );
 
 /* -------------------------------------------------------------------------- */
+/*                                   places                                   */
+/* -------------------------------------------------------------------------- */
+
+export const places = sqliteTable(
+  "places",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    address: text("address"),
+    /** Google `place_id`, when the venue came from the autocomplete. */
+    googlePlaceId: text("google_place_id"),
+    /** Ready-to-open maps link. */
+    mapsUrl: text("maps_url"),
+    lat: real("lat"),
+    lng: real("lng"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("places_name_idx").on(t.name)],
+);
+
+/* -------------------------------------------------------------------------- */
 /*                                   matches                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -45,10 +68,22 @@ export const matches = sqliteTable(
     id: id(),
     /** Match date and time. */
     playedAt: integer("played_at", { mode: "timestamp_ms" }).notNull(),
-    location: text("location"),
+    placeId: text("place_id").references(() => places.id, {
+      onDelete: "set null",
+    }),
+    /** `null` for a one-off, `"weekly"` for a repeating fixture. */
+    recurrence: text("recurrence"),
+    /** Groups every occurrence generated from the same recurring fixture. */
+    seriesId: text("series_id"),
     createdAt: createdAt(),
   },
-  (t) => [index("matches_played_at_idx").on(t.playedAt)],
+  (t) => [
+    index("matches_played_at_idx").on(t.playedAt),
+    // Guards the lazy materialization against duplicates when two requests
+    // race to create the same occurrence. NULL series ids stay distinct in
+    // SQLite, so one-off matches are unaffected.
+    uniqueIndex("matches_series_slot_idx").on(t.seriesId, t.playedAt),
+  ],
 );
 
 /* -------------------------------------------------------------------------- */
@@ -82,8 +117,16 @@ export const playersRelations = relations(players, ({ many }) => ({
   matchPlayers: many(matchPlayers),
 }));
 
-export const matchesRelations = relations(matches, ({ many }) => ({
+export const placesRelations = relations(places, ({ many }) => ({
+  matches: many(matches),
+}));
+
+export const matchesRelations = relations(matches, ({ many, one }) => ({
   matchPlayers: many(matchPlayers),
+  place: one(places, {
+    fields: [matches.placeId],
+    references: [places.id],
+  }),
 }));
 
 export const matchPlayersRelations = relations(matchPlayers, ({ one }) => ({
@@ -98,5 +141,6 @@ export const matchPlayersRelations = relations(matchPlayers, ({ one }) => ({
 }));
 
 export type PlayerRow = typeof players.$inferSelect;
+export type PlaceRow = typeof places.$inferSelect;
 export type MatchRow = typeof matches.$inferSelect;
 export type MatchPlayerRow = typeof matchPlayers.$inferSelect;

@@ -42,6 +42,7 @@ export const REALTIME = {
   events: {
     matchesChanged: "matches:changed",
     playersChanged: "players:changed",
+    placesChanged: "places:changed",
     lineupChanged: "lineup:changed",
   },
 } as const;

@@ -1,4 +1,9 @@
-import { assertPlayersExist, createMatch, listMatches } from "@/db/queries";
+import {
+  assertPlayersExist,
+  createMatch,
+  listMatches,
+  placeExists,
+} from "@/db/queries";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -16,6 +21,10 @@ export async function POST(request: Request) {
 
     if (!(await assertPlayersExist(input.playerIds))) {
       return fail("One of the selected players no longer exists", 422);
+    }
+
+    if (!(await placeExists(input.placeId))) {
+      return fail("The selected place no longer exists", 422);
     }
 
     const match = await createMatch(input);

@@ -2,6 +2,7 @@
 
 import {
   Calendar03Icon,
+  Location01Icon,
   Menu02Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
@@ -17,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 
-export type PanelName = "matches" | "players";
+export type PanelName = "matches" | "players" | "places";
 
 export function AppMenu({ onSelect }: { onSelect: (panel: PanelName) => void }) {
   return (
@@ -53,6 +54,16 @@ export function AppMenu({ onSelect }: { onSelect: (panel: PanelName) => void }) 
             <span className="font-medium">Players</span>
             <span className="text-xs text-muted-foreground">
               Office profiles
+            </span>
+          </span>
+        </DropdownMenuItem>
+
+        <DropdownMenuItem onSelect={() => onSelect("places")}>
+          <Icon icon={Location01Icon} size={17} className="text-primary" />
+          <span className="flex flex-col">
+            <span className="font-medium">Places</span>
+            <span className="text-xs text-muted-foreground">
+              Pitches you play at
             </span>
           </span>
         </DropdownMenuItem>

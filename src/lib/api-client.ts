@@ -1,5 +1,11 @@
-import type { Match, MatchSummary, Player } from "@/types";
-import type { MatchInput, PlayerInput } from "./validators";
+import type {
+  Match,
+  MatchSummary,
+  Place,
+  PlaceSuggestion,
+  Player,
+} from "@/types";
+import type { MatchInput, PlaceInput, PlayerInput } from "./validators";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const isForm = init?.body instanceof FormData;
@@ -38,6 +44,29 @@ export const api = {
       }),
     remove: (id: string) =>
       request<{ id: string }>(`/api/players/${id}`, { method: "DELETE" }),
+  },
+
+  places: {
+    list: () => request<Place[]>("/api/places"),
+    create: (input: PlaceInput) =>
+      request<Place>("/api/places", { method: "POST", body: body(input) }),
+    update: (id: string, input: PlaceInput) =>
+      request<Place>(`/api/places/${id}`, {
+        method: "PATCH",
+        body: body(input),
+      }),
+    remove: (id: string) =>
+      request<{ id: string }>(`/api/places/${id}`, { method: "DELETE" }),
+
+    /** Google autocomplete, proxied so the API key stays server-side. */
+    search: (query: string, session: string) =>
+      request<PlaceSuggestion[]>(
+        `/api/places/search?q=${encodeURIComponent(query)}&session=${session}`,
+      ),
+    details: (googlePlaceId: string, session: string) =>
+      request<PlaceInput>(
+        `/api/places/search?placeId=${encodeURIComponent(googlePlaceId)}&session=${session}`,
+      ),
   },
 
   matches: {

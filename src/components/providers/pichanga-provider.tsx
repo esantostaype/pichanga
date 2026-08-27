@@ -11,12 +11,13 @@ import {
 import { useRealtime } from "@/hooks/use-realtime";
 import { api } from "@/lib/api-client";
 import { REALTIME } from "@/lib/constants";
-import type { MatchInput, PlayerInput } from "@/lib/validators";
-import type { Match, MatchSummary, Player } from "@/types";
+import type { MatchInput, PlaceInput, PlayerInput } from "@/lib/validators";
+import type { Match, MatchSummary, Place, Player } from "@/types";
 
 type PichangaState = {
   nextMatch: Match | null;
   players: Player[];
+  places: Place[];
   matches: MatchSummary[];
 };
 
@@ -24,6 +25,9 @@ type PichangaContextValue = PichangaState & {
   createPlayer: (input: PlayerInput) => Promise<Player>;
   updatePlayer: (id: string, input: PlayerInput) => Promise<Player>;
   deletePlayer: (id: string) => Promise<void>;
+  createPlace: (input: PlaceInput) => Promise<Place>;
+  updatePlace: (id: string, input: PlaceInput) => Promise<Place>;
+  deletePlace: (id: string) => Promise<void>;
   createMatch: (input: MatchInput) => Promise<Match>;
   updateMatch: (id: string, input: MatchInput) => Promise<Match>;
   deleteMatch: (id: string) => Promise<void>;
@@ -52,6 +56,11 @@ export function PichangaProvider({
     [patch],
   );
 
+  const refreshPlaces = useCallback(
+    async () => patch({ places: await api.places.list() }),
+    [patch],
+  );
+
   const refreshMatches = useCallback(
     async () => patch({ matches: await api.matches.list() }),
     [patch],
@@ -67,6 +76,9 @@ export function PichangaProvider({
     [REALTIME.events.playersChanged]: () => {
       void refreshPlayers();
       void refreshNextMatch();
+    },
+    [REALTIME.events.placesChanged]: () => {
+      void refreshPlaces();
     },
     [REALTIME.events.matchesChanged]: () => {
       void refreshMatches();
@@ -108,6 +120,31 @@ export function PichangaProvider({
         ]);
       },
 
+      createPlace: async (input) => {
+        const place = await api.places.create(input);
+        await refreshPlaces();
+        return place;
+      },
+
+      updatePlace: async (id, input) => {
+        const place = await api.places.update(id, input);
+        await Promise.all([
+          refreshPlaces(),
+          refreshMatches(),
+          refreshNextMatch(),
+        ]);
+        return place;
+      },
+
+      deletePlace: async (id) => {
+        await api.places.remove(id);
+        await Promise.all([
+          refreshPlaces(),
+          refreshMatches(),
+          refreshNextMatch(),
+        ]);
+      },
+
       createMatch: async (input) => {
         const match = await api.matches.create(input);
         await Promise.all([refreshMatches(), refreshNextMatch()]);
@@ -127,7 +164,10 @@ export function PichangaProvider({
 
       addPlayersToNextMatch: async (playerIds) => {
         if (!state.nextMatch) throw new Error("There is no active match");
-        const match = await api.matches.addPlayers(state.nextMatch.id, playerIds);
+        const match = await api.matches.addPlayers(
+          state.nextMatch.id,
+          playerIds,
+        );
         syncNextMatch(match);
         await refreshMatches();
       },
@@ -142,12 +182,10 @@ export function PichangaProvider({
         await refreshMatches();
       },
     };
-  }, [state, refreshPlayers, refreshMatches, refreshNextMatch]);
+  }, [state, refreshPlayers, refreshPlaces, refreshMatches, refreshNextMatch]);
 
   return (
-    <PichangaContext.Provider value={value}>
-      {children}
-    </PichangaContext.Provider>
+    <PichangaContext.Provider value={value}>{children}</PichangaContext.Provider>
   );
 }
 

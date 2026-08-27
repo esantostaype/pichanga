@@ -9,10 +9,26 @@ export type Player = {
   createdAt: number;
 };
 
+export type Place = {
+  id: string;
+  name: string;
+  address: string | null;
+  googlePlaceId: string | null;
+  mapsUrl: string | null;
+  lat: number | null;
+  lng: number | null;
+  createdAt: number;
+};
+
+/** Only `weekly` for now; the column is text so more rules can be added. */
+export type Recurrence = "weekly";
+
 export type MatchSummary = {
   id: string;
   playedAt: number;
-  location: string | null;
+  place: Place | null;
+  recurrence: Recurrence | null;
+  seriesId: string | null;
   playerCount: number;
   createdAt: number;
 };
@@ -20,9 +36,18 @@ export type MatchSummary = {
 export type Match = {
   id: string;
   playedAt: number;
-  location: string | null;
+  place: Place | null;
+  recurrence: Recurrence | null;
+  seriesId: string | null;
   createdAt: number;
   players: Player[];
+};
+
+/** A venue suggestion coming from the Google Places autocomplete. */
+export type PlaceSuggestion = {
+  googlePlaceId: string;
+  title: string;
+  subtitle: string;
 };
 
 export type ApiError = { error: string };

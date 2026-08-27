@@ -4,7 +4,8 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[0.7rem] font-medium leading-5 transition-colors",
+  // `whitespace-nowrap`: a badge that wraps stops looking like a pill.
+  "inline-flex w-fit items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[0.7rem] font-medium leading-5 transition-colors",
   {
     variants: {
       variant: {

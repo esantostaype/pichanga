@@ -2,6 +2,7 @@
 
 import {
   Location01Icon,
+  RepeatIcon,
   Time04Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
@@ -51,10 +52,29 @@ export function MatchHudCard({ match }: { match: Match | null }) {
           {formatTime(match.playedAt)}
         </span>
 
-        {match.location ? (
+        {match.place ? (
           <span className="flex min-w-0 items-center gap-1.5">
             <Icon icon={Location01Icon} size={13} />
-            <span className="truncate">{match.location}</span>
+            {match.place.mapsUrl ? (
+              <a
+                href={match.place.mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="truncate underline-offset-4 hover:text-primary hover:underline"
+                title={match.place.address ?? match.place.name}
+              >
+                {match.place.name}
+              </a>
+            ) : (
+              <span className="truncate">{match.place.name}</span>
+            )}
+          </span>
+        ) : null}
+
+        {match.recurrence === "weekly" ? (
+          <span className="flex items-center gap-1.5" title="Repeats weekly">
+            <Icon icon={RepeatIcon} size={13} />
+            Weekly
           </span>
         ) : null}
 
