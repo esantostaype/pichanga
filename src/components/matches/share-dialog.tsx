@@ -52,6 +52,8 @@ export function ShareDialog({
 }) {
   const [preview, setPreview] = useState<string | null>(null);
   const file = useRef<Blob | null>(null);
+  /** The object URL behind `preview`, so it can be released once replaced. */
+  const previewUrl = useRef<string | null>(null);
   const onPhone = useCoarsePointer();
 
   /*
@@ -65,27 +67,47 @@ export function ShareDialog({
     ? match.players.length - match.paidPlayerIds.length
     : 0;
 
+  /*
+   * Switching tabs redraws the card, which takes a couple of hundred
+   * milliseconds. The old one stays up for those: clearing it first put a
+   * spinner on screen long enough to blink and take the dialog's height with
+   * it, for a picture that was about to be replaced anyway.
+   */
   useEffect(() => {
     if (!open || !match) return;
 
-    let url: string | null = null;
     let cancelled = false;
 
     void renderMatchCard(match, scope)
       .then((blob) => {
-        if (cancelled) return;
+        const url = URL.createObjectURL(blob);
+
+        // Nothing is showing this one: release it and leave the state alone.
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+
         file.current = blob;
-        url = URL.createObjectURL(blob);
+        const previous = previewUrl.current;
+        previewUrl.current = url;
         setPreview(url);
+        if (previous) URL.revokeObjectURL(previous);
       })
       .catch(() => undefined);
 
     return () => {
       cancelled = true;
-      if (url) URL.revokeObjectURL(url);
-      setPreview(null);
     };
   }, [open, match, scope]);
+
+  /** The last card ever drawn, released when the dialog leaves for good. */
+  useEffect(
+    () => () => {
+      if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+    },
+    [],
+  );
 
   const name = match
     ? `pichanga-${formatShortDate(match.playedAt).replace(/[ ,]+/g, "-").toLowerCase()}${scope === "payments" ? "-payments" : ""}.jpg`
@@ -121,7 +143,19 @@ export function ShareDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          if (previewUrl.current) URL.revokeObjectURL(previewUrl.current);
+          previewUrl.current = null;
+          file.current = null;
+          setPreview(null);
+          setScope("match");
+        }
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Share the lineup</DialogTitle>
@@ -134,7 +168,10 @@ export function ShareDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div role="tablist" className="grid grid-cols-2 gap-1 rounded-xl bg-muted/40 p-1">
+        <div
+          role="tablist"
+          className="grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-background/60 p-1"
+        >
           <Tab
             selected={scope === "match"}
             onSelect={() => setScope("match")}
@@ -216,7 +253,9 @@ function Tab({
       className={cn(
         "cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors",
         selected
-          ? "bg-card text-foreground shadow-sm shadow-black/30"
+          // The lime is the only thing in the dialog nothing else wears, and a
+          // pill the colour of the card it sits on read as no pill at all.
+          ? "bg-primary font-semibold text-primary-foreground"
           : "text-muted-foreground hover:text-foreground",
       )}
     >
