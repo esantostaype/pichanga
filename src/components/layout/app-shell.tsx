@@ -19,13 +19,15 @@ import { useElementSize } from "@/hooks/use-element-size";
 import type { Player } from "@/types";
 import { AppMenu, type PanelName } from "./app-menu";
 import { Brand } from "./brand";
+import { LoginDialog } from "./login-dialog";
 import { MatchHudCard } from "./match-hud-card";
 
 export function AppShell() {
-  const { nextMatch, removePlayerFromNextMatch } = usePichanga();
+  const { nextMatch, isAdmin, removePlayerFromNextMatch } = usePichanga();
 
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
   /** Dropping someone is confirmed: on touch screens one tap is enough. */
   const [pendingRemoval, setPendingRemoval] = useState<Player | null>(null);
 
@@ -60,7 +62,8 @@ export function AppShell() {
       <PitchScene
         match={nextMatch}
         hudInset={hudSize.height ? hudSize.height + 10 : 0}
-        onRemovePlayer={setPendingRemoval}
+        // A guest can add players but not drop them.
+        onRemovePlayer={isAdmin ? setPendingRemoval : undefined}
       />
 
       {/* Overlaid HUD: the pitch fills 100% of the screen */}
@@ -85,7 +88,7 @@ export function AppShell() {
             <Icon icon={PlusSignIcon} size={20} strokeWidth={2.2} />
           </Button>
 
-          <AppMenu onSelect={setPanel} />
+          <AppMenu onSelect={setPanel} onSignIn={() => setLoginOpen(true)} />
         </div>
       </div>
 
@@ -105,6 +108,8 @@ export function AppShell() {
       />
 
       <AddPlayersDialog open={addOpen} onOpenChange={setAddOpen} />
+
+      <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
 
       <ConfirmDialog
         open={!!pendingRemoval}

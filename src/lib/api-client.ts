@@ -33,6 +33,16 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 const body = (data: unknown) => JSON.stringify(data);
 
 export const api = {
+  auth: {
+    login: (password: string) =>
+      request<{ isAdmin: boolean }>("/api/auth/login", {
+        method: "POST",
+        body: body({ password }),
+      }),
+    logout: () =>
+      request<{ isAdmin: boolean }>("/api/auth/logout", { method: "POST" }),
+  },
+
   players: {
     list: () => request<Player[]>("/api/players"),
     create: (input: PlayerInput) =>

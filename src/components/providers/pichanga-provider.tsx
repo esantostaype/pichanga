@@ -19,9 +19,15 @@ type PichangaState = {
   players: Player[];
   places: Place[];
   matches: MatchSummary[];
+  /** Whether this visitor holds the admin session. */
+  isAdmin: boolean;
+  /** False when the server has no password configured: sign-in is hidden. */
+  authEnabled: boolean;
 };
 
 type PichangaContextValue = PichangaState & {
+  login: (password: string) => Promise<void>;
+  logout: () => Promise<void>;
   createPlayer: (input: PlayerInput) => Promise<Player>;
   updatePlayer: (id: string, input: PlayerInput) => Promise<Player>;
   deletePlayer: (id: string) => Promise<void>;
@@ -98,6 +104,18 @@ export function PichangaProvider({
 
     return {
       ...state,
+
+      login: async (password) => {
+        await api.auth.login(password);
+        patch({ isAdmin: true });
+        // Admin-only data was never fetched for a guest, so pull it now.
+        await Promise.all([refreshPlaces(), refreshMatches()]);
+      },
+
+      logout: async () => {
+        await api.auth.logout();
+        patch({ isAdmin: false });
+      },
 
       createPlayer: async (input) => {
         const player = await api.players.create(input);
@@ -182,7 +200,14 @@ export function PichangaProvider({
         await refreshMatches();
       },
     };
-  }, [state, refreshPlayers, refreshPlaces, refreshMatches, refreshNextMatch]);
+  }, [
+    state,
+    patch,
+    refreshPlayers,
+    refreshPlaces,
+    refreshMatches,
+    refreshNextMatch,
+  ]);
 
   return (
     <PichangaContext.Provider value={value}>{children}</PichangaContext.Provider>
