@@ -34,7 +34,7 @@ export function Brand() {
         event.preventDefault();
         go("/");
       }}
-      className="flex shrink-0 cursor-pointer flex-col gap-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      className="flex shrink-0 cursor-pointer flex-col gap-1 rounded-lg no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
     >
       {mark}
     </Link>

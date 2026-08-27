@@ -187,11 +187,44 @@ Marking a payment needs the **admin** session, unlike the rest of the lineup.
 There is no per-person login, so an open ledger would let anybody tick their
 own name -- an honour system rather than a record. Everyone can read it.
 
+## The fixture list
+
+Cards, not a table. Inside a drawer a table gave the date, the venue, a count
+and four buttons one line between them, which left every column too narrow to
+read; a card gives each of those its own line. **Two to a row** where there is
+room, **one on a phone**, **twelve to a page**.
+
+The whole card is the way into that match, with the link as a layer behind the
+controls rather than a wrapper around them -- that is what lets a card be a
+link and still hold buttons and a checkbox. The match already on screen is not
+a link at all.
+
+A card carries the date and kick-off, the venue, who is organizing it, the
+count of players with how many have settled, and the share each. The venue is
+a link to the map and the count opens the ledger for that date -- the same
+dialog the pitch uses, over a lineup fetched when asked for, since a card only
+ever holds counts.
+
+Along the foot of every card, on a line of its own so two cards side by side
+line up: `Weekly` on the left when the fixture repeats, the album and the
+admin buttons on the right.
+
+**A match that has kicked off is a record.** From the first minute -- live, or
+finished months ago -- the date, the venue and the price stop being editable,
+the card cannot be deleted, and the album is open to read but closed to new
+files. What is already there stays readable to everyone.
+
+The page number is clamped on read rather than corrected in an effect:
+deleting the last card on the last page would otherwise leave the drawer
+showing a page that no longer exists. Selections are kept across pages, so a
+bulk delete can span them, and `Select all` in the toolbar takes the whole
+list rather than the visible page.
+
 ## One date, one address
 
 The front page shows whichever match owns the moment. Every other date has
-its own readable address -- `/match/sep-2-2026` -- and the whole **Date cell**
-in the Matches drawer is the link to it: the front page for the one already
+its own readable address -- `/match/sep-2-2026` -- and the **whole card** in
+the Matches drawer is the link to it: the front page for the one already
 there, its own page for the rest. That is where a future fixture gets filled
 in and paid off without waiting its turn on the pitch.
 
@@ -258,6 +291,94 @@ where you started is worse than a row that does nothing.
 
 Links are still `next/link`, so the page itself is usually prefetched and
 waiting by the time the wipe has finished closing.
+
+## Sharing a lineup
+
+The share button turns the match into one tall image: the date, the time, the
+venue and the split at the top, then every player as a row -- photo on the
+left, name and area on the right -- in two columns from nine players up, so a
+squad of twenty-four is one portrait picture rather than a scroll.
+
+It is drawn in the browser on a `<canvas>`, not rendered on a server. The
+fonts are already loaded on the page, Cloudinary serves the photos with
+`Access-Control-Allow-Origin: *` so the canvas is never tainted and `toBlob`
+works, and nobody pays for a function invocation to share a lineup. The file
+is JPEG: the same picture is ~600KB instead of several megabytes, and every
+chat app recompresses it anyway.
+
+Both the picture and the message carry **who has paid and who has not**: a
+filled green tick or a hollow red cross on every row, a `16 paid · 8 pending
+(S/ 80.00)` line under the split, and the same two states as emoji in the
+text. That is the reason a lineup gets shared in the first place.
+
+### The HUD on a phone
+
+One card: the logo and the buttons on top, the match details under them,
+sharing a border and a background. There is no info button any more -- the
+date, the time, the venue and the split are simply always on screen.
+
+It is one card rather than two floating pieces because the lineup scrolls
+underneath: a bare logo with players sliding behind it looked broken. From md
+up it goes back to the two pieces it always was, `md:contents` handing the
+halves back to the row.
+
+The lineup measures the whole block and starts 12px below it, the same gap the
+card uses inside itself. At the bottom it clears only the floating add button,
+not the height of the HUD -- and that clearance counts the button, the padding
+around it and the offset the strip sits at, which is what stopped the last row
+from ending up four pixels underneath it.
+
+### The lineup on a phone
+
+The formation still places twenty-four tokens comfortably on a phone -- they
+come out around 40px on an iPhone 14 -- but the name plate under each one is a
+fifth of that, seven or eight pixels, which nobody can read. So under 768px
+the pitch stays exactly where it was, as the backdrop, and the players line up
+over it instead of on it: photo on the left, name and area on the right, the
+same shape as the share card.
+
+Two columns, dropping to one at 479px and under. The list is centred while it
+fits and grows up and down from the middle, the way the formation does;
+`min-h-full` with `justify-center` is what allows both, since centring alone
+clips the top of a list taller than the screen. The width comes from the
+measured container, not a media query, the same way the pitch decides its
+orientation.
+
+### A permanent demo
+
+`/demo` is a full match that exists only in memory: twenty-four players with
+and without photos, a priced venue, an organizer, and two thirds of the rental
+settled. It renders the real pitch and the real HUD, so the lineup, the marks
+and the share card can all be tried against a full squad without touching
+anybody's fixture. Nothing on it is written to the database and nothing on it
+can be edited.
+
+The faces come from randomuser through `/api/demo/avatar/[seed]`. Proxied
+rather than linked because those hosts send no CORS headers: loaded directly,
+the share card's canvas would be tainted and `toBlob` would throw instead of
+returning a picture. Pravatar was the first choice and lost on a detail -- it
+cannot be asked for one gender, and men's names wearing women's faces reads
+as a bug.
+
+It needs the session: everyone else gets a **404** rather than a redirect,
+since a page nobody should be poking at is better off looking like it does not
+exist.
+
+### WhatsApp
+
+**A link cannot open one particular group.** WhatsApp has no URL scheme that
+addresses a chat, and its Business API does not address groups at all -- only
+one-to-one conversations with people who opted in. So the two things that do
+work are both one tap away from the group:
+
+- **Share** hands the image and the text to the native share sheet
+  (`navigator.share` with a file), where the group is picked in WhatsApp
+  itself. This is the mobile path.
+- **WhatsApp** opens `wa.me/?text=…` with the message already written: date,
+  time, venue, maps link, the split, and the numbered lineup with the
+  organizer marked. On a desktop, where there is no share sheet, the button
+  does this and downloads the image at the same time.
+
 
 ## Match galleries
 
@@ -343,6 +464,53 @@ Caps are 10 MB per photo and 100 MB per clip, checked before the upload starts.
 Videos are the expensive part of a Cloudinary plan: storage, bandwidth and
 transformations all count against it, and a match full of clips adds up much
 faster than the player portraits ever did.
+
+## Links
+
+Every link in the app is one component, `AppLink`. A link is a solid underline
+under the words and the app's lime on hover, and nothing else in the interface
+looks like that.
+
+The icon goes **inside** the link. Beside it, the hover stopped at the first
+letter and the icon stayed grey while the text went green, so the pair read as
+two unrelated things; inside, the icon inherits the link's colour and turns
+with it, and the whole thing is one target. The underline stays on the words
+alone -- a line under a glyph reads as a rendering fault.
+
+It also renders a button, for the places that open a dialog rather than go
+somewhere -- the player count on a card, for one. That is still a link to
+whoever is reading it, and it should not be the one that looks different.
+
+Two things opt out with `no-underline`, because they are surfaces rather than
+text: the layer that makes a whole card clickable, and the logo.
+
+## Waiting
+
+Skeletons come from shadcn's `Skeleton` -- a div, a pulse and the muted token,
+no dependency. They go where something is genuinely on its way and its shape is
+already known:
+
+- **The album**, as a grid of squares rather than one spinner, so it keeps its
+  shape, and behind each thumbnail until that thumbnail decodes.
+- **The ledger opened from a fixture card**, whose lineup is fetched on
+  demand. Everything in it is the match's -- the date, the split, both totals,
+  every name and area -- so all of it waits together. Each placeholder sits in
+  a box the height of what it stands for, 28px for the date, 26px for an area
+  badge, and the dialog measures the same 526px before and after the names
+  land: no jump.
+
+  The same dialog opened from the pitch has **no** skeleton, and that is not an
+  oversight: that match is already in hand, so there is nothing to wait for.
+
+Everywhere else a spinner is the honest thing. A spinner says *working*: an
+upload, a card being drawn, a form being saved. A skeleton says *this is coming
+and it will look like this*, which is a lie if the shape is not known yet.
+
+**No page ever wears one.** There is no `loading.tsx` on the match screens: a
+skeleton of the pitch is a second, worse version of the screen you are waiting
+for, and the wipe already covers the move between them. The fixture cards and
+the players and places tables have none either -- they arrive with the page,
+from the server, already filled in.
 
 ## Dialog motion
 

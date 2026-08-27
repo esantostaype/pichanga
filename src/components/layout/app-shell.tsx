@@ -1,14 +1,19 @@
 "use client";
 
 import { useGSAP } from "@gsap/react";
-import { Album02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import {
+  Album02Icon,
+  PlusSignIcon,
+  Share08Icon,
+} from "@hugeicons/core-free-icons";
 import gsap from "gsap";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { AddPlayersDialog } from "@/components/matches/add-players-dialog";
 import { GalleryDialog } from "@/components/matches/gallery-dialog";
 import { MatchesDrawer } from "@/components/matches/matches-drawer";
 import { PaymentsDialog } from "@/components/matches/payments-dialog";
+import { ShareDialog } from "@/components/matches/share-dialog";
 import { PitchScene } from "@/components/pitch/pitch-scene";
 import { PlacesDrawer } from "@/components/places/places-drawer";
 import { PlayersDrawer } from "@/components/players/players-drawer";
@@ -26,10 +31,16 @@ import { Brand } from "./brand";
 import { LiveVisitors } from "./live-visitors";
 import { LoginDialog } from "./login-dialog";
 import { MatchHudCard } from "./match-hud-card";
-import { MatchInfoButton } from "./match-info-button";
 
-/** Height of the floating add button plus its padding. */
-const FAB_CLEARANCE = 48 + 16;
+/**
+ * What the floating add button occupies at the bottom right: its own height,
+ * the strip padding around it and the offset that strip sits at. Measured
+ * against the real thing -- guessing left the last row four pixels under it.
+ */
+const FAB_CLEARANCE = 48 + 16 + 16;
+
+/** The same `gap-3` the HUD uses inside itself, kept below it too. */
+const HUD_GAP = 12;
 
 export function AppShell() {
   const {
@@ -49,11 +60,21 @@ export function AppShell() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [paymentsOpen, setPaymentsOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   /** Dropping someone is confirmed: on touch screens one tap is enough. */
   const [pendingRemoval, setPendingRemoval] = useState<Player | null>(null);
 
   // The HUD floats over the pitch, so the lineup keeps that band clear.
   const [hudRef, hudSize] = useElementSize<HTMLDivElement>();
+  // GSAP wants a node it can hold on to; the measurement wants a callback.
+  const hudNode = useRef<HTMLDivElement | null>(null);
+  const setHud = useCallback(
+    (node: HTMLDivElement | null) => {
+      hudNode.current = node;
+      hudRef(node);
+    },
+    [hudRef],
+  );
 
   const settle = useAction(
     async ({ player, paid }: { player: Player; paid: boolean }) =>
@@ -73,14 +94,14 @@ export function AppShell() {
       // Only `y` is animated on purpose: `autoAlpha` would start the HUD at
       // visibility:hidden, and if the tween never ticks (throttled tab, GSAP
       // arriving late) the controls stay invisible and unclickable.
-      gsap.from(hudRef.current?.children ?? [], {
+      gsap.from(hudNode.current?.children ?? [], {
         y: -14,
         duration: 0.6,
         stagger: 0.08,
         ease: EASE,
       });
     },
-    { scope: hudRef },
+    { scope: hudNode },
   );
 
   return (
@@ -89,7 +110,10 @@ export function AppShell() {
         match={nextMatch}
         // The band is reserved on both edges, so it also has to clear the
         // floating button sitting at the bottom right.
-        hudInset={Math.max(hudSize.height, FAB_CLEARANCE) + 10}
+        hudInset={Math.max(hudSize.height, FAB_CLEARANCE) + HUD_GAP}
+        // Only the floating button sits down there, so the list keeps just it
+        // clear rather than mirroring the whole HUD.
+        bottomInset={FAB_CLEARANCE + HUD_GAP}
         onRemovePlayer={setPendingRemoval}
         // The mark stays read-only for everyone else: the server refuses it
         // anyway, and a button that always fails is worse than no button.
@@ -100,47 +124,72 @@ export function AppShell() {
         }
       />
 
-      {/* Overlaid HUD: the pitch fills 100% of the screen */}
+      {/*
+        Overlaid HUD: the pitch fills 100% of the screen.
+
+        On a phone it is one card -- controls on top, details under them -- so
+        the lineup scrolling underneath never passes behind a bare logo. From md
+        up it goes back to two floating pieces, the logo carrying the details
+        beside it and the buttons off to the right.
+      */}
       <div
-        ref={hudRef}
-        className="pointer-events-none absolute inset-x-0 top-0 flex items-center md:items-start justify-between gap-3 p-2 md:p-4"
+        ref={setHud}
+        className="pointer-events-none absolute inset-x-0 top-0 p-2 md:p-4"
       >
-        {/*
-          On a phone this is the bare logo: no card, no padding, so the pitch
-          stays visible. From md up it becomes the card with the details beside
-          the logo.
-        */}
-        <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-2xl md:border md:border-white/10 md:bg-black/55 md:px-4 md:py-3 md:backdrop-blur-md md:gap-4">
-          <Brand />
-          <span aria-hidden className="hidden h-11 w-px shrink-0 bg-white/10 md:block" />
-          <div className="hidden min-w-0 md:block">
-            <MatchHudCard
-              match={nextMatch}
-              onOpenPayments={() => setPaymentsOpen(true)}
-            />
+        <div className="pointer-events-auto flex flex-col gap-2.5 rounded-2xl border border-white/10 bg-black/55 px-3 py-2.5 backdrop-blur-md md:flex-row md:items-start md:justify-between md:gap-3 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+          {/* `md:contents` hands the two halves back to the row above. */}
+          <div className="flex items-center justify-between gap-3 md:contents">
+            <div className="flex min-w-0 items-center gap-2 rounded-2xl md:gap-4 md:border md:border-white/10 md:bg-black/55 md:px-4 md:py-3 md:backdrop-blur-md">
+              <Brand />
+              <span
+                aria-hidden
+                className="hidden h-11 w-px shrink-0 bg-white/10 md:block"
+              />
+              <div className="hidden min-w-0 md:block">
+                <MatchHudCard
+                  match={nextMatch}
+                  onOpenPayments={() => setPaymentsOpen(true)}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* The lineup as a picture, or as a message. */}
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label="Share the lineup"
+                className="bg-black/55 backdrop-blur-md"
+                disabled={!nextMatch}
+                onClick={() => setShareOpen(true)}
+              >
+                <Icon icon={Share08Icon} size={20} />
+              </Button>
+
+              {/* The album of the match on the pitch. Everyone can add to it. */}
+              <Button
+                variant="secondary"
+                size="icon"
+                aria-label="Match gallery"
+                className="bg-black/55 backdrop-blur-md"
+                disabled={!nextMatch}
+                onClick={() => setGalleryOpen(true)}
+              >
+                <Icon icon={Album02Icon} size={20} />
+              </Button>
+
+              <AppMenu onSelect={setPanel} onSignIn={() => setLoginOpen(true)} />
+            </div>
           </div>
-        </div>
 
-        <div className="pointer-events-auto flex items-center gap-2">
-          {/* The album of the match on the pitch. Everyone can add to it. */}
-          <Button
-            variant="secondary"
-            size="icon"
-            aria-label="Match gallery"
-            className="bg-black/55 backdrop-blur-md"
-            disabled={!nextMatch}
-            onClick={() => setGalleryOpen(true)}
-          >
-            <Icon icon={Album02Icon} size={20} />
-          </Button>
-
-          {/* The details live behind this button only where they are hidden. */}
-          <MatchInfoButton
-            match={nextMatch}
-            className="md:hidden"
-            onOpenPayments={() => setPaymentsOpen(true)}
-          />
-          <AppMenu onSelect={setPanel} onSignIn={() => setLoginOpen(true)} />
+          {nextMatch ? (
+            <div className="min-w-0 border-t border-white/10 pt-2.5 md:hidden">
+              <MatchHudCard
+                match={nextMatch}
+                onOpenPayments={() => setPaymentsOpen(true)}
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -179,7 +228,17 @@ export function AppShell() {
 
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
 
-      <PaymentsDialog open={paymentsOpen} onOpenChange={setPaymentsOpen} />
+      <PaymentsDialog
+        open={paymentsOpen}
+        onOpenChange={setPaymentsOpen}
+        match={nextMatch}
+      />
+
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        match={nextMatch}
+      />
 
       <GalleryDialog
         open={galleryOpen}

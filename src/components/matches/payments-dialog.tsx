@@ -19,14 +19,22 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { useAction } from "@/hooks/use-action";
+import { formatLongDate } from "@/lib/date";
 import { formatMoney, perPlayer } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import type { Match } from "@/types";
 
 /**
- * The rental ledger for the match on the pitch: who has paid their share and
- * who still owes it.
+ * The rental ledger for one match: who has paid their share and who still owes
+ * it, with the lineup underneath.
+ *
+ * Takes the match rather than reading the one on screen, so the same dialog
+ * serves the pitch and any date opened from the fixture list. `onToggled` is
+ * for the caller that keeps its own copy: the match on screen is refreshed by
+ * the provider, a date from the drawer is refetched by the drawer.
  *
  * A guest reads it; only the session can change it. There is no per-person
  * login, so ticking your own name would be an honour system rather than a
@@ -35,20 +43,29 @@ import { cn } from "@/lib/utils";
 export function PaymentsDialog({
   open,
   onOpenChange,
+  match,
+  loading,
+  onToggled,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  match: Match | null;
+  loading?: boolean;
+  onToggled?: () => void;
 }) {
-  const { nextMatch, isAdmin, setPlayerPaid } = usePichanga();
+  const { isAdmin, setPlayerPaid } = usePichanga();
 
   const toggle = useAction(
-    async ({ playerId, paid }: { playerId: string; paid: boolean }) =>
-      setPlayerPaid(playerId, paid),
+    async ({ playerId, paid }: { playerId: string; paid: boolean }) => {
+      if (!match) return;
+      await setPlayerPaid(playerId, paid, match.id);
+      onToggled?.();
+    },
   );
 
-  const players = nextMatch?.players ?? [];
-  const paid = new Set(nextMatch?.paidPlayerIds ?? []);
-  const share = perPlayer(nextMatch?.place?.price, players.length);
+  const players = match?.players ?? [];
+  const paid = new Set(match?.paidPlayerIds ?? []);
+  const share = perPlayer(match?.place?.price, players.length);
 
   const collected = share === null ? null : share * paid.size;
   const pending = share === null ? null : share * (players.length - paid.size);
@@ -57,15 +74,51 @@ export function PaymentsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Rental</DialogTitle>
-          <DialogDescription>
-            {share === null
-              ? "This venue has no price yet, so there is nothing to split."
-              : `${formatMoney(share)} each. ${paid.size} of ${players.length} settled.`}
+          <DialogTitle>
+            {/*
+              The heading is the date of the match, so while that is on its way
+              there is nothing truthful to put here. The word stays for anything
+              reading the dialog out loud.
+            */}
+            <span className={cn(loading && "sr-only")}>
+              {match ? formatLongDate(match.playedAt) : "Rental"}
+            </span>
+            {loading ? (
+              <span className="flex h-7 items-center">
+                <Skeleton className="h-5 w-56" />
+              </span>
+            ) : null}
+          </DialogTitle>
+          <DialogDescription asChild={loading}>
+            {loading ? (
+              <span className="flex h-5 items-center">
+                <Skeleton className="h-3.5 w-64" />
+              </span>
+            ) : share === null ? (
+              "This venue has no price yet, so there is nothing to split."
+            ) : (
+              `${formatMoney(share)} each. ${paid.size} of ${players.length} settled.`
+            )}
           </DialogDescription>
         </DialogHeader>
 
-        {collected !== null && pending !== null ? (
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3">
+            {["Collected", "Pending"].map((label) => (
+              <div
+                key={label}
+                className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3"
+              >
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {label}
+                </p>
+                <span className="mt-0.5 flex h-7 items-center">
+                  <Skeleton className="h-5 w-24" />
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : collected !== null && pending !== null ? (
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -98,7 +151,24 @@ export function PaymentsDialog({
           </div>
         ) : null}
 
-        {players.length === 0 ? (
+        {loading ? (
+          <ul className="-mx-2">
+            {Array.from({ length: 5 }, (_, index) => (
+              <li key={index} className="flex items-center gap-3 px-2 py-2">
+                <Skeleton className="size-9 shrink-0 rounded-full" />
+                <span className="flex min-w-0 flex-col">
+                  <span className="flex h-5 items-center">
+                    <Skeleton className="h-3.5 w-32" />
+                  </span>
+                  <span className="flex h-[26px] items-center">
+                    <Skeleton className="h-[22px] w-20 rounded-full" />
+                  </span>
+                </span>
+                <Skeleton className="ml-auto h-4 w-20" />
+              </li>
+            ))}
+          </ul>
+        ) : players.length === 0 ? (
           <EmptyState
             icon={Coins01Icon}
             title="Nobody on the pitch"
@@ -110,7 +180,7 @@ export function PaymentsDialog({
               const hasPaid = paid.has(player.id);
               // The organizer pays the venue, so their share is settled by
               // definition and there is nothing to switch off.
-              const isOrganizer = player.id === nextMatch?.organizerId;
+              const isOrganizer = player.id === match?.organizerId;
 
               return (
                 <li
@@ -128,7 +198,7 @@ export function PaymentsDialog({
 
                   {isOrganizer ? (
                     <span
-                      className="ml-auto flex items-center gap-1.5 text-xs text-emerald-400"
+                      className="ml-auto flex items-center gap-1.5 text-xs text-primary"
                       title="The organizer pays the venue, so their share is always settled"
                     >
                       <Icon icon={CrownIcon} size={14} />

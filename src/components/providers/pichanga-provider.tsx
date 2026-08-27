@@ -53,7 +53,12 @@ type PichangaContextValue = PichangaState & {
   addPlayersToNextMatch: (playerIds: string[]) => Promise<void>;
   removePlayerFromNextMatch: (playerId: string) => Promise<void>;
   /** Admin only: ticks a player off the rental ledger. */
-  setPlayerPaid: (playerId: string, paid: boolean) => Promise<void>;
+  /** Defaults to the match on screen; any other one is named outright. */
+  setPlayerPaid: (
+    playerId: string,
+    paid: boolean,
+    matchId?: string,
+  ) => Promise<void>;
   /**
    * Bumped whenever a gallery changes anywhere. Galleries fetch their own
    * files, and this is how they hear about it without a second subscription to
@@ -296,22 +301,32 @@ export function PichangaProvider({
        * the round trip; if the request fails the toast says so and the mark
        * goes back where it was.
        */
-      setPlayerPaid: async (playerId, paid) => {
-        const current = state.nextMatch;
-        if (!current) throw new Error("There is no active match");
+      setPlayerPaid: async (playerId, paid, matchId) => {
+        const target = matchId ?? state.nextMatch?.id;
+        if (!target) throw new Error("There is no active match");
 
-        const before = current.paidPlayerIds;
-        const after = paid
-          ? [...before.filter((id) => id !== playerId), playerId]
-          : before.filter((id) => id !== playerId);
+        /*
+         * The optimistic step only applies to the match on screen -- it is the
+         * one holding a ledger in local state. Any other date is ticked off
+         * from its own dialog, which keeps its own copy.
+         */
+        const onScreen = state.nextMatch?.id === target ? state.nextMatch : null;
+        const before = onScreen?.paidPlayerIds;
 
-        applyPaid(current.id, after);
+        if (onScreen && before) {
+          applyPaid(target,
+            paid
+              ? [...before.filter((id) => id !== playerId), playerId]
+              : before.filter((id) => id !== playerId),
+          );
+        }
 
         try {
-          syncNextMatch(await api.matches.setPaid(current.id, playerId, paid));
+          const saved = await api.matches.setPaid(target, playerId, paid);
+          syncNextMatch(saved);
           await refreshMatches();
         } catch (error) {
-          applyPaid(current.id, before);
+          if (onScreen && before) applyPaid(target, before);
           throw error;
         }
       },

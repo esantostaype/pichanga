@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { useMatchMedia } from "@/hooks/use-match-media";
@@ -45,11 +46,14 @@ export function GalleryDialog({
   onOpenChange,
   matchId,
   playedAt,
+  canAdd = true,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   matchId: string | null;
   playedAt: number | null;
+  /** False once the match has started: the album is then a record to read. */
+  canAdd?: boolean;
 }) {
   const { isAdmin } = usePichanga();
   const { items, loading, uploading, upload, remove } = useMatchMedia(
@@ -141,12 +145,15 @@ export function GalleryDialog({
               {playedAt !== null
                 ? `Photos and clips from ${formatShortDate(playedAt)}.`
                 : "Photos and clips from this match."}{" "}
-              Up to {mb(GALLERY.maxImageBytes)} MB per photo and{" "}
-              {mb(GALLERY.maxVideoBytes)} MB per clip.
+              {canAdd
+                ? `Up to ${mb(GALLERY.maxImageBytes)} MB per photo and ${mb(GALLERY.maxVideoBytes)} MB per clip.`
+                : "The match has started, so the album is closed to new files."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-wrap items-center gap-2">
+            {canAdd ? (
+            <>
             <input
               ref={input}
               type="file"
@@ -170,6 +177,8 @@ export function GalleryDialog({
               {busy ? <Spinner /> : <Icon icon={ImageAdd02Icon} size={16} />}
               {busy ? "Uploading" : "Add photos or videos"}
             </Button>
+            </>
+            ) : null}
 
             {isAdmin && items.length > 0 ? (
               <Button
@@ -194,14 +203,22 @@ export function GalleryDialog({
           ) : null}
 
           {loading && items.length === 0 ? (
-            <div className="grid place-items-center py-14">
-              <Spinner />
-            </div>
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+              {Array.from({ length: 8 }, (_, index) => (
+                <li key={index}>
+                  <Skeleton className="aspect-square w-full" />
+                </li>
+              ))}
+            </ul>
           ) : items.length === 0 ? (
             <EmptyState
               icon={Album02Icon}
               title="Nothing here yet"
-              description="Add the first photo or clip from this match."
+              description={
+                canAdd
+                  ? "Add the first photo or clip from this match."
+                  : "This match finished without anybody adding one."
+              }
             />
           ) : (
             <ul className="grid max-h-[60vh] grid-cols-2 gap-2 overflow-y-auto scrollbar-thin sm:grid-cols-3 md:grid-cols-4">
@@ -236,7 +253,7 @@ export function GalleryDialog({
                       )}
                     >
                       {isLoaded ? null : (
-                        <span className="absolute inset-0 animate-pulse bg-muted" />
+                        <Skeleton className="absolute inset-0 rounded-none" />
                       )}
 
                       {/*

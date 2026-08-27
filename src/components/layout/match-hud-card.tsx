@@ -8,6 +8,7 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import { LiveBadge } from "@/components/matches/live-badge";
+import { AppLink } from "@/components/ui/app-link";
 import { Icon } from "@/components/ui/icon";
 import { useNow } from "@/hooks/use-now";
 import { formatMoney, perPlayer } from "@/lib/money";
@@ -132,22 +133,23 @@ export function MatchHudCard({
         </span>
 
         {match.place ? (
-          <span className="flex min-w-0 items-center gap-1.5">
-            <Icon icon={Location01Icon} size={13} />
-            {match.place.mapsUrl ? (
-              <a
-                href={match.place.mapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="truncate underline-offset-4 hover:text-primary hover:underline"
-                title={match.place.address ?? match.place.name}
-              >
-                {match.place.name}
-              </a>
-            ) : (
+          match.place.mapsUrl ? (
+            <AppLink
+              href={match.place.mapsUrl}
+              external
+              icon={Location01Icon}
+              iconSize={13}
+              className="gap-1.5"
+              title={match.place.address ?? match.place.name}
+            >
+              {match.place.name}
+            </AppLink>
+          ) : (
+            <span className="flex min-w-0 items-center gap-1.5">
+              <Icon icon={Location01Icon} size={13} />
               <span className="truncate">{match.place.name}</span>
-            )}
-          </span>
+            </span>
+          )
         ) : null}
 
         {match.recurrence === "weekly" ? (

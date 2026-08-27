@@ -11,6 +11,7 @@ import { useState } from "react";
 
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { BulkBar } from "@/components/ui/bulk-bar";
+import { AppLink } from "@/components/ui/app-link";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -172,15 +173,15 @@ export function PlacesDrawer({
 
                       <TableCell className="align-top whitespace-nowrap font-medium">
                         {place.mapsUrl ? (
-                          <a
+                          <AppLink
                             href={place.mapsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 underline-offset-4 hover:text-primary hover:underline"
+                            external
+                            trailingIcon={LinkSquare02Icon}
+                            iconSize={13}
+                            className="gap-1.5"
                           >
                             {place.name}
-                            <Icon icon={LinkSquare02Icon} size={13} />
-                          </a>
+                          </AppLink>
                         ) : (
                           place.name
                         )}

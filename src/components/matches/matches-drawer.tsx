@@ -1,26 +1,15 @@
 "use client";
 
-import {
-  Album02Icon,
-  Calendar03Icon,
-  Delete02Icon,
-  Location01Icon,
-  PencilEdit02Icon,
-  PlusSignIcon,
-  RepeatIcon,
-  UserGroupIcon,
-} from "@hugeicons/core-free-icons";
-import Link from "next/link";
-import { useState } from "react";
+import { Calendar03Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { useEffect, useState } from "react";
 
 import { usePichanga } from "@/components/providers/pichanga-provider";
-import { Badge } from "@/components/ui/badge";
 import { BulkBar } from "@/components/ui/bulk-bar";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
+import { Pager } from "@/components/ui/pager";
 import {
   Sheet,
   SheetBody,
@@ -29,68 +18,20 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { useAction } from "@/hooks/use-action";
 import { useNow } from "@/hooks/use-now";
 import { useRowSelection } from "@/hooks/use-row-selection";
-import {
-  formatShortDate,
-  formatTimeRange,
-  isLive,
-  matchSlug,
-  relativeLabel,
-} from "@/lib/date";
-import { cn } from "@/lib/utils";
-import type { MatchSummary } from "@/types";
+import { api } from "@/lib/api-client";
+import { formatShortDate, matchSlug } from "@/lib/date";
+import type { Match, MatchSummary } from "@/types";
 import { useScene } from "@/components/layout/scene-transition";
 import { GalleryDialog } from "./gallery-dialog";
-import { LiveBadge } from "./live-badge";
+import { MatchCard } from "./match-card";
 import { MatchFormDialog } from "./match-form-dialog";
+import { PaymentsDialog } from "./payments-dialog";
 
-/**
- * The Date column: a link into that match, or plain text when it is the match
- * already on screen. A real `href` so the row can be opened in a new tab or
- * copied, and a handler so an ordinary click goes behind the scene cut instead
- * of leaving the old screen up while the server answers.
- */
-function DateCell({
-  href,
-  onNavigate,
-  children,
-}: {
-  href: string | null;
-  onNavigate: () => void;
-  children: React.ReactNode;
-}) {
-  const shape = "flex h-full flex-col px-4 py-3";
-
-  if (!href) return <div className={shape}>{children}</div>;
-
-  return (
-    <Link
-      href={href}
-      onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
-        event.preventDefault();
-        onNavigate();
-      }}
-      className={cn(
-        shape,
-        "cursor-pointer transition-colors hover:bg-accent/60",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60",
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
+/** Enough to fill the drawer twice over without turning it into a scroll. */
+const PER_PAGE = 12;
 
 export function MatchesDrawer({
   open,
@@ -99,7 +40,7 @@ export function MatchesDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { matches, nextMatch, homeMatchId, isAdmin, deleteMatches } =
+  const { matches, players, nextMatch, homeMatchId, isAdmin, deleteMatches } =
     usePichanga();
   const { go } = useScene();
   const now = useNow();
@@ -110,8 +51,45 @@ export function MatchesDrawer({
   const [pendingDelete, setPendingDelete] = useState<string[]>([]);
   /** Whose gallery is open. Any match has one, not just the one on the pitch. */
   const [gallery, setGallery] = useState<MatchSummary | null>(null);
+  /** Whose lineup is open, and the copy fetched for it. */
+  const [lineupOf, setLineupOf] = useState<MatchSummary | null>(null);
+  const [lineup, setLineup] = useState<Match | null>(null);
+  /** Bumped after a payment, so the fetch above runs again. */
+  const [lineupVersion, setLineupVersion] = useState(0);
+  const [page, setPage] = useState(1);
+
+  /*
+   * A card only carries counts, so the lineup behind it is fetched when asked
+   * for. The match on the pitch is already in the provider; every other date
+   * is not, and loading them all up front would be a query per row.
+   */
+  useEffect(() => {
+    if (!lineupOf) return;
+
+    let cancelled = false;
+
+    void api.matches
+      .get(lineupOf.id)
+      .then((full) => {
+        if (!cancelled) setLineup(full);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lineupOf, lineupVersion]);
 
   const selection = useRowSelection(matches);
+
+  /*
+   * Clamped on read rather than corrected in an effect: deleting the last card
+   * on the last page would otherwise leave the drawer on a page that no longer
+   * exists for a render.
+   */
+  const pages = Math.max(1, Math.ceil(matches.length / PER_PAGE));
+  const current = Math.min(page, pages);
+  const visible = matches.slice((current - 1) * PER_PAGE, current * PER_PAGE);
 
   const remove = useAction(async (ids: string[]) => deleteMatches(ids), {
     success: "Matches deleted",
@@ -151,10 +129,20 @@ export function MatchesDrawer({
           <SheetBody className="flex flex-col gap-4">
             {/* Anyone can read the fixture list; only admins change it. */}
             {isAdmin ? (
-              <Button size="sm" onClick={openCreate} className="self-start">
-                <Icon icon={PlusSignIcon} size={16} />
-                New match
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={openCreate}>
+                  <Icon icon={PlusSignIcon} size={16} />
+                  New match
+                </Button>
+
+                {matches.length > 0 ? (
+                  <Button variant="ghost" size="sm" onClick={selection.toggleAll}>
+                    {selection.count === matches.length
+                      ? "Clear all"
+                      : "Select all"}
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
 
             {matches.length === 0 ? (
@@ -187,45 +175,13 @@ export function MatchesDrawer({
                   />
                 ) : null}
 
-                <Table>
-                <TableHeader>
-                  <TableRow>
-                    {isAdmin ? (
-                      <TableHead className="w-px">
-                        <Checkbox
-                          checked={selection.headerState}
-                          onCheckedChange={selection.toggleAll}
-                          aria-label="Select every match"
-                        />
-                      </TableHead>
-                    ) : null}
-                    {/*
-                      `w-px` shrinks a column to its content and `w-full` makes
-                      Place absorb the leftover width, so the table stays
-                      readable as the drawer narrows.
-                    */}
-                    <TableHead className="w-px whitespace-nowrap">Date</TableHead>
-                    <TableHead className="w-full">Place</TableHead>
-                    {/*
-                      The word "Players" was the widest thing in this column and
-                      forced the table to overflow. The icon carries the meaning
-                      visually and the label stays for screen readers.
-                    */}
-                    <TableHead className="w-px">
-                      <span className="flex justify-center">
-                        <Icon icon={UserGroupIcon} size={14} />
-                        <span className="sr-only">Players</span>
-                      </span>
-                    </TableHead>
-                    <TableHead className="w-px text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {matches.map((match) => {
+                {/* Two to a row where there is room, one on a phone. */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {visible.map((match) => {
                     /*
-                     * The match already on screen. Its row is plain text: a
-                     * link to the page you are looking at would play the whole
-                     * transition to arrive exactly where you started.
+                     * The match already on screen. Its card is not a link: the
+                     * whole transition to arrive where you started is worse
+                     * than a card that stays put.
                      */
                     const isNext = match.id === nextMatch?.id;
                     const href =
@@ -233,164 +189,63 @@ export function MatchesDrawer({
                         ? "/"
                         : `/match/${matchSlug(match.playedAt)}`;
 
+                    /*
+                     * Kicked off already, live or long finished. A played
+                     * fixture is a record: the date, the venue and the album
+                     * stop being editable, and what is in them stays readable.
+                     */
+                    const started = now !== null && match.playedAt <= now;
+
+                    const organizer = players.find(
+                      (player) => player.id === match.organizerId,
+                    );
+
                     return (
-                      <TableRow
+                      <MatchCard
                         key={match.id}
-                        className={cn(isNext && "bg-primary/5")}
-                        data-state={
-                          selection.isSelected(match.id) ? "selected" : undefined
+                        match={match}
+                        href={isNext ? null : href}
+                        onNavigate={() => {
+                          onOpenChange(false);
+                          go(href);
+                        }}
+                        isNext={isNext}
+                        now={now}
+                        organizer={
+                          organizer
+                            ? `${organizer.firstName} ${organizer.lastName}`
+                            : undefined
                         }
-                      >
-                        {isAdmin ? (
-                          <TableCell className="align-top">
-                            <Checkbox
-                              className="mt-1"
-                              checked={selection.isSelected(match.id)}
-                              onCheckedChange={() => selection.toggle(match.id)}
-                              aria-label={`Select the ${formatShortDate(match.playedAt)} match`}
-                            />
-                          </TableCell>
-                        ) : null}
-
-                        {/*
-                          The whole cell is the link into the match: its own
-                          address for any other date, and the front page for
-                          whichever one is currently on the pitch there.
-                        */}
-                        <TableCell className="h-px whitespace-nowrap p-0 align-top">
-                          {/*
-                            A real `href` so the row can be opened in a new tab
-                            or copied, and a handler so an ordinary click goes
-                            behind the scene cut instead of leaving the old
-                            screen up while the server answers.
-                          */}
-                          <DateCell
-                            href={isNext ? null : href}
-                            onNavigate={() => {
-                              onOpenChange(false);
-                              go(href);
-                            }}
-                          >
-                          {/*
-                            The chip sits beside the date from md up; below that
-                            the drawer is too narrow, so it drops to its own line
-                            between the date and the time.
-                          */}
-                          <div className="flex flex-col items-start gap-1 md:flex-row md:items-center md:gap-2">
-                            <p className="font-medium underline-offset-4 group-hover:underline">
-                              {formatShortDate(match.playedAt)}
-                            </p>
-                            {now !== null &&
-                            isLive(match.playedAt, match.endsAt, now) ? (
-                              <LiveBadge />
-                            ) : isNext ? (
-                              <Badge>On pitch</Badge>
-                            ) : null}
-                            {match.recurrence === "weekly" ? (
-                              <Badge variant="outline">
-                                <Icon icon={RepeatIcon} size={11} />
-                                Weekly
-                              </Badge>
-                            ) : null}
-                          </div>
-
-                          <p
-                            className="mt-1 text-xs text-muted-foreground"
-                          >
-                            {formatTimeRange(match.playedAt, match.endsAt)}
-                            {" - "}
-                            {relativeLabel(match.playedAt)}
-                          </p>
-                          </DateCell>
-                        </TableCell>
-
-                        <TableCell className="align-top text-muted-foreground">
-                          {match.place ? (
-                            <span className="flex items-start gap-1.5">
-                              <Icon
-                                icon={Location01Icon}
-                                size={14}
-                                className="mt-0.5"
-                              />
-                              {match.place.mapsUrl ? (
-                                <a
-                                  href={match.place.mapsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="min-w-0 underline-offset-4 hover:text-primary hover:underline"
-                                >
-                                  {match.place.name}
-                                </a>
-                              ) : (
-                                <span className="min-w-0">
-                                  {match.place.name}
-                                </span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="opacity-50">-</span>
-                          )}
-                        </TableCell>
-
-                        {/* Just a number, so the column shrinks to fit it. */}
-                        <TableCell className="align-top text-center tabular-nums text-muted-foreground">
-                          {match.playerCount}
-                          {/* The rental split, once anybody has paid. */}
-                          {match.paidCount > 0 ? (
-                            <span className="block text-xs text-emerald-400/80">
-                              {match.paidCount} paid
-                            </span>
-                          ) : null}
-                        </TableCell>
-
-                        <TableCell className="align-top">
-                          {/*
-                            The icon buttons are 32px tall against a 20px text
-                            line, so without this nudge their centre sits 6px
-                            below the date and place text.
-                          */}
-                          <div className="-mt-1.5 flex justify-end gap-1">
-                            {/* The album is open to everyone, like adding players. */}
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Match gallery"
-                              onClick={() => setGallery(match)}
-                            >
-                              <Icon icon={Album02Icon} size={15} />
-                            </Button>
-
-                            {isAdmin ? (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label="Edit match"
-                                  onClick={() => {
-                                    setEditing(match);
-                                    setFormOpen(true);
-                                  }}
-                                >
-                                  <Icon icon={PencilEdit02Icon} size={15} />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label="Delete match"
-                                  className="text-muted-foreground hover:text-destructive"
-                                  onClick={() => setPendingDelete([match.id])}
-                                >
-                                  <Icon icon={Delete02Icon} size={15} />
-                                </Button>
-                              </>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                        selected={
+                          isAdmin ? selection.isSelected(match.id) : undefined
+                        }
+                        onSelect={
+                          isAdmin ? () => selection.toggle(match.id) : undefined
+                        }
+                        onLineup={() => {
+                          setLineup(null);
+                          setLineupOf(match);
+                        }}
+                        onGallery={() => setGallery(match)}
+                        onEdit={
+                          isAdmin && !started
+                            ? () => {
+                                setEditing(match);
+                                setFormOpen(true);
+                              }
+                            : undefined
+                        }
+                        onDelete={
+                          isAdmin && !started
+                            ? () => setPendingDelete([match.id])
+                            : undefined
+                        }
+                      />
                     );
                   })}
-                </TableBody>
-                </Table>
+                </div>
+
+                <Pager page={current} pages={pages} onChange={setPage} />
               </>
             )}
           </SheetBody>
@@ -408,6 +263,23 @@ export function MatchesDrawer({
         onOpenChange={(next) => !next && setGallery(null)}
         matchId={gallery?.id ?? null}
         playedAt={gallery?.playedAt ?? null}
+        // Closed to new files once the match has started, like the fixture.
+        canAdd={
+          !!gallery && now !== null && gallery.playedAt > now
+        }
+      />
+
+      <PaymentsDialog
+        open={!!lineupOf}
+        onOpenChange={(next) => {
+          if (!next) {
+            setLineupOf(null);
+            setLineup(null);
+          }
+        }}
+        match={lineup}
+        loading={!!lineupOf && !lineup}
+        onToggled={() => setLineupVersion((version) => version + 1)}
       />
 
       <ConfirmDialog

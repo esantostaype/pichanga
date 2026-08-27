@@ -3,7 +3,6 @@
 import {
   Cancel01Icon,
   CrownIcon,
-  MoneyNotFound01Icon,
   PaymentSuccess01Icon,
 } from "@hugeicons/core-free-icons";
 import { memo, useEffect, useRef, useState } from "react";
@@ -19,6 +18,7 @@ import {
 import { getArea } from "@/lib/constants";
 import { clamp, cn, shortName } from "@/lib/utils";
 import type { Player } from "@/types";
+import { PaidMark } from "./paid-mark";
 
 /** Matches `.animate-paid-stamp` in globals.css. */
 const STAMP_MS = 900;
@@ -161,7 +161,8 @@ function PlayerTokenBase({
         {isPaid === undefined ? null : (
           <PaidMark
             paid={isPaid}
-            size={size}
+            side={Math.max(18, size * 0.36)}
+            className="absolute -left-1 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
             onToggle={onTogglePaid ? () => settle(!isPaid) : undefined}
           />
         )}
@@ -198,71 +199,6 @@ function PlayerTokenBase({
         </p>
       </div>
     </div>
-  );
-}
-
-/**
- * Whether this player has settled the rental: a receipt when they have, a red
- * empty wallet when they have not.
- *
- * A button when the viewer is allowed to change it, plain text when not, so
- * the cursor never promises something the server will refuse.
- */
-function PaidMark({
-  paid,
-  size,
-  onToggle,
-}: {
-  paid: boolean;
-  size: number;
-  onToggle?: () => void;
-}) {
-  const label = paid ? "Paid the rental" : "Has not paid yet";
-  const side = Math.max(18, size * 0.36);
-
-  const className = cn(
-    "absolute -left-1 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border shadow-lg transition-colors",
-    paid
-      ? "border-emerald-300/40 bg-emerald-500 text-white"
-      : "border-red-400/40 bg-red-500/95 text-white",
-    onToggle &&
-      "cursor-pointer hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
-  );
-
-  const content = (
-    <>
-      <span className="sr-only">{label}</span>
-      <Icon
-        icon={paid ? PaymentSuccess01Icon : MoneyNotFound01Icon}
-        size={Math.max(10, side * 0.6)}
-        strokeWidth={2}
-      />
-    </>
-  );
-
-  if (!onToggle) {
-    return (
-      <span
-        title={label}
-        className={className}
-        style={{ width: side, height: side }}
-      >
-        {content}
-      </span>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      title={paid ? "Paid. Click to undo" : "Not paid. Click to mark as paid"}
-      aria-pressed={paid}
-      onClick={onToggle}
-      className={className}
-      style={{ width: side, height: side }}
-    >
-      {content}
-    </button>
   );
 }
 

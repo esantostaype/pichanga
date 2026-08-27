@@ -6,12 +6,27 @@ import { Icon } from "@/components/ui/icon";
 import { useElementSize } from "@/hooks/use-element-size";
 import type { Match, Player } from "@/types";
 import { LineupLayer } from "./lineup-layer";
+import { LineupList } from "./lineup-list";
 import { PitchSurface } from "./pitch-surface";
+
+/**
+ * Narrower than this and the tokens' name plates fall to seven or eight
+ * pixels, so the lineup is listed over the pitch instead of placed on it.
+ */
+const LIST_BELOW = 768;
+
+/** And at 479 or under, two columns of photo-and-name stop fitting. */
+const ONE_COLUMN_BELOW = 480;
 
 type PitchSceneProps = {
   match: Match | null;
   /** Height of the floating HUD, kept clear at the top and bottom. */
   hudInset?: number;
+  /**
+   * What the list keeps clear at the bottom, which is only the floating add
+   * button -- nothing like the HUD is down there.
+   */
+  bottomInset?: number;
   onRemovePlayer?: (player: Player) => void;
   /** Passed only when this visitor may settle the rental. */
   onTogglePaid?: (player: Player, paid: boolean) => void;
@@ -21,6 +36,7 @@ type PitchSceneProps = {
 export function PitchScene({
   match,
   hudInset = 0,
+  bottomInset = 0,
   onRemovePlayer,
   onTogglePaid,
 }: PitchSceneProps) {
@@ -41,7 +57,18 @@ export function PitchScene({
     >
       <PitchSurface width={size.width} height={size.height} />
 
-      {players.length > 0 ? (
+      {players.length > 0 && size.width > 0 && size.width < LIST_BELOW ? (
+        <LineupList
+          players={players}
+          paidPlayerIds={showPayments ? match.paidPlayerIds : undefined}
+          organizerId={match?.organizerId}
+          columns={size.width < ONE_COLUMN_BELOW ? 1 : 2}
+          insetTop={hudInset}
+          insetBottom={bottomInset}
+          onRemovePlayer={onRemovePlayer}
+          onTogglePaid={onTogglePaid}
+        />
+      ) : players.length > 0 ? (
         <LineupLayer
           players={players}
           width={size.width}

@@ -114,6 +114,24 @@
     height: 100%;
   }
 
+  /*
+   * Every link says so: a solid underline, and the app's lime on hover.
+   * Tailwind's preflight strips link decoration, so this puts it back for all
+   * of them at once rather than one `underline` class at a time.
+   *
+   * Links that are really surfaces -- a whole card, a logo -- opt out with
+   * `no-underline`, since underlining an invisible overlay decorates nothing.
+   */
+  a {
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 4px;
+  }
+
+  a:hover {
+    color: var(--primary);
+  }
+
   body {
     background: var(--background);
     color: var(--foreground);
