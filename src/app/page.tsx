@@ -7,7 +7,7 @@ import {
   listPlaces,
   listPlayers,
 } from "@/db/queries";
-import { getIsAdmin, isAuthConfigured } from "@/lib/session";
+import { getRole, isAuthConfigured } from "@/lib/session";
 import type { Match, MatchSummary, Place, Player } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,8 @@ type InitialState = {
   places: Place[];
   matches: MatchSummary[];
   isAdmin: boolean;
+  /** Sees the live headcount. Nobody else is even told it exists. */
+  isSuperAdmin: boolean;
   authEnabled: boolean;
 };
 
@@ -32,8 +34,8 @@ async function loadInitialState(): Promise<
   { data: InitialState } | { error: string }
 > {
   try {
-    const [isAdmin, nextMatch, players, places, matches] = await Promise.all([
-      getIsAdmin(),
+    const [role, nextMatch, players, places, matches] = await Promise.all([
+      getRole(),
       getNextMatch(),
       listPlayers(),
       listPlaces(),
@@ -46,7 +48,8 @@ async function loadInitialState(): Promise<
         players,
         places,
         matches,
-        isAdmin,
+        isAdmin: role !== null,
+        isSuperAdmin: role === "superadmin",
         authEnabled: isAuthConfigured(),
       },
     };

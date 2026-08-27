@@ -1,5 +1,8 @@
 /**
- * Minimal session auth: one shared admin password, no user table.
+ * Minimal session auth: shared passwords, no user table.
+ *
+ * Two of them: the admin password everyone in the office may be given, and an
+ * optional super admin one that unlocks what the office should not see.
  *
  * Deliberately dependency-free and built on Web Crypto so the exact same code
  * runs in `proxy.ts` (Edge runtime) and in route handlers. It reads
@@ -8,6 +11,9 @@
  */
 
 export const SESSION_COOKIE = "pichanga_session";
+
+/** A session is one of these; anything else is a guest. */
+export type Role = "admin" | "superadmin";
 
 /** Sessions last a week; long enough that nobody re-types the password daily. */
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -54,18 +60,26 @@ function safeEqual(a: string, b: string) {
   return diff === 0;
 }
 
-export function isAdminPassword(password: string) {
-  const expected = process.env.ADMIN_PASSWORD;
-  return !!expected && safeEqual(password, expected);
+/** Which role a password unlocks, or null when it matches neither. */
+export function roleForPassword(password: string): Role | null {
+  // Checked first, so setting both variables to the same value still grants
+  // the higher role instead of silently downgrading it.
+  const superPassword = process.env.SUPER_ADMIN_PASSWORD;
+  if (superPassword && safeEqual(password, superPassword)) return "superadmin";
+
+  const admin = process.env.ADMIN_PASSWORD;
+  if (admin && safeEqual(password, admin)) return "admin";
+
+  return null;
 }
 
 /** `<base64url payload>.<base64url hmac>` */
-export async function createSessionToken(now = Date.now()) {
+export async function createSessionToken(role: Role, now = Date.now()) {
   const secret = process.env.AUTH_SECRET;
   if (!secret) throw new Error("AUTH_SECRET is not configured");
 
   const payload = toBase64Url(
-    encoder.encode(JSON.stringify({ exp: now + SESSION_TTL_MS })),
+    encoder.encode(JSON.stringify({ exp: now + SESSION_TTL_MS, role })),
   );
 
   const signature = await crypto.subtle.sign(
@@ -77,15 +91,16 @@ export async function createSessionToken(now = Date.now()) {
   return `${payload}.${toBase64Url(new Uint8Array(signature))}`;
 }
 
+/** The role carried by a valid token, or null when there is no session. */
 export async function verifySessionToken(
   token: string | undefined | null,
   now = Date.now(),
-): Promise<boolean> {
+): Promise<Role | null> {
   const secret = process.env.AUTH_SECRET;
-  if (!secret || !token) return false;
+  if (!secret || !token) return null;
 
   const [payload, signature] = token.split(".");
-  if (!payload || !signature) return false;
+  if (!payload || !signature) return null;
 
   try {
     const valid = await crypto.subtle.verify(
@@ -94,15 +109,19 @@ export async function verifySessionToken(
       fromBase64Url(signature),
       encoder.encode(payload),
     );
-    if (!valid) return false;
+    if (!valid) return null;
 
-    const { exp } = JSON.parse(
+    const { exp, role } = JSON.parse(
       new TextDecoder().decode(fromBase64Url(payload)),
-    ) as { exp?: number };
+    ) as { exp?: number; role?: Role };
 
-    return typeof exp === "number" && exp > now;
+    if (typeof exp !== "number" || exp <= now) return null;
+
+    // Tokens issued before roles existed carry none: they are plain admins,
+    // which is what they were signed for.
+    return role === "superadmin" ? "superadmin" : "admin";
   } catch {
-    return false;
+    return null;
   }
 }
 

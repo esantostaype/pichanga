@@ -115,15 +115,21 @@ the exact same verification works there and in route handlers.
 A guest fully manages **players** and the **lineup** — the part the whole
 office touches. The **fixture** itself, matches and places, needs the session.
 
-| | Guest | Admin |
-| --- | --- | --- |
-| Read anything, browse all three panels | yes | yes |
-| Create / edit / delete players | yes | yes |
-| Upload a player photo | yes | yes |
-| Add players to a match, drop them | yes | yes |
-| Create / edit / delete matches | no | yes |
-| Create / edit / delete places | no | yes |
-| Google venue search | no | yes |
+| | Guest | Admin | Super admin |
+| --- | --- | --- | --- |
+| Read anything, browse all three panels | yes | yes | yes |
+| Create / edit / delete players | yes | yes | yes |
+| Upload a player photo | yes | yes | yes |
+| Add players to a match, drop them | yes | yes | yes |
+| Create / edit / delete matches | no | yes | yes |
+| Create / edit / delete places | no | yes | yes |
+| Google venue search | no | yes | yes |
+| See the live headcount | no | no | yes |
+
+There are two passwords. `ADMIN_PASSWORD` is the one the office can be given;
+`SUPER_ADMIN_PASSWORD` is optional and grants everything the first does plus
+the headcount below. The role travels inside the signed session cookie, so
+raising it means forging an HMAC, not editing a value.
 
 The venue autocomplete is a `GET` but sits behind the session anyway: every
 call costs money on the Google bill.
@@ -131,6 +137,39 @@ call costs money on the Google bill.
 The UI mirrors the same rules — a guest sees the three drawers but without
 their create, edit and delete controls — while the proxy is what actually
 enforces them, so a hidden button is never the only thing standing in the way.
+
+## Who is online
+
+A quiet line in the bottom-left corner reads *3 people are watching Pichanga
+right now*. **Only a super admin sees it**, and only that session can read the
+number: it is not pushed to the other screens.
+
+That is why the count is kept in our own `visitors` table instead of a Pusher
+presence channel. A presence channel shares its member list with everyone
+subscribed to it, which is exactly the audience the number is supposed to be
+hidden from.
+
+Every open tab `POST`s an id to `/api/presence` every 20 seconds and counts as
+present while its last beat is under two minutes old. The id lives in
+`sessionStorage`, so it is **per tab**, not per person: five tabs of the same
+browser count as five. It is a random value with no address, no device and no
+link to a player, so the table can answer *how many* and never *who*.
+
+Two minutes of slack sounds long for a 20 second beat, and it is deliberate: a
+browser throttles timers in a hidden tab to roughly one a minute, so anything
+tighter would make background tabs flicker in and out. What keeps the number
+from lagging is the other half — a tab fires `navigator.sendBeacon` as it
+closes and its row is deleted right away, so the slack only ever covers a crash
+or a lost connection. Rows older than ten minutes are swept whenever the count
+is read, so the table stays the size of the crowd rather than the history.
+
+Two limits worth knowing. The beat endpoint is open, because guests are counted
+too: anyone who found the URL could post made-up ids and inflate the number.
+Nothing else is exposed by that — the ids mean nothing and the table holds
+nothing else — but the figure is an indicator, not an audited metric. And
+signing out only clears the cookie: the token itself stays valid until it
+expires, which is how a stateless session works. Rotating `AUTH_SECRET`
+invalidates every session at once.
 
 ## Places
 

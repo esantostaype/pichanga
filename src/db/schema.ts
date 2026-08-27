@@ -122,6 +122,24 @@ export const matchPlayers = sqliteTable(
 );
 
 /* -------------------------------------------------------------------------- */
+/*                                  visitors                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Live presence, and nothing else. The id is a random value the browser makes
+ * up for itself: no address, no device, no link to a player, so the table can
+ * only ever answer "how many", never "who".
+ */
+export const visitors = sqliteTable(
+  "visitors",
+  {
+    id: text("id").primaryKey(),
+    lastSeen: integer("last_seen", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t) => [index("visitors_last_seen_idx").on(t.lastSeen)],
+);
+
+/* -------------------------------------------------------------------------- */
 /*                                  relations                                 */
 /* -------------------------------------------------------------------------- */
 
@@ -156,3 +174,4 @@ export type PlayerRow = typeof players.$inferSelect;
 export type PlaceRow = typeof places.$inferSelect;
 export type MatchRow = typeof matches.$inferSelect;
 export type MatchPlayerRow = typeof matchPlayers.$inferSelect;
+export type VisitorRow = typeof visitors.$inferSelect;

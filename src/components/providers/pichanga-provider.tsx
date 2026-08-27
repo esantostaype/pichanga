@@ -24,6 +24,8 @@ type PichangaState = {
   matches: MatchSummary[];
   /** Whether this visitor holds the admin session. */
   isAdmin: boolean;
+  /** The higher role, which also sees the live headcount. */
+  isSuperAdmin: boolean;
   /** False when the server has no password configured: sign-in is hidden. */
   authEnabled: boolean;
 };
@@ -147,15 +149,16 @@ export function PichangaProvider({
       ...state,
 
       login: async (password) => {
-        await api.auth.login(password);
+        // The password decides the role, so the answer is what flips the UI.
+        const { isAdmin, isSuperAdmin } = await api.auth.login(password);
         // Every panel is already loaded for guests, so the session only flips
         // what the UI allows.
-        patch({ isAdmin: true });
+        patch({ isAdmin, isSuperAdmin });
       },
 
       logout: async () => {
         await api.auth.logout();
-        patch({ isAdmin: false });
+        patch({ isAdmin: false, isSuperAdmin: false });
       },
 
       createPlayer: async (input) => {

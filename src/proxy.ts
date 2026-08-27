@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
+import { SESSION_COOKIE, verifySessionToken, type Role } from "@/lib/auth";
 
 /**
  * Guards the API.
@@ -22,7 +22,22 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
   // what separates this from deleting the match itself.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/players\/?$/ },
   { method: "DELETE", pattern: /^\/api\/matches\/[^/]+\/players\/[^/]+\/?$/ },
+  // "This tab is open." Anyone visiting is counted, so anyone may say it.
+  { method: "POST", pattern: /^\/api\/presence\/?$/ },
 ];
+
+/** Reads are public unless they are listed here. */
+const PROTECTED_READS: Array<{ pattern: RegExp; role: Role }> = [
+  // The venue autocomplete is a read, but every call costs money on the
+  // Google bill, so it stays behind the session.
+  { pattern: /^\/api\/places\/search/, role: "admin" },
+  // How many people are on the app is for whoever runs it, nobody else.
+  { pattern: /^\/api\/presence\/?$/, role: "superadmin" },
+];
+
+/** A super admin passes anywhere an admin does. */
+const allows = (role: Role, required: Role) =>
+  role === "superadmin" || required === "admin";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -35,24 +50,35 @@ export async function proxy(request: NextRequest) {
 
   const isRead = request.method === "GET" || request.method === "HEAD";
 
-  // The venue autocomplete is a read, but every call costs money on the
-  // Google bill, so it stays behind the session.
-  const isBilledSearch = pathname.startsWith("/api/places/search");
+  const protectedRead = isRead
+    ? PROTECTED_READS.find((rule) => rule.pattern.test(pathname))
+    : undefined;
 
-  if (isRead && !isBilledSearch) return NextResponse.next();
+  if (isRead && !protectedRead) return NextResponse.next();
 
-  const isGuestWrite = GUEST_WRITES.some(
-    (rule) => rule.method === request.method && rule.pattern.test(pathname),
-  );
-  if (isGuestWrite) return NextResponse.next();
+  if (!protectedRead) {
+    const isGuestWrite = GUEST_WRITES.some(
+      (rule) => rule.method === request.method && rule.pattern.test(pathname),
+    );
+    if (isGuestWrite) return NextResponse.next();
+  }
 
-  const token = request.cookies.get(SESSION_COOKIE)?.value;
-  if (await verifySessionToken(token)) return NextResponse.next();
+  const required: Role = protectedRead?.role ?? "admin";
+  const role = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
 
-  return NextResponse.json(
-    { error: "You need to sign in to do that" },
-    { status: 401 },
-  );
+  if (role && allows(role, required)) return NextResponse.next();
+
+  // Signed in but not far enough: say so, instead of asking for a password
+  // they already typed.
+  return role
+    ? NextResponse.json(
+        { error: "This is only for the super admin" },
+        { status: 403 },
+      )
+    : NextResponse.json(
+        { error: "You need to sign in to do that" },
+        { status: 401 },
+      );
 }
 
 export const config = {

@@ -16,10 +16,12 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Icon } from "@/components/ui/icon";
 import { useAction } from "@/hooks/use-action";
 import { useElementSize } from "@/hooks/use-element-size";
+import { useVisitorHeartbeat } from "@/hooks/use-presence";
 import { EASE } from "@/lib/ease";
 import type { Player } from "@/types";
 import { AppMenu, type PanelName } from "./app-menu";
 import { Brand } from "./brand";
+import { LiveVisitors } from "./live-visitors";
 import { LoginDialog } from "./login-dialog";
 import { MatchHudCard } from "./match-hud-card";
 import { MatchInfoButton } from "./match-info-button";
@@ -28,7 +30,11 @@ import { MatchInfoButton } from "./match-info-button";
 const FAB_CLEARANCE = 48 + 16;
 
 export function AppShell() {
-  const { nextMatch, removePlayerFromNextMatch } = usePichanga();
+  const { nextMatch, isSuperAdmin, removePlayerFromNextMatch } = usePichanga();
+
+  // Everyone counts, so this runs for guests too. It reports nothing but an
+  // id this browser made up for itself.
+  useVisitorHeartbeat();
 
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -98,10 +104,13 @@ export function AppShell() {
       </div>
 
       {/* Adding players is the one thing everyone does, so it gets the thumb. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-4">
+      <div className="pointer-events-none absolute inset-x-0 bottom-4 flex items-end gap-3 p-4">
+        {/* Stays out of the way: no background, no pointer events, no chrome. */}
+        {isSuperAdmin ? <LiveVisitors /> : null}
+
         <Button
           size="icon-lg"
-          className="pointer-events-auto"
+          className="pointer-events-auto ml-auto"
           aria-label="Add players to the match"
           disabled={!nextMatch}
           onClick={() => setAddOpen(true)}

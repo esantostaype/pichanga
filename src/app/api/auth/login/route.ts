@@ -5,8 +5,8 @@ import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_SECONDS,
   createSessionToken,
-  isAdminPassword,
   isAuthConfigured,
+  roleForPassword,
 } from "@/lib/auth";
 import { fail, json, readJson, route } from "@/lib/http";
 
@@ -22,10 +22,11 @@ export async function POST(request: Request) {
 
     const { password } = await readJson(request, loginSchema);
 
-    if (!isAdminPassword(password)) return fail("Wrong password", 401);
+    const role = roleForPassword(password);
+    if (!role) return fail("Wrong password", 401);
 
     const store = await cookies();
-    store.set(SESSION_COOKIE, await createSessionToken(), {
+    store.set(SESSION_COOKIE, await createSessionToken(role), {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
@@ -33,6 +34,6 @@ export async function POST(request: Request) {
       maxAge: SESSION_MAX_AGE_SECONDS,
     });
 
-    return json({ isAdmin: true });
+    return json({ isAdmin: true, isSuperAdmin: role === "superadmin" });
   });
 }

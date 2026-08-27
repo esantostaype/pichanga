@@ -10,6 +10,6 @@ export async function POST() {
     const store = await cookies();
     store.delete(SESSION_COOKIE);
 
-    return json({ isAdmin: false });
+    return json({ isAdmin: false, isSuperAdmin: false });
   });
 }

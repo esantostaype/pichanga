@@ -32,15 +32,27 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 const body = (data: unknown) => JSON.stringify(data);
 
+type Session = { isAdmin: boolean; isSuperAdmin: boolean };
+
 export const api = {
   auth: {
     login: (password: string) =>
-      request<{ isAdmin: boolean }>("/api/auth/login", {
+      request<Session>("/api/auth/login", {
         method: "POST",
         body: body({ password }),
       }),
-    logout: () =>
-      request<{ isAdmin: boolean }>("/api/auth/logout", { method: "POST" }),
+    logout: () => request<Session>("/api/auth/logout", { method: "POST" }),
+  },
+
+  presence: {
+    /** "This tab is open." */
+    beat: (id: string) =>
+      request<{ ok: true }>("/api/presence", {
+        method: "POST",
+        body: body({ id }),
+      }),
+    /** Super admin only; anyone else gets a 403. */
+    count: () => request<{ count: number }>("/api/presence"),
   },
 
   players: {

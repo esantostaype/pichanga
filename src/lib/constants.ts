@@ -39,6 +39,24 @@ export const ACCEPTED_PHOTO_TYPES = [
 ];
 export const ACCEPTED_PHOTO_ACCEPT = ACCEPTED_PHOTO_TYPES.join(",");
 
+/**
+ * Live count of open tabs. Each one beats on a timer and counts as present
+ * while its last beat is inside the window.
+ *
+ * The window is far wider than the beat because a browser throttles timers in
+ * a background tab to about one a minute: without the slack those tabs would
+ * flicker in and out of the count. A tab that is closed properly says so on
+ * the way out, so the slack only delays crashes and lost connections.
+ */
+export const PRESENCE = {
+  beatMs: 20_000,
+  windowMs: 120_000,
+  /** How often the super admin's counter refreshes. */
+  pollMs: 10_000,
+  /** Rows older than this are swept: the table holds the crowd, not history. */
+  staleMs: 10 * 60_000,
+} as const;
+
 /** Pusher channel and events. */
 export const REALTIME = {
   channel: "pichanga",
