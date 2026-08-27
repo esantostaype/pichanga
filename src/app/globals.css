@@ -42,6 +42,15 @@
   --grass-a: #191a1c;
   --grass-b: #131416;
   --grass-edge: #0b0c0d;
+
+  /*
+   * The green of the cut between screens. Not the pitch, which is grey here:
+   * this is the broadcast green a replay wipe is made of, with the app's lime
+   * running along the seam.
+   */
+  --scene-cut: #0c2a17;
+  --scene-cut-mid: #123f22;
+  --scene-cut-light: #1b5c31;
   /*
    * Solid colour on purpose: the markings are drawn inside a single <g> and
    * the opacity is applied to that group, so crossing lines never stack their
@@ -145,6 +154,49 @@
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /*
+   * The ball that bounces while a screen loads. Two halves so the fall reads
+   * heavier than the rise, and a shadow that tightens as it lands.
+   */
+  @keyframes scene-ball {
+    0%,
+    100% {
+      transform: translateY(-70px);
+      animation-timing-function: cubic-bezier(0.33, 0, 0.66, 0.33);
+    }
+    50% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0.33, 0.66, 0.66, 1);
+    }
+  }
+
+  @keyframes scene-ball-shadow {
+    0%,
+    100% {
+      transform: scale(0.6);
+      opacity: 0.2;
+    }
+    50% {
+      transform: scale(1);
+      opacity: 0.45;
+    }
+  }
+
+  .animate-scene-ball {
+    animation: scene-ball 620ms infinite;
+  }
+
+  .animate-scene-ball-shadow {
+    animation: scene-ball-shadow 620ms infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-scene-ball,
+    .animate-scene-ball-shadow {
+      animation: none;
+    }
   }
 
   /* Subtle grain over the grass */

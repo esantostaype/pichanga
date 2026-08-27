@@ -205,6 +205,60 @@ strings, so the address of a match is the day it is played on, never the day
 it happens to be in UTC. Two matches on the same day would share an address;
 the earlier one wins.
 
+## The cut between screens
+
+Navigating between dates does **not** reload the page -- it is a client-side
+navigation. What it does do is ask the server for the new screen, and every
+screen here is a server component that reads the database, so the wait is
+however long those queries take. On a local file that is ~15-25ms; against a
+hosted database each query is a network hop and it adds up.
+
+So two things happen.
+
+**Less to wait for.** `materializeRecurringMatches()` is wrapped in React's
+`cache()`: `listMatches`, `getNextMatch` and `getMatchBySlug` all roll the
+fixtures forward and one page calls all three, which used to mean doing it
+three times. A pinned page no longer loads the front page's match in full
+either -- `getHomeMatchId()` fetches just the id, which is all a link needs.
+And the slug lookup now runs inside the same `Promise.all` as everything
+else instead of after it.
+
+**Something to watch.** A diagonal wipe closes over the screen **from both
+edges at once**, meeting on a 40-degree seam through the middle. Five pairs of
+slabs, each pair covering the one before it: light green, **lime**, mid green,
+deep green, and `primary-foreground` last, which is the colour the cut settles
+on. It clears the same way, the brighter slabs leaving last.
+
+Every colour is a band in its own right, the lime included. It started as a
+4px hairline on the edge of each half, and two halves meeting in the middle
+read as a pair of lines rather than as a stripe -- so it became a slab like
+the rest.
+
+The band you see of each colour is the gap between it and the slab that covers
+it, and those gaps are deliberately uneven so no colour is squeezed down to a
+line. A slab crosses in 620ms and clears in 420ms; end to end a navigation
+takes about two seconds, most of which is the ball's second.
+
+The diagonal is a `skewX(-40deg)` on rectangles wider and taller than the
+screen, not a clip path. Both halves carry the same skew, so the edges facing
+each other are parallel and meet on the centre line without a gap.
+
+Behind the wipe there is no logo -- the wipe is the branding, and a mark under
+a bouncing ball turns a transition into a splash screen. The ball appears once
+the last slab lands and **always gets a full second** to bounce: the cut holds
+for that second however fast the page arrives.
+
+`useTransition` is what makes the hold honest in the other direction: React
+keeps `isPending` true until the new page is ready to paint, so the wipe never
+clears on a half-built screen.
+
+The match already on screen is **not a link** -- neither its row in the drawer
+nor the logo on the front page. Playing the whole transition to arrive exactly
+where you started is worse than a row that does nothing.
+
+Links are still `next/link`, so the page itself is usually prefetched and
+waiting by the time the wipe has finished closing.
+
 ## Match galleries
 
 Every match has an album of photos and clips: `match_media` remembers where each

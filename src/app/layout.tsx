@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Sofia_Sans, Sofia_Sans_Extra_Condensed } from "next/font/google";
 
 import { Toaster } from "@/components/ui/toaster";
+import { SceneTransitionProvider } from "@/components/layout/scene-transition";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SITE } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -77,7 +78,9 @@ export default function RootLayout({
       className={cn("dark", sofiaSans.variable, sofiaCondensed.variable)}
     >
       <body className="overflow-hidden bg-background text-foreground antialiased">
-        <TooltipProvider delayDuration={250}>{children}</TooltipProvider>
+        <SceneTransitionProvider>
+          <TooltipProvider delayDuration={250}>{children}</TooltipProvider>
+        </SceneTransitionProvider>
         <Toaster />
       </body>
     </html>

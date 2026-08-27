@@ -49,9 +49,48 @@ import {
 } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { MatchSummary } from "@/types";
+import { useScene } from "@/components/layout/scene-transition";
 import { GalleryDialog } from "./gallery-dialog";
 import { LiveBadge } from "./live-badge";
 import { MatchFormDialog } from "./match-form-dialog";
+
+/**
+ * The Date column: a link into that match, or plain text when it is the match
+ * already on screen. A real `href` so the row can be opened in a new tab or
+ * copied, and a handler so an ordinary click goes behind the scene cut instead
+ * of leaving the old screen up while the server answers.
+ */
+function DateCell({
+  href,
+  onNavigate,
+  children,
+}: {
+  href: string | null;
+  onNavigate: () => void;
+  children: React.ReactNode;
+}) {
+  const shape = "flex h-full flex-col px-4 py-3";
+
+  if (!href) return <div className={shape}>{children}</div>;
+
+  return (
+    <Link
+      href={href}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
+        event.preventDefault();
+        onNavigate();
+      }}
+      className={cn(
+        shape,
+        "cursor-pointer transition-colors hover:bg-accent/60",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60",
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export function MatchesDrawer({
   open,
@@ -62,6 +101,7 @@ export function MatchesDrawer({
 }) {
   const { matches, nextMatch, homeMatchId, isAdmin, deleteMatches } =
     usePichanga();
+  const { go } = useScene();
   const now = useNow();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -182,7 +222,16 @@ export function MatchesDrawer({
                 </TableHeader>
                 <TableBody>
                   {matches.map((match) => {
+                    /*
+                     * The match already on screen. Its row is plain text: a
+                     * link to the page you are looking at would play the whole
+                     * transition to arrive exactly where you started.
+                     */
                     const isNext = match.id === nextMatch?.id;
+                    const href =
+                      match.id === homeMatchId
+                        ? "/"
+                        : `/match/${matchSlug(match.playedAt)}`;
 
                     return (
                       <TableRow
@@ -209,14 +258,18 @@ export function MatchesDrawer({
                           whichever one is currently on the pitch there.
                         */}
                         <TableCell className="h-px whitespace-nowrap p-0 align-top">
-                          <Link
-                            href={
-                              match.id === homeMatchId
-                                ? "/"
-                                : `/match/${matchSlug(match.playedAt)}`
-                            }
-                            onClick={() => onOpenChange(false)}
-                            className="flex h-full cursor-pointer flex-col px-4 py-3 transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
+                          {/*
+                            A real `href` so the row can be opened in a new tab
+                            or copied, and a handler so an ordinary click goes
+                            behind the scene cut instead of leaving the old
+                            screen up while the server answers.
+                          */}
+                          <DateCell
+                            href={isNext ? null : href}
+                            onNavigate={() => {
+                              onOpenChange(false);
+                              go(href);
+                            }}
                           >
                           {/*
                             The chip sits beside the date from md up; below that
@@ -248,7 +301,7 @@ export function MatchesDrawer({
                             {" - "}
                             {relativeLabel(match.playedAt)}
                           </p>
-                          </Link>
+                          </DateCell>
                         </TableCell>
 
                         <TableCell className="align-top text-muted-foreground">

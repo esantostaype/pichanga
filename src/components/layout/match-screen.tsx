@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { PichangaProvider } from "@/components/providers/pichanga-provider";
 import {
+  getHomeMatchId,
   getMatchBySlug,
   getNextMatch,
   listMatches,
@@ -40,16 +41,21 @@ async function load(slug?: string): Promise<
   { data: ScreenState } | { error: string } | { missing: true }
 > {
   try {
-    const [role, players, places, matches, homeMatch] = await Promise.all([
+    /*
+     * Every one of these is a round trip to a database on the other side of
+     * the network, so they go together rather than one after another. A pinned
+     * page loads its own date and only the *id* of the one the front page
+     * shows -- it needs no more than that to point a link at "/".
+     */
+    const [role, players, places, matches, active, homeId] = await Promise.all([
       getRole(),
       listPlayers(),
       listPlaces(),
       listMatches(),
-      getNextMatch(),
+      slug ? getMatchBySlug(slug) : getNextMatch(),
+      slug ? getHomeMatchId() : Promise.resolve(null),
     ]);
 
-    // The front page follows the clock; a slug pins the screen to one date.
-    const active = slug ? await getMatchBySlug(slug) : homeMatch;
     if (slug && !active) return { missing: true };
 
     return {
@@ -62,7 +68,7 @@ async function load(slug?: string): Promise<
         isSuperAdmin: role === "superadmin",
         authEnabled: isAuthConfigured(),
         pinnedMatchId: slug ? (active?.id ?? null) : null,
-        homeMatchId: homeMatch?.id ?? null,
+        homeMatchId: slug ? homeId : (active?.id ?? null),
       },
     };
   } catch (error) {

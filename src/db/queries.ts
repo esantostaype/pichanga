@@ -1,6 +1,7 @@
 import "server-only";
 
 import { and, asc, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import { cache } from "react";
 
 import { DEFAULT_MATCH_DURATION_MS, MATCH_GRACE_MS } from "@/lib/constants";
 import { matchSlug } from "@/lib/date";
@@ -239,7 +240,15 @@ export async function deletePlayer(id: string): Promise<Player | null> {
  * Runs lazily on read. The unique `(series_id, played_at)` index makes it safe
  * for two concurrent requests to attempt the same insert.
  */
-async function materializeRecurringMatches(): Promise<void> {
+export const materializeRecurringMatches = cache(_materializeRecurringMatches);
+
+/**
+ * Wrapped in `cache` above: `listMatches`, `getNextMatch` and
+ * `getMatchBySlug` all roll the fixtures forward, and one page calls all
+ * three. Deduplicated per request, that is two fewer round trips to a database
+ * that lives on the other side of the network.
+ */
+async function _materializeRecurringMatches(): Promise<void> {
   const now = Date.now();
 
   const series = await db
@@ -549,6 +558,51 @@ export async function deleteMatchMedia(
     publicId: row.publicId,
     kind: row.kind === "video" ? "video" : "image",
   };
+}
+
+/**
+ * Just the id of the match the front page would show.
+ *
+ * Same choice as `getNextMatch`, without the place and the lineup: a pinned
+ * page needs it only to know whether a row in the drawer should link to "/".
+ */
+export async function getHomeMatchId(): Promise<string | null> {
+  await materializeRecurringMatches();
+
+  const now = Date.now();
+  const id = { id: matches.id };
+
+  const live = await db
+    .select(id)
+    .from(matches)
+    .where(and(lte(matches.playedAt, new Date(now)), stillRunning(now)))
+    .orderBy(asc(matches.playedAt))
+    .limit(1);
+  if (live[0]) return live[0].id;
+
+  const settling = await db
+    .select(id)
+    .from(matches)
+    .where(withinGrace(now))
+    .orderBy(desc(matches.playedAt))
+    .limit(1);
+  if (settling[0]) return settling[0].id;
+
+  const upcoming = await db
+    .select(id)
+    .from(matches)
+    .where(stillRunning(now))
+    .orderBy(asc(matches.playedAt))
+    .limit(1);
+  if (upcoming[0]) return upcoming[0].id;
+
+  const last = await db
+    .select(id)
+    .from(matches)
+    .orderBy(desc(matches.playedAt))
+    .limit(1);
+
+  return last[0]?.id ?? null;
 }
 
 export async function createMatch(input: MatchInput): Promise<Match> {
