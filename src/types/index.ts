@@ -26,6 +26,7 @@ export type Recurrence = "weekly";
 export type MatchSummary = {
   id: string;
   playedAt: number;
+  endsAt: number;
   place: Place | null;
   recurrence: Recurrence | null;
   seriesId: string | null;
@@ -36,6 +37,7 @@ export type MatchSummary = {
 export type Match = {
   id: string;
   playedAt: number;
+  endsAt: number;
   place: Place | null;
   recurrence: Recurrence | null;
   seriesId: string | null;

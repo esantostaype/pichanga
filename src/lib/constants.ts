@@ -26,6 +26,9 @@ export function getArea(id: string) {
   return AREA_MAP.get(id as AreaId) ?? AREAS[AREAS.length - 1];
 }
 
+/** Fallback length for a match with no explicit end time. */
+export const DEFAULT_MATCH_DURATION_MS = 90 * 60 * 1000;
+
 /** Photo rules, shared by client and server. */
 export const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 export const ACCEPTED_PHOTO_TYPES = [

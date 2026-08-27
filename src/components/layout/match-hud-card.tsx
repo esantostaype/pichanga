@@ -7,8 +7,10 @@ import {
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 
+import { LiveBadge } from "@/components/matches/live-badge";
 import { Icon } from "@/components/ui/icon";
-import { formatLongDate, formatTime, relativeLabel } from "@/lib/date";
+import { useNow } from "@/hooks/use-now";
+import { formatLongDate, formatTimeRange, isLive, relativeLabel } from "@/lib/date";
 import type { Match } from "@/types";
 
 /**
@@ -16,6 +18,8 @@ import type { Match } from "@/types";
  * to the right of the logo.
  */
 export function MatchHudCard({ match }: { match: Match | null }) {
+  const now = useNow();
+
   if (!match) {
     return (
       <div className="min-w-0">
@@ -29,27 +33,29 @@ export function MatchHudCard({ match }: { match: Match | null }) {
     );
   }
 
+  const live = now !== null && isLive(match.playedAt, match.endsAt, now);
+
   return (
     <div className="min-w-0">
       <p
-        className="mt-1 truncate font-display flex gap-1 text-lg uppercase leading-tight tracking-[0.04em] sm:text-xl"
+        className="mt-1 flex items-center gap-2 truncate font-display text-lg uppercase leading-tight tracking-[0.04em] sm:text-xl"
         suppressHydrationWarning
       >
         {formatLongDate(match.playedAt)}
 
-        <div className="flex items-center gap-2">
+        {live ? (
+          <LiveBadge />
+        ) : (
           <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            <span suppressHydrationWarning>
-              {relativeLabel(match.playedAt)}
-            </span>
+            <span suppressHydrationWarning>{relativeLabel(match.playedAt)}</span>
           </span>
-        </div>
+        )}
       </p>
 
       <div className="mt-0.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5" suppressHydrationWarning>
           <Icon icon={Time04Icon} size={13} />
-          {formatTime(match.playedAt)}
+          {formatTimeRange(match.playedAt, match.endsAt)}
         </span>
 
         {match.place ? (

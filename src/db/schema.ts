@@ -66,8 +66,14 @@ export const matches = sqliteTable(
   "matches",
   {
     id: id(),
-    /** Match date and time. */
+    /** Kick-off. */
     playedAt: integer("played_at", { mode: "timestamp_ms" }).notNull(),
+    /**
+     * Final whistle. Nullable only so the column could be added to existing
+     * rows; the app always writes it and readers fall back to
+     * `playedAt + DEFAULT_MATCH_DURATION_MS`.
+     */
+    endsAt: integer("ends_at", { mode: "timestamp_ms" }),
     placeId: text("place_id").references(() => places.id, {
       onDelete: "set null",
     }),

@@ -22,6 +22,13 @@
       "when": 1787793697443,
       "tag": "0002_tan_the_hand",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1787797699786,
+      "tag": "0003_light_random",
+      "breakpoints": true
     }
   ]
 }

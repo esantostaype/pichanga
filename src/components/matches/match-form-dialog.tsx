@@ -34,6 +34,7 @@ import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
+import { DEFAULT_MATCH_DURATION_MS } from "@/lib/constants";
 import { suggestedMatchDate, toDateInput, toTimeInput } from "@/lib/date";
 import { toEpoch } from "@/lib/validators";
 import type { MatchSummary } from "@/types";
@@ -41,12 +42,18 @@ import type { MatchSummary } from "@/types";
 /** Sentinel for "no venue": Radix Select cannot hold an empty string value. */
 const NO_PLACE = "none";
 
-const formSchema = z.object({
-  date: z.string().min(1, "Pick a date"),
-  time: z.string().min(1, "Pick a time"),
-  placeId: z.string(),
-  recurring: z.boolean(),
-});
+const formSchema = z
+  .object({
+    date: z.string().min(1, "Pick a date"),
+    time: z.string().min(1, "Pick a start time"),
+    endTime: z.string().min(1, "Pick an end time"),
+    placeId: z.string(),
+    recurring: z.boolean(),
+  })
+  .refine((values) => toEpoch(values.date, values.endTime) > toEpoch(values.date, values.time), {
+    message: "Must be after the start",
+    path: ["endTime"],
+  });
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -106,12 +113,14 @@ function MatchForm({
   const [placeFormOpen, setPlaceFormOpen] = useState(false);
 
   const base = match?.playedAt ?? suggestedMatchDate();
+  const baseEnd = match?.endsAt ?? base + DEFAULT_MATCH_DURATION_MS;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       date: toDateInput(base),
       time: toTimeInput(base),
+      endTime: toTimeInput(baseEnd),
       placeId: match?.place?.id ?? NO_PLACE,
       recurring: match?.recurrence === "weekly",
     },
@@ -146,6 +155,7 @@ function MatchForm({
     async (values: FormValues) => {
       const payload = {
         playedAt: toEpoch(values.date, values.time),
+        endsAt: toEpoch(values.date, values.endTime),
         placeId: values.placeId === NO_PLACE ? null : values.placeId,
         recurrence: values.recurring ? ("weekly" as const) : null,
         playerIds: selected,
@@ -171,7 +181,7 @@ function MatchForm({
           onBusyChange(false);
         })}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-3">
           <Field label="Date" error={errors.date?.message}>
             <Controller
               control={form.control}
@@ -187,16 +197,46 @@ function MatchForm({
             />
           </Field>
 
-          <Field label="Time" error={errors.time?.message}>
+          <Field label="Starts" error={errors.time?.message}>
             <Controller
               control={form.control}
               name="time"
               render={({ field }) => (
                 <TimePicker
                   value={field.value}
-                  onChange={field.onChange}
+                  onChange={(next) => {
+                    field.onChange(next);
+                    // Drag the end along so it never lands before the start.
+                    const start = toEpoch(form.getValues("date"), next);
+                    const end = toEpoch(
+                      form.getValues("date"),
+                      form.getValues("endTime"),
+                    );
+                    if (end <= start) {
+                      form.setValue(
+                        "endTime",
+                        toTimeInput(start + DEFAULT_MATCH_DURATION_MS),
+                        { shouldValidate: true },
+                      );
+                    }
+                  }}
                   disabled={pending}
                   invalid={!!errors.time}
+                />
+              )}
+            />
+          </Field>
+
+          <Field label="Ends" error={errors.endTime?.message}>
+            <Controller
+              control={form.control}
+              name="endTime"
+              render={({ field }) => (
+                <TimePicker
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={pending}
+                  invalid={!!errors.endTime}
                 />
               )}
             />

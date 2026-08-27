@@ -24,6 +24,32 @@ import { useAction } from "@/hooks/use-action";
 
 export type PanelName = "matches" | "players" | "places";
 
+const PANELS: Array<{
+  name: PanelName;
+  label: string;
+  hint: string;
+  icon: typeof Calendar03Icon;
+}> = [
+  {
+    name: "matches",
+    label: "Matches",
+    hint: "Dates and lineups",
+    icon: Calendar03Icon,
+  },
+  {
+    name: "players",
+    label: "Players",
+    hint: "Office profiles",
+    icon: UserGroupIcon,
+  },
+  {
+    name: "places",
+    label: "Places",
+    hint: "Pitches you play at",
+    icon: Location01Icon,
+  },
+];
+
 export function AppMenu({
   onSelect,
   onSignIn,
@@ -49,71 +75,44 @@ export function AppMenu({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Browse</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+
+        {/* Every panel is readable by anyone; the session gates the edits. */}
+        {PANELS.map((panel) => (
+          <DropdownMenuItem
+            key={panel.name}
+            onSelect={() => onSelect(panel.name)}
+          >
+            <Icon icon={panel.icon} size={17} className="text-primary" />
+            <span className="flex flex-col">
+              <span className="font-medium">{panel.label}</span>
+              <span className="text-xs text-muted-foreground">
+                {panel.hint}
+              </span>
+            </span>
+          </DropdownMenuItem>
+        ))}
+
+        <DropdownMenuSeparator />
+
         {isAdmin ? (
-          <>
-            <DropdownMenuLabel>Manage</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-
-            <DropdownMenuItem onSelect={() => onSelect("matches")}>
-              <Icon icon={Calendar03Icon} size={17} className="text-primary" />
-              <span className="flex flex-col">
-                <span className="font-medium">Matches</span>
-                <span className="text-xs text-muted-foreground">
-                  Dates and lineups
-                </span>
-              </span>
-            </DropdownMenuItem>
-
-            <DropdownMenuItem onSelect={() => onSelect("players")}>
-              <Icon icon={UserGroupIcon} size={17} className="text-primary" />
-              <span className="flex flex-col">
-                <span className="font-medium">Players</span>
-                <span className="text-xs text-muted-foreground">
-                  Office profiles
-                </span>
-              </span>
-            </DropdownMenuItem>
-
-            <DropdownMenuItem onSelect={() => onSelect("places")}>
-              <Icon icon={Location01Icon} size={17} className="text-primary" />
-              <span className="flex flex-col">
-                <span className="font-medium">Places</span>
-                <span className="text-xs text-muted-foreground">
-                  Pitches you play at
-                </span>
-              </span>
-            </DropdownMenuItem>
-
-            <DropdownMenuSeparator />
-
-            <DropdownMenuItem onSelect={() => void signOut.run()}>
-              <Icon icon={Logout03Icon} size={17} />
-              <span className="font-medium">Sign out</span>
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem onSelect={() => void signOut.run()}>
+            <Icon icon={Logout03Icon} size={17} />
+            <span className="font-medium">Sign out</span>
+          </DropdownMenuItem>
         ) : (
           <>
-            <DropdownMenuLabel>Guest</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-
-            {/*
-              A plain paragraph, not a menu item: it is not selectable, and as
-              a disabled item it would also inherit `opacity-50` on top of the
-              muted colour, which made it nearly unreadable.
-            */}
             <p className="px-3 py-2 text-sm leading-snug text-foreground/80">
-              You can add players to the match. Managing matches, players and
-              places needs the password.
+              You can manage players and the lineup. Changing matches and places
+              needs the password.
             </p>
 
             {authEnabled ? (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={onSignIn}>
-                  <Icon icon={Login03Icon} size={17} className="text-primary" />
-                  <span className="font-medium">Sign in</span>
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem onSelect={onSignIn}>
+                <Icon icon={Login03Icon} size={17} className="text-primary" />
+                <span className="font-medium">Sign in</span>
+              </DropdownMenuItem>
             ) : null}
           </>
         )}

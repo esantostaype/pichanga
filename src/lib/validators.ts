@@ -29,14 +29,20 @@ export const placeInputSchema = z.object({
 
 export type PlaceInput = z.infer<typeof placeInputSchema>;
 
-export const matchInputSchema = z.object({
-  playedAt: z.coerce.number().int().positive("Pick a valid date"),
-  placeId: z.string().min(1).nullable().optional(),
+export const matchInputSchema = z
+  .object({
+    playedAt: z.coerce.number().int().positive("Pick a valid date"),
+    endsAt: z.coerce.number().int().positive("Pick a valid end time"),
+    placeId: z.string().min(1).nullable().optional(),
   /** `null` for a one-off fixture. */
   recurrence: z.literal("weekly").nullable().optional(),
-  /** No upper bound: a match takes as many players as sign up. */
-  playerIds: z.array(z.string().min(1)).default([]),
-});
+    /** No upper bound: a match takes as many players as sign up. */
+    playerIds: z.array(z.string().min(1)).default([]),
+  })
+  .refine((input) => input.endsAt > input.playedAt, {
+    message: "The end time must be after the start",
+    path: ["endsAt"],
+  });
 
 export type MatchInput = z.infer<typeof matchInputSchema>;
 

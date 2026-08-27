@@ -55,3 +55,11 @@ export function relativeLabel(ms: number) {
   const distance = formatDistanceToNowStrict(date, opts);
   return isPast(date) ? `${distance} ago` : `in ${distance}`;
 }
+
+/** True between kick-off and the final whistle. */
+export const isLive = (playedAt: number, endsAt: number, now: number) =>
+  now >= playedAt && now < endsAt;
+
+/** "18:00 - 19:30" */
+export const formatTimeRange = (playedAt: number, endsAt: number) =>
+  `${formatTime(playedAt)} - ${formatTime(endsAt)}`;

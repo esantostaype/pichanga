@@ -4,10 +4,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
+import { useNow } from "@/hooks/use-now";
 import { useRealtime } from "@/hooks/use-realtime";
 import { api } from "@/lib/api-client";
 import { REALTIME } from "@/lib/constants";
@@ -95,6 +98,23 @@ export function PichangaProvider({
     },
   });
 
+  // When the fixture on screen reaches its final whistle, pull the next one:
+  // at 21:05 a 20:00-21:00 match should already have handed over. The ref
+  // makes it fire once per match, so a series with nothing after it does not
+  // refetch on every tick.
+  const now = useNow();
+  const rolledOver = useRef<string | null>(null);
+
+  useEffect(() => {
+    const current = state.nextMatch;
+    if (!current || now === null) return;
+    if (now < current.endsAt) return;
+    if (rolledOver.current === current.id) return;
+
+    rolledOver.current = current.id;
+    void refreshNextMatch();
+  }, [now, state.nextMatch, refreshNextMatch]);
+
   const value = useMemo<PichangaContextValue>(() => {
     /** Applies a mutation result to the match currently on screen. */
     const syncNextMatch = (match: Match) =>
@@ -107,9 +127,9 @@ export function PichangaProvider({
 
       login: async (password) => {
         await api.auth.login(password);
+        // Every panel is already loaded for guests, so the session only flips
+        // what the UI allows.
         patch({ isAdmin: true });
-        // Admin-only data was never fetched for a guest, so pull it now.
-        await Promise.all([refreshPlaces(), refreshMatches()]);
       },
 
       logout: async () => {

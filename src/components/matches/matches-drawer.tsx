@@ -34,9 +34,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAction } from "@/hooks/use-action";
-import { formatShortDate, formatTime, relativeLabel } from "@/lib/date";
+import { useNow } from "@/hooks/use-now";
+import {
+  formatShortDate,
+  formatTimeRange,
+  isLive,
+  relativeLabel,
+} from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { MatchSummary } from "@/types";
+import { LiveBadge } from "./live-badge";
 import { MatchFormDialog } from "./match-form-dialog";
 
 export function MatchesDrawer({
@@ -46,7 +53,8 @@ export function MatchesDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { matches, nextMatch, deleteMatch } = usePichanga();
+  const { matches, nextMatch, isAdmin, deleteMatch } = usePichanga();
+  const now = useNow();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<MatchSummary | null>(null);
@@ -75,21 +83,30 @@ export function MatchesDrawer({
           </SheetHeader>
 
           <SheetBody className="flex flex-col gap-4">
-            <Button size="sm" onClick={openCreate} className="self-start">
-              <Icon icon={PlusSignIcon} size={16} />
-              New match
-            </Button>
+            {/* Anyone can read the fixture list; only admins change it. */}
+            {isAdmin ? (
+              <Button size="sm" onClick={openCreate} className="self-start">
+                <Icon icon={PlusSignIcon} size={16} />
+                New match
+              </Button>
+            ) : null}
 
             {matches.length === 0 ? (
               <EmptyState
                 icon={Calendar03Icon}
                 title="No matches yet"
-                description="Create a date and start adding players to the pitch."
+                description={
+                  isAdmin
+                    ? "Create a date and start adding players to the pitch."
+                    : "Signing in is needed to create the first date."
+                }
                 action={
-                  <Button size="sm" onClick={openCreate}>
-                    <Icon icon={PlusSignIcon} size={16} />
-                    New match
-                  </Button>
+                  isAdmin ? (
+                    <Button size="sm" onClick={openCreate}>
+                      <Icon icon={PlusSignIcon} size={16} />
+                      New match
+                    </Button>
+                  ) : null
                 }
               />
             ) : (
@@ -114,7 +131,9 @@ export function MatchesDrawer({
                         <span className="sr-only">Players</span>
                       </span>
                     </TableHead>
-                    <TableHead className="w-px text-right">Actions</TableHead>
+                    {isAdmin ? (
+                      <TableHead className="w-px text-right">Actions</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -136,7 +155,12 @@ export function MatchesDrawer({
                             <p className="font-medium" suppressHydrationWarning>
                               {formatShortDate(match.playedAt)}
                             </p>
-                            {isNext ? <Badge>On pitch</Badge> : null}
+                            {now !== null &&
+                            isLive(match.playedAt, match.endsAt, now) ? (
+                              <LiveBadge />
+                            ) : isNext ? (
+                              <Badge>On pitch</Badge>
+                            ) : null}
                             {match.recurrence === "weekly" ? (
                               <Badge variant="outline">
                                 <Icon icon={RepeatIcon} size={11} />
@@ -149,7 +173,8 @@ export function MatchesDrawer({
                             className="mt-1 text-xs text-muted-foreground"
                             suppressHydrationWarning
                           >
-                            {formatTime(match.playedAt)} -{" "}
+                            {formatTimeRange(match.playedAt, match.endsAt)}
+                            {" - "}
                             {relativeLabel(match.playedAt)}
                           </p>
                         </TableCell>
@@ -187,35 +212,37 @@ export function MatchesDrawer({
                           {match.playerCount}
                         </TableCell>
 
-                        <TableCell className="align-top">
-                          {/*
-                            The icon buttons are 32px tall against a 20px text
-                            line, so without this nudge their centre sits 6px
-                            below the date and place text.
-                          */}
-                          <div className="-mt-1.5 flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Edit match"
-                              onClick={() => {
-                                setEditing(match);
-                                setFormOpen(true);
-                              }}
-                            >
-                              <Icon icon={PencilEdit02Icon} size={15} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Delete match"
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={() => setPendingDelete(match)}
-                            >
-                              <Icon icon={Delete02Icon} size={15} />
-                            </Button>
-                          </div>
-                        </TableCell>
+                        {isAdmin ? (
+                          <TableCell className="align-top">
+                            {/*
+                              The icon buttons are 32px tall against a 20px text
+                              line, so without this nudge their centre sits 6px
+                              below the date and place text.
+                            */}
+                            <div className="-mt-1.5 flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Edit match"
+                                onClick={() => {
+                                  setEditing(match);
+                                  setFormOpen(true);
+                                }}
+                              >
+                                <Icon icon={PencilEdit02Icon} size={15} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Delete match"
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={() => setPendingDelete(match)}
+                              >
+                                <Icon icon={Delete02Icon} size={15} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        ) : null}
                       </TableRow>
                     );
                   })}

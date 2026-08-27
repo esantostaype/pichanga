@@ -1,7 +1,8 @@
 import "server-only";
 
-import { and, asc, desc, eq, gte, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
+import { DEFAULT_MATCH_DURATION_MS } from "@/lib/constants";
 import type { MatchInput, PlaceInput, PlayerInput } from "@/lib/validators";
 import type { Match, MatchSummary, Place, Player, Recurrence } from "@/types";
 import { db } from "./index";
@@ -36,6 +37,10 @@ const toPlace = (row: PlaceRow | null): Place | null =>
       }
     : null;
 
+/** Rows written before the column existed fall back to a default length. */
+const endOf = (row: { playedAt: Date; endsAt: Date | null }) =>
+  row.endsAt?.getTime() ?? row.playedAt.getTime() + DEFAULT_MATCH_DURATION_MS;
+
 const toMatch = (
   row: MatchRow,
   place: PlaceRow | null,
@@ -43,6 +48,7 @@ const toMatch = (
 ): Match => ({
   id: row.id,
   playedAt: row.playedAt.getTime(),
+  endsAt: endOf(row),
   place: toPlace(place),
   recurrence: (row.recurrence as Recurrence | null) ?? null,
   seriesId: row.seriesId,
@@ -50,14 +56,14 @@ const toMatch = (
   players: lineup.map((entry) => toPlayer(entry.player)),
 });
 
-/** Start of today: a match stays "upcoming" for the whole of its day. */
-const startOfToday = () => {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now;
-};
-
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * A match counts as current until its final whistle, not until midnight: at
+ * 21:05 an 20:00-21:00 fixture is over and the next one takes the pitch.
+ */
+const stillRunning = (at: number) =>
+  sql`coalesce(${matches.endsAt}, ${matches.playedAt} + ${DEFAULT_MATCH_DURATION_MS}) > ${at}`;
 
 /* -------------------------------------------------------------------------- */
 /*                                   places                                   */
@@ -181,18 +187,20 @@ export async function deletePlayer(id: string): Promise<Player | null> {
  * for two concurrent requests to attempt the same insert.
  */
 async function materializeRecurringMatches(): Promise<void> {
-  const today = startOfToday().getTime();
+  const now = Date.now();
 
   const series = await db
     .select({
       seriesId: matches.seriesId,
       latest: sql<number>`max(${matches.playedAt})`,
+      latestEnd: sql<number>`max(coalesce(${matches.endsAt}, ${matches.playedAt} + ${DEFAULT_MATCH_DURATION_MS}))`,
     })
     .from(matches)
     .where(isNotNull(matches.seriesId))
     .groupBy(matches.seriesId);
 
-  const stale = series.filter((row) => Number(row.latest) < today);
+  // Rolls forward the moment the fixture ends, not at midnight.
+  const stale = series.filter((row) => Number(row.latestEnd) <= now);
   if (!stale.length) return;
 
   for (const row of stale) {
@@ -210,14 +218,18 @@ async function materializeRecurringMatches(): Promise<void> {
     // The series may have been switched back to a one-off in the meantime.
     if (!source || source.recurrence !== "weekly") continue;
 
+    // Keeps the fixture's own length when shifting it forward.
+    const duration = endOf(source) - source.playedAt.getTime();
+
     let next = source.playedAt.getTime();
-    while (next < today) next += WEEK_MS;
+    while (next + duration <= now) next += WEEK_MS;
 
     try {
       const [created] = await db
         .insert(matches)
         .values({
           playedAt: new Date(next),
+          endsAt: new Date(next + duration),
           placeId: source.placeId,
           recurrence: source.recurrence,
           seriesId: source.seriesId,
@@ -268,6 +280,7 @@ export async function listMatches(): Promise<MatchSummary[]> {
   return rows.map((row) => ({
     id: row.match.id,
     playedAt: row.match.playedAt.getTime(),
+    endsAt: endOf(row.match),
     place: toPlace(row.place),
     recurrence: (row.match.recurrence as Recurrence | null) ?? null,
     seriesId: row.match.seriesId,
@@ -299,8 +312,9 @@ export async function getMatch(id: string): Promise<Match | null> {
 }
 
 /**
- * The match that owns the main screen: the closest one to be played. If there
- * is no upcoming match we show the most recent one so the pitch is not empty.
+ * The match that owns the main screen: the one being played right now, or else
+ * the closest one still to come. If everything is over we show the most recent
+ * one so the pitch is not empty.
  */
 export async function getNextMatch(): Promise<Match | null> {
   await materializeRecurringMatches();
@@ -308,7 +322,7 @@ export async function getNextMatch(): Promise<Match | null> {
   const [upcoming] = await db
     .select()
     .from(matches)
-    .where(gte(matches.playedAt, startOfToday()))
+    .where(stillRunning(Date.now()))
     .orderBy(asc(matches.playedAt))
     .limit(1);
 
@@ -326,6 +340,7 @@ export async function createMatch(input: MatchInput): Promise<Match> {
     .insert(matches)
     .values({
       playedAt: new Date(input.playedAt),
+      endsAt: new Date(input.endsAt),
       placeId: input.placeId ?? null,
       recurrence: input.recurrence ?? null,
       // A recurring fixture opens its own series; occurrences inherit the id.
@@ -363,6 +378,7 @@ export async function updateMatch(
     .update(matches)
     .set({
       playedAt: new Date(input.playedAt),
+      endsAt: new Date(input.endsAt),
       placeId: input.placeId ?? null,
       recurrence: input.recurrence ?? null,
       seriesId,

@@ -25,21 +25,19 @@ type InitialState = {
  * Initial state for the first render. If the database does not answer we
  * return the error instead of propagating it: the app shows the setup guide.
  *
- * A guest still needs the players list, since signing someone up is allowed
- * without an account. Matches and places are admin-only panels, so they are
- * only fetched when there is a session.
+ * Everything is fetched for everyone: a guest can browse the three panels, and
+ * the session only decides what they may change.
  */
 async function loadInitialState(): Promise<
   { data: InitialState } | { error: string }
 > {
   try {
-    const isAdmin = await getIsAdmin();
-
-    const [nextMatch, players, places, matches] = await Promise.all([
+    const [isAdmin, nextMatch, players, places, matches] = await Promise.all([
+      getIsAdmin(),
       getNextMatch(),
       listPlayers(),
-      isAdmin ? listPlaces() : Promise.resolve([]),
-      isAdmin ? listMatches() : Promise.resolve([]),
+      listPlaces(),
+      listMatches(),
     ]);
 
     return {

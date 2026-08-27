@@ -23,7 +23,7 @@ import { LoginDialog } from "./login-dialog";
 import { MatchHudCard } from "./match-hud-card";
 
 export function AppShell() {
-  const { nextMatch, isAdmin, removePlayerFromNextMatch } = usePichanga();
+  const { nextMatch, removePlayerFromNextMatch } = usePichanga();
 
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -62,8 +62,7 @@ export function AppShell() {
       <PitchScene
         match={nextMatch}
         hudInset={hudSize.height ? hudSize.height + 10 : 0}
-        // A guest can add players but not drop them.
-        onRemovePlayer={isAdmin ? setPendingRemoval : undefined}
+        onRemovePlayer={setPendingRemoval}
       />
 
       {/* Overlaid HUD: the pitch fills 100% of the screen */}

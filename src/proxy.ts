@@ -3,19 +3,25 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 
 /**
- * Guards the API. Anyone can read and can do the two things a guest is meant
- * to do at a match: sign a new player up and add players to the lineup.
- * Everything else needs the admin session cookie.
+ * Guards the API.
+ *
+ * A guest can read everything and fully manage *players* and the *lineup*:
+ * that is the part of the app the whole office touches. Matches and places are
+ * the fixture itself, so creating or changing them needs the admin session.
  *
  * In Next 16 this file convention is `proxy`, not `middleware`.
  */
 const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
-  // Create a player profile...
+  // Player profiles, end to end.
   { method: "POST", pattern: /^\/api\/players\/?$/ },
-  // ...including its photo,
+  { method: "PATCH", pattern: /^\/api\/players\/[^/]+\/?$/ },
+  { method: "DELETE", pattern: /^\/api\/players\/[^/]+\/?$/ },
+  // The photo that goes with a profile.
   { method: "POST", pattern: /^\/api\/upload\/?$/ },
-  // ...and put players on the current match.
+  // Putting players on the pitch and taking them off. The trailing segment is
+  // what separates this from deleting the match itself.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/players\/?$/ },
+  { method: "DELETE", pattern: /^\/api\/matches\/[^/]+\/players\/[^/]+\/?$/ },
 ];
 
 export async function proxy(request: NextRequest) {

@@ -41,7 +41,7 @@ export function PlacesDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { places, deletePlace } = usePichanga();
+  const { places, isAdmin, deletePlace } = usePichanga();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Place | null>(null);
@@ -69,21 +69,30 @@ export function PlacesDrawer({
           </SheetHeader>
 
           <SheetBody className="flex flex-col gap-4">
-            <Button size="sm" onClick={openCreate} className="self-start">
-              <Icon icon={PlusSignIcon} size={16} />
-              New place
-            </Button>
+            {/* Anyone can read the venue list; only admins change it. */}
+            {isAdmin ? (
+              <Button size="sm" onClick={openCreate} className="self-start">
+                <Icon icon={PlusSignIcon} size={16} />
+                New place
+              </Button>
+            ) : null}
 
             {places.length === 0 ? (
               <EmptyState
                 icon={Location01Icon}
                 title="No places yet"
-                description="Save the pitches you usually play at."
+                description={
+                  isAdmin
+                    ? "Save the pitches you usually play at."
+                    : "Signing in is needed to save a pitch."
+                }
                 action={
-                  <Button size="sm" onClick={openCreate}>
-                    <Icon icon={PlusSignIcon} size={16} />
-                    New place
-                  </Button>
+                  isAdmin ? (
+                    <Button size="sm" onClick={openCreate}>
+                      <Icon icon={PlusSignIcon} size={16} />
+                      New place
+                    </Button>
+                  ) : null
                 }
               />
             ) : (
@@ -94,7 +103,9 @@ export function PlacesDrawer({
                       Place
                     </TableHead>
                     <TableHead className="w-full">Address</TableHead>
-                    <TableHead className="w-px text-right">Actions</TableHead>
+                    {isAdmin ? (
+                      <TableHead className="w-px text-right">Actions</TableHead>
+                    ) : null}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -120,30 +131,32 @@ export function PlacesDrawer({
                         {place.address ?? <span className="opacity-50">-</span>}
                       </TableCell>
 
-                      <TableCell className="align-top">
-                        <div className="-mt-1.5 flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${place.name}`}
-                            onClick={() => {
-                              setEditing(place);
-                              setFormOpen(true);
-                            }}
-                          >
-                            <Icon icon={PencilEdit02Icon} size={15} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${place.name}`}
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => setPendingDelete(place)}
-                          >
-                            <Icon icon={Delete02Icon} size={15} />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      {isAdmin ? (
+                        <TableCell className="align-top">
+                          <div className="-mt-1.5 flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${place.name}`}
+                              onClick={() => {
+                                setEditing(place);
+                                setFormOpen(true);
+                              }}
+                            >
+                              <Icon icon={PencilEdit02Icon} size={15} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${place.name}`}
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => setPendingDelete(place)}
+                            >
+                              <Icon icon={Delete02Icon} size={15} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      ) : null}
                     </TableRow>
                   ))}
                 </TableBody>
