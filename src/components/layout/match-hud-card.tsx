@@ -10,6 +10,7 @@ import {
 import { LiveBadge } from "@/components/matches/live-badge";
 import { Icon } from "@/components/ui/icon";
 import { useNow } from "@/hooks/use-now";
+import { formatMoney, perPlayer } from "@/lib/money";
 import { formatLongDate, formatTimeRange, isLive, relativeLabel } from "@/lib/date";
 import type { Match } from "@/types";
 
@@ -34,6 +35,7 @@ export function MatchHudCard({ match }: { match: Match | null }) {
   }
 
   const live = now !== null && isLive(match.playedAt, match.endsAt, now);
+  const share = perPlayer(match.place?.price, match.players.length);
 
   return (
     <div className="min-w-0">
@@ -49,6 +51,24 @@ export function MatchHudCard({ match }: { match: Match | null }) {
             <span>{relativeLabel(match.playedAt)}</span>
           </span>
         )}
+
+        {/*
+          The split sits at the far right of the date line. It recomputes on
+          every render, so signing someone up updates it with the lineup.
+        */}
+        {share !== null ? (
+          <span
+            className="ml-auto flex shrink-0 items-baseline gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5"
+            title={`${formatMoney(match.place!.price!)} split across ${match.players.length} ${match.players.length === 1 ? "player" : "players"}`}
+          >
+            <span className="text-sm tabular-nums text-foreground">
+              {formatMoney(share)}
+            </span>
+            <span className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
+              each
+            </span>
+          </span>
+        ) : null}
       </p>
 
       <div className="mt-0.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-sm text-muted-foreground">

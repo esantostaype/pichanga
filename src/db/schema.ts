@@ -51,6 +51,8 @@ export const places = sqliteTable(
     googlePlaceId: text("google_place_id"),
     /** Ready-to-open maps link. */
     mapsUrl: text("maps_url"),
+    /** Rental price for one match, split across whoever plays. */
+    price: real("price"),
     lat: real("lat"),
     lng: real("lng"),
     createdAt: createdAt(),

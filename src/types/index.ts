@@ -15,6 +15,8 @@ export type Place = {
   address: string | null;
   googlePlaceId: string | null;
   mapsUrl: string | null;
+  /** Rental price for one match, split across whoever plays. */
+  price: number | null;
   lat: number | null;
   lng: number | null;
   createdAt: number;

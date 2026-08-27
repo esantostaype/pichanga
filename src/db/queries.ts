@@ -31,6 +31,7 @@ const toPlace = (row: PlaceRow | null): Place | null =>
         address: row.address,
         googlePlaceId: row.googlePlaceId,
         mapsUrl: row.mapsUrl,
+        price: row.price,
         lat: row.lat,
         lng: row.lng,
         createdAt: row.createdAt.getTime(),
@@ -82,6 +83,7 @@ export async function createPlace(input: PlaceInput): Promise<Place> {
       address: input.address ?? null,
       googlePlaceId: input.googlePlaceId ?? null,
       mapsUrl: input.mapsUrl ?? null,
+      price: input.price ?? null,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
     })
@@ -101,6 +103,7 @@ export async function updatePlace(
       address: input.address ?? null,
       googlePlaceId: input.googlePlaceId ?? null,
       mapsUrl: input.mapsUrl ?? null,
+      price: input.price ?? null,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
     })

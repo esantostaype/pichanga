@@ -23,6 +23,12 @@ export const placeInputSchema = z.object({
   address: z.string().trim().max(200).nullable().optional(),
   googlePlaceId: z.string().trim().max(200).nullable().optional(),
   mapsUrl: z.string().url("Must be a valid URL").nullable().optional(),
+  price: z
+    .number()
+    .nonnegative("Cannot be negative")
+    .max(1_000_000)
+    .nullable()
+    .optional(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
 });

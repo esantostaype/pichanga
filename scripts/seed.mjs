@@ -146,12 +146,13 @@ const playedAt = (() => {
 const placeId = crypto.randomUUID();
 
 await db.execute({
-  sql: "insert into places (id, name, address, google_place_id, maps_url, lat, lng, created_at) values (?, ?, ?, null, ?, null, null, ?)",
+  sql: "insert into places (id, name, address, google_place_id, maps_url, price, lat, lng, created_at) values (?, ?, ?, null, ?, ?, null, null, ?)",
   args: [
     placeId,
     "Pitch 3",
     "Av. Ejemplo 123",
     "https://www.google.com/maps/search/?api=1&query=Pitch+3",
+    120,
     now,
   ],
 });

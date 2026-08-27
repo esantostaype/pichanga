@@ -152,6 +152,42 @@ egress IPs, by **IP address**. An HTTP referrer restriction would break it: the
 call is made from the server, not the browser, so there is no referrer to
 match.
 
+## Splitting the rental
+
+A place carries a `price`, the rental for one match. The HUD shows what each
+player owes at the far right of the date line, and it recomputes on every
+render, so signing someone up or dropping them changes the figure with the
+lineup, on every open screen.
+
+`perPlayer()` returns `null` when there is no price or nobody signed up, so
+the slot stays empty instead of printing a zero or an infinity.
+
+The currency comes from `NEXT_PUBLIC_CURRENCY` (default `PEN`). Like the time
+zone, the formatting locale is pinned rather than taken from the runtime: the
+server and the browser would otherwise disagree and the SSR markup would not
+match.
+
+## Bulk delete
+
+Every drawer table has a checkbox column with a select-all header. Ticking
+rows raises a bar with the count, a *Clear* and a *Delete*, and the confirm
+dialog names either the single row or the count.
+
+Some details worth knowing:
+
+- **Selection follows the visible rows.** In Players, "select all" means the
+  current search results, not the whole table, and ticked rows survive
+  clearing the search.
+- **One row and a selection share the same path**: the per-row trash icon just
+  queues a list of one, so there is a single delete flow to reason about.
+- **`useRowSelection` prunes on read.** Ids that vanish from the list are
+  filtered out when read instead of being synced away in an effect, which
+  would mean writing state in reaction to state.
+- **The provider deletes with `allSettled` and refreshes once**, not once per
+  row, and reports how many actually went through if some fail.
+- The column follows the permissions: a guest gets it in Players, which they
+  may delete, and not in Matches or Places.
+
 ## Time zone
 
 Dates render in one fixed zone, `NEXT_PUBLIC_TIME_ZONE` (default

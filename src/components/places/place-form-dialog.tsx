@@ -19,6 +19,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
+import { CURRENCY } from "@/lib/money";
 import type { Place } from "@/types";
 import { PlaceSearchField } from "./place-search-field";
 
@@ -27,6 +28,16 @@ const formSchema = z.object({
   address: z.string().trim().max(200).optional(),
   mapsUrl: z
     .union([z.string().url("Must be a valid URL"), z.literal("")])
+    .optional(),
+  // Kept as text so an empty field means "no price" instead of zero.
+  price: z
+    .string()
+    .trim()
+    .refine((value) => value === "" || Number(value) >= 0, "Cannot be negative")
+    .refine(
+      (value) => value === "" || Number.isFinite(Number(value)),
+      "Must be a number",
+    )
     .optional(),
 });
 
@@ -99,6 +110,7 @@ function PlaceForm({
       name: place?.name ?? "",
       address: place?.address ?? "",
       mapsUrl: place?.mapsUrl ?? "",
+      price: place?.price != null ? String(place.price) : "",
     },
   });
 
@@ -108,6 +120,7 @@ function PlaceForm({
         name: values.name,
         address: values.address?.trim() || null,
         mapsUrl: values.mapsUrl?.trim() || null,
+        price: values.price?.trim() ? Number(values.price) : null,
         googlePlaceId: meta.current.googlePlaceId,
         lat: meta.current.lat,
         lng: meta.current.lng,
@@ -162,6 +175,24 @@ function PlaceForm({
           autoComplete="off"
           disabled={pending}
           {...form.register("address")}
+        />
+      </Field>
+
+      <Field
+        label={`Rental price (${CURRENCY})`}
+        error={errors.price?.message}
+        hint="Split across whoever plays. Leave empty if it is free."
+      >
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          inputMode="decimal"
+          placeholder="120"
+          autoComplete="off"
+          disabled={pending}
+          aria-invalid={!!errors.price}
+          {...form.register("price")}
         />
       </Field>
 

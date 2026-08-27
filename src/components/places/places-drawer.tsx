@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { useAction } from "@/hooks/use-action";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { formatMoney } from "@/lib/money";
 import type { Place } from "@/types";
 import { PlaceFormDialog } from "./place-form-dialog";
 
@@ -142,6 +143,9 @@ export function PlacesDrawer({
                       Place
                     </TableHead>
                     <TableHead className="w-full">Address</TableHead>
+                    <TableHead className="w-px whitespace-nowrap text-right">
+                      Price
+                    </TableHead>
                     {isAdmin ? (
                       <TableHead className="w-px text-right">Actions</TableHead>
                     ) : null}
@@ -184,6 +188,14 @@ export function PlacesDrawer({
 
                       <TableCell className="align-top text-muted-foreground">
                         {place.address ?? <span className="opacity-50">-</span>}
+                      </TableCell>
+
+                      <TableCell className="align-top whitespace-nowrap text-right tabular-nums text-muted-foreground">
+                        {place.price != null ? (
+                          formatMoney(place.price)
+                        ) : (
+                          <span className="opacity-50">-</span>
+                        )}
                       </TableCell>
 
                       {isAdmin ? (
