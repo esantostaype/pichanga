@@ -4,6 +4,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { useMemo, useRef } from "react";
 
+import { EASE } from "@/lib/ease";
 import { buildFormation } from "@/lib/formation";
 import type { Player } from "@/types";
 import { PlayerToken } from "./player-token";
@@ -77,7 +78,7 @@ export function LineupLayer({
             scale: 1,
             autoAlpha: 1,
             duration: 0.6,
-            ease: "power3.out",
+            ease: EASE,
             overwrite: true,
           });
           return;
@@ -92,7 +93,7 @@ export function LineupLayer({
             scale: 1,
             autoAlpha: 1,
             duration: 0.85,
-            ease: "back.out(1.4)",
+            ease: EASE,
             delay: Math.min(index * 0.045, 0.6),
             overwrite: true,
           },

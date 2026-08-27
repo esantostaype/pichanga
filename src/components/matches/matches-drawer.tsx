@@ -152,7 +152,7 @@ export function MatchesDrawer({
                             between the date and the time.
                           */}
                           <div className="flex flex-col items-start gap-1 md:flex-row md:items-center md:gap-2">
-                            <p className="font-medium" suppressHydrationWarning>
+                            <p className="font-medium">
                               {formatShortDate(match.playedAt)}
                             </p>
                             {now !== null &&
@@ -171,7 +171,6 @@ export function MatchesDrawer({
 
                           <p
                             className="mt-1 text-xs text-muted-foreground"
-                            suppressHydrationWarning
                           >
                             {formatTimeRange(match.playedAt, match.endsAt)}
                             {" - "}

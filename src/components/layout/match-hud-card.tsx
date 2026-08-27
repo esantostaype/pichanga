@@ -39,7 +39,6 @@ export function MatchHudCard({ match }: { match: Match | null }) {
     <div className="min-w-0">
       <p
         className="mt-1 flex items-center gap-2 truncate font-display text-lg uppercase leading-tight tracking-[0.04em] sm:text-xl"
-        suppressHydrationWarning
       >
         {formatLongDate(match.playedAt)}
 
@@ -47,13 +46,13 @@ export function MatchHudCard({ match }: { match: Match | null }) {
           <LiveBadge />
         ) : (
           <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            <span suppressHydrationWarning>{relativeLabel(match.playedAt)}</span>
+            <span>{relativeLabel(match.playedAt)}</span>
           </span>
         )}
       </p>
 
       <div className="mt-0.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-sm text-muted-foreground">
-        <span className="flex items-center gap-1.5" suppressHydrationWarning>
+        <span className="flex items-center gap-1.5">
           <Icon icon={Time04Icon} size={13} />
           {formatTimeRange(match.playedAt, match.endsAt)}
         </span>

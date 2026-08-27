@@ -19,8 +19,8 @@ function SheetOverlay({
   return (
     <SheetPrimitive.Overlay
       className={cn(
-        "fixed inset-0 z-40 bg-black/70 backdrop-blur-sm",
-        "data-[state=open]:animate-in data-[state=open]:fade-in-0",
+        "fixed inset-0 z-40 bg-(--background)/80",
+        "ease-pichanga data-[state=open]:animate-in data-[state=open]:fade-in-0",
         "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
         className,
       )}
@@ -46,7 +46,7 @@ function SheetContent({
         className={cn(
           "fixed inset-y-0 z-50 flex h-dvh w-full flex-col border-border bg-card shadow-2xl shadow-black/60",
           "sm:max-w-xl lg:max-w-2xl",
-          "transition ease-in-out data-[state=open]:duration-300 data-[state=closed]:duration-200",
+          "transition ease-pichanga data-[state=open]:duration-300 data-[state=closed]:duration-200",
           side === "right"
             ? "right-0 border-l data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right"
             : "left-0 border-r data-[state=open]:animate-in data-[state=open]:slide-in-from-left data-[state=closed]:animate-out data-[state=closed]:slide-out-to-left",

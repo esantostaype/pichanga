@@ -152,6 +152,20 @@ egress IPs, by **IP address**. An HTTP referrer restriction would break it: the
 call is made from the server, not the browser, so there is no referrer to
 match.
 
+## Time zone
+
+Dates render in one fixed zone, `NEXT_PUBLIC_TIME_ZONE` (default
+`America/Lima`), never in the machine's own zone.
+
+This matters because the server formats these during SSR: relying on the local
+zone made the same match read *Wednesday 20:00* on a laptop in Lima and
+*Thursday 01:00* on Vercel, which runs in UTC. A match kicks off at a
+wall-clock time at the pitch, so that is the time everyone sees.
+
+`src/lib/date.ts` does the formatting with `Intl.DateTimeFormat` and converts
+the form's `yyyy-MM-dd` + `HH:mm` back to an instant with `toEpoch`, resolving
+the zone offset twice so a DST boundary cannot shift the result.
+
 ## Kick-off, final whistle and "Live"
 
 A match carries a start *and* an end (`played_at` / `ends_at`). That end is

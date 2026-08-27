@@ -80,7 +80,7 @@ function AddPlayersForm({
     <>
       <DialogHeader>
         <DialogTitle>Add players</DialogTitle>
-        <DialogDescription suppressHydrationWarning>
+        <DialogDescription>
           {nextMatch
             ? `Match on ${formatShortDate(nextMatch.playedAt)} - ${lockedIds.length} already in.`
             : "Create a match first."}

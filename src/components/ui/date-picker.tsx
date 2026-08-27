@@ -44,7 +44,7 @@ export function DatePicker({
           className={className}
           display={
             selected ? (
-              <span suppressHydrationWarning>
+              <span>
                 {formatShortDate(selected.getTime())}
               </span>
             ) : null

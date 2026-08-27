@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Icon } from "@/components/ui/icon";
 import { useAction } from "@/hooks/use-action";
 import { useElementSize } from "@/hooks/use-element-size";
+import { EASE } from "@/lib/ease";
 import type { Player } from "@/types";
 import { AppMenu, type PanelName } from "./app-menu";
 import { Brand } from "./brand";
@@ -51,7 +52,7 @@ export function AppShell() {
         y: -14,
         duration: 0.6,
         stagger: 0.08,
-        ease: "power2.out",
+        ease: EASE,
       });
     },
     { scope: hudRef },
