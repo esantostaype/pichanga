@@ -29,6 +29,13 @@ export function getArea(id: string) {
 /** Fallback length for a match with no explicit end time. */
 export const DEFAULT_MATCH_DURATION_MS = 90 * 60 * 1000;
 
+/**
+ * How long a finished match keeps the pitch. The rental is collected after the
+ * whistle, so the lineup has to stay visible while somebody still owes money;
+ * only then does the next fixture take over.
+ */
+export const MATCH_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
+
 /** Photo rules, shared by client and server. */
 export const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
 export const ACCEPTED_PHOTO_TYPES = [
@@ -57,6 +64,21 @@ export const PRESENCE = {
   staleMs: 10 * 60_000,
 } as const;
 
+/**
+ * Match gallery. Files go straight from the browser to Cloudinary, so these
+ * caps are enforced before the upload starts rather than at our own door.
+ */
+export const GALLERY = {
+  imageTypes: ACCEPTED_PHOTO_TYPES,
+  videoTypes: ["video/mp4", "video/webm", "video/quicktime"],
+  maxImageBytes: 10 * 1024 * 1024,
+  maxVideoBytes: 100 * 1024 * 1024,
+} as const;
+
+export const GALLERY_ACCEPT = [...GALLERY.imageTypes, ...GALLERY.videoTypes].join(
+  ",",
+);
+
 /** Pusher channel and events. */
 export const REALTIME = {
   channel: "pichanga",
@@ -65,5 +87,6 @@ export const REALTIME = {
     playersChanged: "players:changed",
     placesChanged: "places:changed",
     lineupChanged: "lineup:changed",
+    mediaChanged: "media:changed",
   },
 } as const;

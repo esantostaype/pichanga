@@ -54,6 +54,32 @@ function zonedParts(ms: number) {
   };
 }
 
+/**
+ * The readable id a match gets in its URL: `sep-2-2026`.
+ *
+ * Built from the calendar fields in the pitch's zone, so the address of a match
+ * is the day it is played on, not the day it happens to be in UTC.
+ */
+export const matchSlug = (ms: number) => {
+  const { year, month, day } = zonedParts(ms);
+  return `${MONTH_SLUGS[month - 1]}-${day}-${year}`;
+};
+
+const MONTH_SLUGS = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+] as const;
+
 /** Values for the `date` and `time` inputs, in the pitch's zone. */
 export const toDateInput = (ms: number) => {
   const { year, month, day } = zonedParts(ms);

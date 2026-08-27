@@ -1,13 +1,26 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
 
-import { DEFAULT_MATCH_DURATION_MS } from "@/lib/constants";
-import type { MatchInput, PlaceInput, PlayerInput } from "@/lib/validators";
-import type { Match, MatchSummary, Place, Player, Recurrence } from "@/types";
+import { DEFAULT_MATCH_DURATION_MS, MATCH_GRACE_MS } from "@/lib/constants";
+import { matchSlug } from "@/lib/date";
+import type {
+  MatchInput,
+  MediaInput,
+  PlaceInput,
+  PlayerInput,
+} from "@/lib/validators";
+import type {
+  Match,
+  MatchMedia,
+  MatchSummary,
+  Place,
+  Player,
+  Recurrence,
+} from "@/types";
 import { db } from "./index";
-import { matchPlayers, matches, places, players } from "./schema";
-import type { MatchRow, PlaceRow, PlayerRow } from "./schema";
+import { matchMedia, matchPlayers, matches, places, players } from "./schema";
+import type { MatchMediaRow, MatchRow, PlaceRow, PlayerRow } from "./schema";
 
 /* -------------------------------------------------------------------------- */
 /*                                  mappers                                   */
@@ -42,10 +55,21 @@ const toPlace = (row: PlaceRow | null): Place | null =>
 const endOf = (row: { playedAt: Date; endsAt: Date | null }) =>
   row.endsAt?.getTime() ?? row.playedAt.getTime() + DEFAULT_MATCH_DURATION_MS;
 
+const toMedia = (row: MatchMediaRow): MatchMedia => ({
+  id: row.id,
+  matchId: row.matchId,
+  kind: row.kind === "video" ? "video" : "image",
+  url: row.url,
+  thumbnailUrl: row.thumbnailUrl,
+  width: row.width,
+  height: row.height,
+  createdAt: row.createdAt.getTime(),
+});
+
 const toMatch = (
   row: MatchRow,
   place: PlaceRow | null,
-  lineup: Array<{ player: PlayerRow }>,
+  lineup: Array<{ player: PlayerRow; paidAt: Date | null }>,
 ): Match => ({
   id: row.id,
   playedAt: row.playedAt.getTime(),
@@ -56,6 +80,16 @@ const toMatch = (
   seriesId: row.seriesId,
   createdAt: row.createdAt.getTime(),
   players: lineup.map((entry) => toPlayer(entry.player)),
+  /**
+   * The organizer is always in here. They pay the venue, so their share is
+   * settled by definition -- and deriving it beats writing a `paid_at` that
+   * would be left behind the day somebody else takes the match over.
+   */
+  paidPlayerIds: lineup
+    .filter(
+      (entry) => entry.paidAt !== null || entry.player.id === row.organizerId,
+    )
+    .map((entry) => entry.player.id),
 });
 
 /**
@@ -72,12 +106,15 @@ const withOrganizerFirst = (
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-/**
- * A match counts as current until its final whistle, not until midnight: at
- * 21:05 an 20:00-21:00 fixture is over and the next one takes the pitch.
- */
-const stillRunning = (at: number) =>
-  sql`coalesce(${matches.endsAt}, ${matches.playedAt} + ${DEFAULT_MATCH_DURATION_MS}) > ${at}`;
+/** Final whistle, real or assumed, as a SQL expression. */
+const endsAtSql = sql`coalesce(${matches.endsAt}, ${matches.playedAt} + ${DEFAULT_MATCH_DURATION_MS})`;
+
+/** Not over yet: being played right now, or still to come. */
+const stillRunning = (at: number) => sql`${endsAtSql} > ${at}`;
+
+/** Over, but recently enough that the rental may still be outstanding. */
+const withinGrace = (at: number) =>
+  sql`${endsAtSql} <= ${at} and ${endsAtSql} > ${at - MATCH_GRACE_MS}`;
 
 /* -------------------------------------------------------------------------- */
 /*                                   places                                   */
@@ -287,6 +324,8 @@ export async function listMatches(): Promise<MatchSummary[]> {
       match: matches,
       place: places,
       playerCount: sql<number>`count(${matchPlayers.playerId})`,
+      // Same rule as `toMatch`: the organizer is counted as settled.
+      paidCount: sql<number>`count(case when ${matchPlayers.paidAt} is not null or ${matchPlayers.playerId} = ${matches.organizerId} then 1 end)`,
     })
     .from(matches)
     .leftJoin(places, eq(places.id, matches.placeId))
@@ -304,12 +343,17 @@ export async function listMatches(): Promise<MatchSummary[]> {
     seriesId: row.match.seriesId,
     createdAt: row.match.createdAt.getTime(),
     playerCount: Number(row.playerCount ?? 0),
+    paidCount: Number(row.paidCount ?? 0),
   }));
 }
 
 async function loadLineup(matchId: string) {
   return db
-    .select({ player: players, slot: matchPlayers.slot })
+    .select({
+      player: players,
+      slot: matchPlayers.slot,
+      paidAt: matchPlayers.paidAt,
+    })
     .from(matchPlayers)
     .innerJoin(players, eq(players.id, matchPlayers.playerId))
     .where(eq(matchPlayers.matchId, matchId))
@@ -322,6 +366,26 @@ async function loadPlace(placeId: string | null) {
   return row ?? null;
 }
 
+/**
+ * Looks a match up by the slug in its URL, e.g. `sep-2-2026`.
+ *
+ * Compared as strings rather than as an epoch range: the slug is already the
+ * calendar day in the pitch's zone, and matching it that way keeps every
+ * timezone edge out of the query. The fixture list is small enough that
+ * scanning it costs nothing.
+ */
+export async function getMatchBySlug(slug: string): Promise<Match | null> {
+  await materializeRecurringMatches();
+
+  const rows = await db
+    .select({ id: matches.id, playedAt: matches.playedAt })
+    .from(matches)
+    .orderBy(asc(matches.playedAt));
+
+  const found = rows.find((row) => matchSlug(row.playedAt.getTime()) === slug);
+  return found ? getMatch(found.id) : null;
+}
+
 export async function getMatch(id: string): Promise<Match | null> {
   const [row] = await db.select().from(matches).where(eq(matches.id, id));
   if (!row) return null;
@@ -330,27 +394,161 @@ export async function getMatch(id: string): Promise<Match | null> {
 }
 
 /**
- * The match that owns the main screen: the one being played right now, or else
- * the closest one still to come. If everything is over we show the most recent
- * one so the pitch is not empty.
+ * The match that owns the main screen, in priority order:
+ *
+ *  1. One being played right now.
+ *  2. One that finished less than three days ago. The rental gets collected
+ *     after the whistle, so the lineup stays up while somebody still owes
+ *     their share -- that is what MATCH_GRACE_MS buys.
+ *  3. The closest one still to come.
+ *  4. Failing all that, the last one played, so the pitch is never empty.
+ *
+ * A live match jumps the queue on purpose: if the next fixture kicks off while
+ * the previous one is still settling up, the ball beats the bookkeeping.
  */
 export async function getNextMatch(): Promise<Match | null> {
   await materializeRecurringMatches();
 
-  const [upcoming] = await db
+  const now = Date.now();
+
+  const live = await db
     .select()
     .from(matches)
-    .where(stillRunning(Date.now()))
+    .where(and(lte(matches.playedAt, new Date(now)), stillRunning(now)))
     .orderBy(asc(matches.playedAt))
     .limit(1);
 
+  const settling = live.length
+    ? []
+    : await db
+        .select()
+        .from(matches)
+        .where(withinGrace(now))
+        .orderBy(desc(matches.playedAt))
+        .limit(1);
+
+  const upcoming =
+    live.length || settling.length
+      ? []
+      : await db
+          .select()
+          .from(matches)
+          .where(stillRunning(now))
+          .orderBy(asc(matches.playedAt))
+          .limit(1);
+
   const row =
-    upcoming ??
+    live[0] ??
+    settling[0] ??
+    upcoming[0] ??
     (await db.select().from(matches).orderBy(desc(matches.playedAt)).limit(1))[0];
 
   if (!row) return null;
 
   return toMatch(row, await loadPlace(row.placeId), await loadLineup(row.id));
+}
+
+export type PaidResult =
+  | { ok: true; match: Match }
+  /** The player is not in this lineup. */
+  | { ok: false; reason: "missing" }
+  /** The organizer's share cannot be taken back. */
+  | { ok: false; reason: "organizer" };
+
+/**
+ * Marks one player's share of the rental as settled, or unsettles it. Admin
+ * only: it is the organizer's ledger, and there is no per-person identity to
+ * stop somebody ticking their own name.
+ */
+export async function setPlayerPaid(
+  matchId: string,
+  playerId: string,
+  paid: boolean,
+): Promise<PaidResult> {
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+  if (!match) return { ok: false, reason: "missing" };
+
+  if (match.organizerId === playerId) {
+    // Taking it back is refused outright, and granting it writes nothing: the
+    // role already implies it, and a stored `paid_at` would outlive the role.
+    // Somebody handed the match over and their predecessor would still read as
+    // settled, having never paid a thing.
+    if (!paid) return { ok: false, reason: "organizer" };
+
+    const settled = await getMatch(matchId);
+    return settled ? { ok: true, match: settled } : { ok: false, reason: "missing" };
+  }
+
+  const updated = await db
+    .update(matchPlayers)
+    .set({ paidAt: paid ? new Date() : null })
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    )
+    .returning();
+
+  if (!updated.length) return { ok: false, reason: "missing" };
+
+  const full = await getMatch(matchId);
+  return full ? { ok: true, match: full } : { ok: false, reason: "missing" };
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                match media                                 */
+/* -------------------------------------------------------------------------- */
+
+export async function listMatchMedia(matchId: string): Promise<MatchMedia[]> {
+  const rows = await db
+    .select()
+    .from(matchMedia)
+    .where(eq(matchMedia.matchId, matchId))
+    .orderBy(desc(matchMedia.createdAt));
+
+  return rows.map(toMedia);
+}
+
+export async function addMatchMedia(
+  matchId: string,
+  input: MediaInput,
+): Promise<MatchMedia | null> {
+  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+  if (!match) return null;
+
+  const [row] = await db
+    .insert(matchMedia)
+    .values({
+      matchId,
+      publicId: input.publicId,
+      url: input.url,
+      kind: input.kind,
+      thumbnailUrl: input.thumbnailUrl ?? null,
+      width: input.width ?? null,
+      height: input.height ?? null,
+    })
+    .returning();
+
+  return toMedia(row);
+}
+
+/** Returns the Cloudinary id so the caller can delete the file itself. */
+export async function deleteMatchMedia(
+  matchId: string,
+  mediaId: string,
+): Promise<{ publicId: string; kind: "image" | "video" } | null> {
+  const [row] = await db
+    .delete(matchMedia)
+    .where(and(eq(matchMedia.matchId, matchId), eq(matchMedia.id, mediaId)))
+    .returning();
+
+  if (!row) return null;
+
+  return {
+    publicId: row.publicId,
+    kind: row.kind === "video" ? "video" : "image",
+  };
 }
 
 export async function createMatch(input: MatchInput): Promise<Match> {

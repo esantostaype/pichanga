@@ -33,7 +33,7 @@ export function PickerTrigger({
       // as a data attribute.
       data-invalid={invalid ? "true" : undefined}
       className={cn(
-        "flex h-10 w-full items-center gap-2 rounded-xl border border-input bg-muted/40 px-3.5 text-left text-sm transition-colors",
+        "cursor-pointer flex h-10 w-full items-center gap-2 rounded-xl border border-input bg-muted/40 px-3.5 text-left text-sm transition-colors",
         "hover:border-primary/40 focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "data-[invalid=true]:border-destructive/70",

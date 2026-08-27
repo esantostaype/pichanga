@@ -64,6 +64,13 @@
       "when": 1787805314387,
       "tag": "0008_spicy_randall",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1787843964040,
+      "tag": "0009_sudden_abomination",
+      "breakpoints": true
     }
   ]
 }

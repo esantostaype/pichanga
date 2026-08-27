@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Album02Icon,
   Calendar03Icon,
   Delete02Icon,
   Location01Icon,
@@ -9,6 +10,7 @@ import {
   RepeatIcon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
+import Link from "next/link";
 import { useState } from "react";
 
 import { usePichanga } from "@/components/providers/pichanga-provider";
@@ -42,10 +44,12 @@ import {
   formatShortDate,
   formatTimeRange,
   isLive,
+  matchSlug,
   relativeLabel,
 } from "@/lib/date";
 import { cn } from "@/lib/utils";
 import type { MatchSummary } from "@/types";
+import { GalleryDialog } from "./gallery-dialog";
 import { LiveBadge } from "./live-badge";
 import { MatchFormDialog } from "./match-form-dialog";
 
@@ -56,13 +60,16 @@ export function MatchesDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { matches, nextMatch, isAdmin, deleteMatches } = usePichanga();
+  const { matches, nextMatch, homeMatchId, isAdmin, deleteMatches } =
+    usePichanga();
   const now = useNow();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<MatchSummary | null>(null);
   /** Ids queued for deletion: one row or a whole selection, same path. */
   const [pendingDelete, setPendingDelete] = useState<string[]>([]);
+  /** Whose gallery is open. Any match has one, not just the one on the pitch. */
+  const [gallery, setGallery] = useState<MatchSummary | null>(null);
 
   const selection = useRowSelection(matches);
 
@@ -170,9 +177,7 @@ export function MatchesDrawer({
                         <span className="sr-only">Players</span>
                       </span>
                     </TableHead>
-                    {isAdmin ? (
-                      <TableHead className="w-px text-right">Actions</TableHead>
-                    ) : null}
+                    <TableHead className="w-px text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -198,14 +203,28 @@ export function MatchesDrawer({
                           </TableCell>
                         ) : null}
 
-                        <TableCell className="whitespace-nowrap align-top">
+                        {/*
+                          The whole cell is the link into the match: its own
+                          address for any other date, and the front page for
+                          whichever one is currently on the pitch there.
+                        */}
+                        <TableCell className="h-px whitespace-nowrap p-0 align-top">
+                          <Link
+                            href={
+                              match.id === homeMatchId
+                                ? "/"
+                                : `/match/${matchSlug(match.playedAt)}`
+                            }
+                            onClick={() => onOpenChange(false)}
+                            className="flex h-full cursor-pointer flex-col px-4 py-3 transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/60"
+                          >
                           {/*
                             The chip sits beside the date from md up; below that
                             the drawer is too narrow, so it drops to its own line
                             between the date and the time.
                           */}
                           <div className="flex flex-col items-start gap-1 md:flex-row md:items-center md:gap-2">
-                            <p className="font-medium">
+                            <p className="font-medium underline-offset-4 group-hover:underline">
                               {formatShortDate(match.playedAt)}
                             </p>
                             {now !== null &&
@@ -229,6 +248,7 @@ export function MatchesDrawer({
                             {" - "}
                             {relativeLabel(match.playedAt)}
                           </p>
+                          </Link>
                         </TableCell>
 
                         <TableCell className="align-top text-muted-foreground">
@@ -262,39 +282,57 @@ export function MatchesDrawer({
                         {/* Just a number, so the column shrinks to fit it. */}
                         <TableCell className="align-top text-center tabular-nums text-muted-foreground">
                           {match.playerCount}
+                          {/* The rental split, once anybody has paid. */}
+                          {match.paidCount > 0 ? (
+                            <span className="block text-xs text-emerald-400/80">
+                              {match.paidCount} paid
+                            </span>
+                          ) : null}
                         </TableCell>
 
-                        {isAdmin ? (
-                          <TableCell className="align-top">
-                            {/*
-                              The icon buttons are 32px tall against a 20px text
-                              line, so without this nudge their centre sits 6px
-                              below the date and place text.
-                            */}
-                            <div className="-mt-1.5 flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label="Edit match"
-                                onClick={() => {
-                                  setEditing(match);
-                                  setFormOpen(true);
-                                }}
-                              >
-                                <Icon icon={PencilEdit02Icon} size={15} />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label="Delete match"
-                                className="text-muted-foreground hover:text-destructive"
-                                onClick={() => setPendingDelete([match.id])}
-                              >
-                                <Icon icon={Delete02Icon} size={15} />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        ) : null}
+                        <TableCell className="align-top">
+                          {/*
+                            The icon buttons are 32px tall against a 20px text
+                            line, so without this nudge their centre sits 6px
+                            below the date and place text.
+                          */}
+                          <div className="-mt-1.5 flex justify-end gap-1">
+                            {/* The album is open to everyone, like adding players. */}
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label="Match gallery"
+                              onClick={() => setGallery(match)}
+                            >
+                              <Icon icon={Album02Icon} size={15} />
+                            </Button>
+
+                            {isAdmin ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Edit match"
+                                  onClick={() => {
+                                    setEditing(match);
+                                    setFormOpen(true);
+                                  }}
+                                >
+                                  <Icon icon={PencilEdit02Icon} size={15} />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Delete match"
+                                  className="text-muted-foreground hover:text-destructive"
+                                  onClick={() => setPendingDelete([match.id])}
+                                >
+                                  <Icon icon={Delete02Icon} size={15} />
+                                </Button>
+                              </>
+                            ) : null}
+                          </div>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -310,6 +348,13 @@ export function MatchesDrawer({
         open={formOpen}
         onOpenChange={setFormOpen}
         match={editing}
+      />
+
+      <GalleryDialog
+        open={!!gallery}
+        onOpenChange={(next) => !next && setGallery(null)}
+        matchId={gallery?.id ?? null}
+        playedAt={gallery?.playedAt ?? null}
       />
 
       <ConfirmDialog

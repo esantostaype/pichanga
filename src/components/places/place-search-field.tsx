@@ -122,7 +122,7 @@ export function PlaceSearchField({
                 type="button"
                 disabled={disabled}
                 onClick={() => void pick(suggestion)}
-                className="w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
+                className="w-full cursor-pointer rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
               >
                 <span className="block truncate text-sm font-medium">
                   {suggestion.title}

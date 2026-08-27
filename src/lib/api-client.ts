@@ -1,11 +1,17 @@
 import type {
   Match,
+  MatchMedia,
   MatchSummary,
   Place,
   PlaceSuggestion,
   Player,
 } from "@/types";
-import type { MatchInput, PlaceInput, PlayerInput } from "./validators";
+import type {
+  MatchInput,
+  MediaInput,
+  PlaceInput,
+  PlayerInput,
+} from "./validators";
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const isForm = init?.body instanceof FormData;
@@ -42,6 +48,30 @@ export const api = {
         body: body({ password }),
       }),
     logout: () => request<Session>("/api/auth/logout", { method: "POST" }),
+  },
+
+  media: {
+    list: (matchId: string) =>
+      request<MatchMedia[]>(`/api/matches/${matchId}/media`),
+    /** Files the browser already sent to Cloudinary. */
+    add: (matchId: string, input: MediaInput) =>
+      request<MatchMedia>(`/api/matches/${matchId}/media`, {
+        method: "POST",
+        body: body(input),
+      }),
+    remove: (matchId: string, mediaId: string) =>
+      request<{ ok: true }>(`/api/matches/${matchId}/media/${mediaId}`, {
+        method: "DELETE",
+      }),
+    /** Signed permission to upload straight to Cloudinary. */
+    ticket: () =>
+      request<{
+        cloudName: string;
+        apiKey: string;
+        folder: string;
+        timestamp: number;
+        signature: string;
+      }>("/api/upload/ticket", { method: "POST" }),
   },
 
   presence: {
@@ -108,6 +138,12 @@ export const api = {
       request<Match>(`/api/matches/${id}/players`, {
         method: "POST",
         body: body({ playerIds }),
+      }),
+    /** Marks that player's share of the rental as settled, or not. */
+    setPaid: (id: string, playerId: string, paid: boolean) =>
+      request<Match>(`/api/matches/${id}/players/${playerId}`, {
+        method: "PATCH",
+        body: body({ paid }),
       }),
     removePlayer: (id: string, playerId: string) =>
       request<Match>(`/api/matches/${id}/players/${playerId}`, {

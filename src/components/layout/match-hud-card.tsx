@@ -22,10 +22,13 @@ import type { Match } from "@/types";
 export function MatchHudCard({
   match,
   stacked,
+  onOpenPayments,
 }: {
   match: Match | null;
   /** One item per line, for the centred dialog on a phone. */
   stacked?: boolean;
+  /** Opens the rental ledger. The money pill becomes the button for it. */
+  onOpenPayments?: () => void;
 }) {
   const now = useNow();
 
@@ -45,6 +48,14 @@ export function MatchHudCard({
   const live = now !== null && isLive(match.playedAt, match.endsAt, now);
   const share = perPlayer(match.place?.price, match.players.length);
 
+  /**
+   * Played and finished. The pitch keeps the match for three days after the
+   * whistle so the rental can be collected, so this state is on screen for
+   * longer than the match itself.
+   */
+  const over = now !== null && now >= match.endsAt;
+  const owing = match.players.length - match.paidPlayerIds.length;
+
   return (
     <div className="min-w-0">
       <p
@@ -59,6 +70,17 @@ export function MatchHudCard({
 
         {live ? (
           <LiveBadge />
+        ) : over ? (
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em]",
+              owing > 0
+                ? "bg-amber-400/15 text-amber-300"
+                : "bg-emerald-400/15 text-emerald-300",
+            )}
+          >
+            {owing > 0 ? `${owing} to pay` : "All paid"}
+          </span>
         ) : (
           <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
             <span>{relativeLabel(match.playedAt)}</span>
@@ -70,9 +92,15 @@ export function MatchHudCard({
           every render, so signing someone up updates it with the lineup.
         */}
         {share !== null ? (
-          <span
+          <button
+            type="button"
+            onClick={onOpenPayments}
+            disabled={!onOpenPayments}
             className={cn(
-              "flex shrink-0 items-baseline gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5",
+              "flex shrink-0 cursor-pointer items-baseline gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 transition-colors",
+              onOpenPayments
+                ? "hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                : "cursor-default",
               stacked ? "" : "ml-auto",
             )}
             title={`${formatMoney(match.place!.price!)} split across ${match.players.length} ${match.players.length === 1 ? "player" : "players"}`}
@@ -83,7 +111,10 @@ export function MatchHudCard({
             <span className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
               each
             </span>
-          </span>
+            <span className="text-[0.6rem] tabular-nums text-muted-foreground">
+              {match.paidPlayerIds.length}/{match.players.length}
+            </span>
+          </button>
         ) : null}
       </p>
 

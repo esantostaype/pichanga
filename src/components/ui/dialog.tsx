@@ -20,8 +20,8 @@ function DialogOverlay({
     <DialogPrimitive.Overlay
       className={cn(
         "fixed inset-0 z-50 bg-(--background)/80",
-        "ease-pichanga data-[state=open]:animate-in data-[state=open]:fade-in-0",
-        "data-[state=closed]:animate-out data-[state=closed]:fade-out-0",
+        "ease-pichanga data-[state=open]:animate-in data-[state=open]:duration-500 data-[state=open]:fade-in-0",
+        "data-[state=closed]:animate-out data-[state=closed]:duration-[250ms] data-[state=closed]:fade-out-0",
         className,
       )}
       {...props}
@@ -37,13 +37,22 @@ function DialogContent({
   return (
     <DialogPortal>
       <DialogOverlay />
+      {/*
+        Centred with `inset-0` and `margin: auto`, not with `-translate-1/2`.
+        The slide animates this element's own `transform`, which would wipe a
+        translate-based centring out mid-flight; and it has to stay the portal's
+        only child, because Radix wraps each child in its own `Presence` and a
+        plain wrapper would unmount instantly, cutting the exit animation off.
+      */}
       <DialogPrimitive.Content
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-[calc(100vw-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-5",
+          "fixed inset-0 z-50 m-auto grid h-fit w-[calc(100vw-2rem)] max-w-lg gap-5",
           "max-h-[calc(100dvh-2rem)] overflow-y-auto scrollbar-thin",
           "rounded-2xl border border-border bg-card p-6 shadow-2xl shadow-black/60",
-          "ease-pichanga data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
-          "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+          // Rises 200px into place on the app's curve, and drops back out in
+          // half the time: leaving should not keep anybody waiting.
+          "ease-pichanga data-[state=open]:animate-in data-[state=open]:duration-500 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-[200px]",
+          "data-[state=closed]:animate-out data-[state=closed]:duration-[250ms] data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-[200px]",
           className,
         )}
         {...props}
@@ -51,7 +60,7 @@ function DialogContent({
         {children}
         <DialogPrimitive.Close
           className={cn(
-            "absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground transition-colors",
+            "absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-muted-foreground transition-colors",
             "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           )}
         >

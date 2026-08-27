@@ -113,12 +113,45 @@ export const matchPlayers = sqliteTable(
       .references(() => players.id, { onDelete: "cascade" }),
     /** Sign-up order: drives how the lineup expands out from the center. */
     slot: integer("slot").notNull().default(0),
+    /**
+     * When this player settled their share of the rental. Null means they
+     * still owe it, which is the whole reason a finished match lingers.
+     */
+    paidAt: integer("paid_at", { mode: "timestamp_ms" }),
     createdAt: createdAt(),
   },
   (t) => [
     primaryKey({ columns: [t.matchId, t.playerId] }),
     index("match_players_match_idx").on(t.matchId, t.slot),
   ],
+);
+
+/* -------------------------------------------------------------------------- */
+/*                                match_media                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Photos and clips from a match. The file lives in Cloudinary; this table only
+ * remembers where it is, so `publicId` is what makes deletion possible.
+ */
+export const matchMedia = sqliteTable(
+  "match_media",
+  {
+    id: id(),
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    publicId: text("public_id").notNull(),
+    url: text("url").notNull(),
+    /** `image` or `video`. */
+    kind: text("kind").notNull(),
+    /** Poster frame, for a video. */
+    thumbnailUrl: text("thumbnail_url"),
+    width: integer("width"),
+    height: integer("height"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("match_media_match_idx").on(t.matchId, t.createdAt)],
 );
 
 /* -------------------------------------------------------------------------- */
@@ -153,6 +186,7 @@ export const placesRelations = relations(places, ({ many }) => ({
 
 export const matchesRelations = relations(matches, ({ many, one }) => ({
   matchPlayers: many(matchPlayers),
+  media: many(matchMedia),
   place: one(places, {
     fields: [matches.placeId],
     references: [places.id],
@@ -174,4 +208,5 @@ export type PlayerRow = typeof players.$inferSelect;
 export type PlaceRow = typeof places.$inferSelect;
 export type MatchRow = typeof matches.$inferSelect;
 export type MatchPlayerRow = typeof matchPlayers.$inferSelect;
+export type MatchMediaRow = typeof matchMedia.$inferSelect;
 export type VisitorRow = typeof visitors.$inferSelect;

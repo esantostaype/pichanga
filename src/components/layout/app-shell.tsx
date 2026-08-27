@@ -1,12 +1,14 @@
 "use client";
 
 import { useGSAP } from "@gsap/react";
-import { PlusSignIcon } from "@hugeicons/core-free-icons";
+import { Album02Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import gsap from "gsap";
 import { useState } from "react";
 
 import { AddPlayersDialog } from "@/components/matches/add-players-dialog";
+import { GalleryDialog } from "@/components/matches/gallery-dialog";
 import { MatchesDrawer } from "@/components/matches/matches-drawer";
+import { PaymentsDialog } from "@/components/matches/payments-dialog";
 import { PitchScene } from "@/components/pitch/pitch-scene";
 import { PlacesDrawer } from "@/components/places/places-drawer";
 import { PlayersDrawer } from "@/components/players/players-drawer";
@@ -30,7 +32,13 @@ import { MatchInfoButton } from "./match-info-button";
 const FAB_CLEARANCE = 48 + 16;
 
 export function AppShell() {
-  const { nextMatch, isSuperAdmin, removePlayerFromNextMatch } = usePichanga();
+  const {
+    nextMatch,
+    isAdmin,
+    isSuperAdmin,
+    removePlayerFromNextMatch,
+    setPlayerPaid,
+  } = usePichanga();
 
   // Everyone counts, so this runs for guests too. It reports nothing but an
   // id this browser made up for itself.
@@ -39,11 +47,18 @@ export function AppShell() {
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   /** Dropping someone is confirmed: on touch screens one tap is enough. */
   const [pendingRemoval, setPendingRemoval] = useState<Player | null>(null);
 
   // The HUD floats over the pitch, so the lineup keeps that band clear.
   const [hudRef, hudSize] = useElementSize<HTMLDivElement>();
+
+  const settle = useAction(
+    async ({ player, paid }: { player: Player; paid: boolean }) =>
+      setPlayerPaid(player.id, paid),
+  );
 
   const removeFromLineup = useAction(
     async (player: Player) => removePlayerFromNextMatch(player.id),
@@ -76,6 +91,13 @@ export function AppShell() {
         // floating button sitting at the bottom right.
         hudInset={Math.max(hudSize.height, FAB_CLEARANCE) + 10}
         onRemovePlayer={setPendingRemoval}
+        // The mark stays read-only for everyone else: the server refuses it
+        // anyway, and a button that always fails is worse than no button.
+        onTogglePaid={
+          isAdmin
+            ? (player, paid) => void settle.run({ player, paid })
+            : undefined
+        }
       />
 
       {/* Overlaid HUD: the pitch fills 100% of the screen */}
@@ -92,13 +114,32 @@ export function AppShell() {
           <Brand />
           <span aria-hidden className="hidden h-11 w-px shrink-0 bg-white/10 md:block" />
           <div className="hidden min-w-0 md:block">
-            <MatchHudCard match={nextMatch} />
+            <MatchHudCard
+              match={nextMatch}
+              onOpenPayments={() => setPaymentsOpen(true)}
+            />
           </div>
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">
+          {/* The album of the match on the pitch. Everyone can add to it. */}
+          <Button
+            variant="secondary"
+            size="icon"
+            aria-label="Match gallery"
+            className="bg-black/55 backdrop-blur-md"
+            disabled={!nextMatch}
+            onClick={() => setGalleryOpen(true)}
+          >
+            <Icon icon={Album02Icon} size={20} />
+          </Button>
+
           {/* The details live behind this button only where they are hidden. */}
-          <MatchInfoButton match={nextMatch} className="md:hidden" />
+          <MatchInfoButton
+            match={nextMatch}
+            className="md:hidden"
+            onOpenPayments={() => setPaymentsOpen(true)}
+          />
           <AppMenu onSelect={setPanel} onSignIn={() => setLoginOpen(true)} />
         </div>
       </div>
@@ -137,6 +178,15 @@ export function AppShell() {
       <AddPlayersDialog open={addOpen} onOpenChange={setAddOpen} />
 
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+
+      <PaymentsDialog open={paymentsOpen} onOpenChange={setPaymentsOpen} />
+
+      <GalleryDialog
+        open={galleryOpen}
+        onOpenChange={setGalleryOpen}
+        matchId={nextMatch?.id ?? null}
+        playedAt={nextMatch?.playedAt ?? null}
+      />
 
       <ConfirmDialog
         open={!!pendingRemoval}

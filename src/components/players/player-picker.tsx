@@ -89,7 +89,7 @@ export function PlayerPicker({
                     onClick={() => onToggle(player.id)}
                     aria-pressed={isChecked}
                     className={cn(
-                      "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
+                      "cursor-pointer flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors",
                       isChecked
                         ? "border-primary/40 bg-primary/10"
                         : "border-border/60 bg-muted/25 hover:bg-accent/60",

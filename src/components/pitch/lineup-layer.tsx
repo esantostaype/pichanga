@@ -19,6 +19,9 @@ type LineupLayerProps = {
   insetY?: number;
   /** Their token takes the centre slot and wears the crown. */
   organizerId?: string | null;
+  /** Ids that already paid. Undefined leaves the payment mark off. */
+  paidPlayerIds?: string[];
+  onTogglePaid?: (player: Player, paid: boolean) => void;
   onRemovePlayer?: (player: Player) => void;
 };
 
@@ -33,6 +36,8 @@ export function LineupLayer({
   height,
   insetY = 0,
   organizerId,
+  paidPlayerIds,
+  onTogglePaid,
   onRemovePlayer,
 }: LineupLayerProps) {
   const scope = useRef<HTMLDivElement>(null);
@@ -130,6 +135,12 @@ export function LineupLayer({
               size={formation.tokenSize}
               plateWidth={formation.plateWidth}
               isOrganizer={player.id === organizerId}
+          isPaid={paidPlayerIds ? paidPlayerIds.includes(player.id) : undefined}
+          // The organizer's mark is locked: their share is settled by
+          // definition, so there is nothing to toggle.
+          onTogglePaid={
+            paidPlayerIds && player.id !== organizerId ? onTogglePaid : undefined
+          }
               onRemove={onRemovePlayer}
             />
           </div>

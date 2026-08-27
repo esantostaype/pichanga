@@ -59,6 +59,56 @@ export async function uploadPlayerPhoto(file: File): Promise<UploadedPhoto> {
   return { url: result.secure_url, publicId: result.public_id };
 }
 
+export type UploadTicket = {
+  cloudName: string;
+  apiKey: string;
+  folder: string;
+  timestamp: number;
+  signature: string;
+};
+
+/**
+ * Everything the browser needs to upload straight to Cloudinary.
+ *
+ * Files go direct rather than through this app on purpose: a serverless
+ * request body caps out around 4.5 MB, which no video clears. The secret stays
+ * here and only signs the two parameters below, so a client cannot smuggle in
+ * extra ones -- Cloudinary rejects any unsigned parameter it receives.
+ */
+export function galleryUploadTicket(): UploadTicket {
+  const sdk = client();
+  const folder = env.CLOUDINARY_GALLERY_FOLDER;
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  return {
+    cloudName: env.CLOUDINARY_CLOUD_NAME,
+    apiKey: env.CLOUDINARY_API_KEY,
+    folder,
+    timestamp,
+    signature: sdk.utils.api_sign_request(
+      { folder, timestamp },
+      env.CLOUDINARY_API_SECRET,
+    ),
+  };
+}
+
+/** The folder every gallery upload must land in, for validating what comes back. */
+export function galleryFolder() {
+  return env.CLOUDINARY_GALLERY_FOLDER;
+}
+
+/** Removes a gallery file. Videos live under their own resource type. */
+export async function deleteMedia(publicId: string, kind: "image" | "video") {
+  try {
+    await client().uploader.destroy(publicId, {
+      resource_type: kind,
+      invalidate: true,
+    });
+  } catch (error) {
+    console.error("[cloudinary] could not delete", publicId, error);
+  }
+}
+
 /** Deletes the previous image so Cloudinary is not left with orphans. */
 export async function deletePlayerPhoto(publicId: string | null | undefined) {
   if (!publicId) return;

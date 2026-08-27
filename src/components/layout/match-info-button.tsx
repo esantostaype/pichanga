@@ -25,9 +25,11 @@ import { MatchHudCard } from "./match-hud-card";
 export function MatchInfoButton({
   match,
   className,
+  onOpenPayments,
 }: {
   match: Match | null;
   className?: string;
+  onOpenPayments?: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -46,7 +48,20 @@ export function MatchInfoButton({
 
       <DialogContent className="max-w-sm">
         <DialogTitle className="sr-only">Match details</DialogTitle>
-        <MatchHudCard match={match} stacked />
+        <MatchHudCard
+          match={match}
+          stacked
+          onOpenPayments={
+            onOpenPayments
+              ? () => {
+                  // The ledger is its own dialog, so this one steps aside
+                  // instead of stacking two backdrops on a phone.
+                  setOpen(false);
+                  onOpenPayments();
+                }
+              : undefined
+          }
+        />
       </DialogContent>
     </Dialog>
   );

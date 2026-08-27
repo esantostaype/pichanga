@@ -124,6 +124,9 @@ office touches. The **fixture** itself, matches and places, needs the session.
 | Create / edit / delete matches | no | yes | yes |
 | Create / edit / delete places | no | yes | yes |
 | Google venue search | no | yes | yes |
+| Add photos and clips to a gallery | yes | yes | yes |
+| Mark the rental as paid | no | yes | yes |
+| Delete a gallery file | no | yes | yes |
 | See the live headcount | no | no | yes |
 
 There are two passwords. `ADMIN_PASSWORD` is the one the office can be given;
@@ -137,6 +140,168 @@ call costs money on the Google bill.
 The UI mirrors the same rules — a guest sees the three drawers but without
 their create, edit and delete controls — while the proxy is what actually
 enforces them, so a hidden button is never the only thing standing in the way.
+
+## After the whistle
+
+A finished match keeps the pitch for **three days** (`MATCH_GRACE_MS`), because
+the rental gets collected afterwards and the lineup is the list of who owes
+what. Only then does the next fixture take over. `getNextMatch()` picks in this
+order:
+
+1. A match being played right now.
+2. One that finished less than three days ago.
+3. The closest one still to come.
+4. Failing that, the last one played, so the pitch is never empty.
+
+A live match jumps the queue on purpose: if the next fixture kicks off while
+the previous one is still settling up, the ball beats the bookkeeping. The next
+occurrence of a weekly fixture is still created the moment the previous one
+ends, so it is in the Matches drawer the whole time -- it just does not own the
+screen yet.
+
+## The rental ledger
+
+`match_players.paid_at` records when each player settled their share. The pitch
+marks every token on the left edge of the photo, halfway down: a receipt when
+they have paid, a red empty wallet when they have not. For an admin the mark is
+a button and **double clicking the photo** does the same thing, which is the
+fast way through a squad -- a stamp flashes over the photo to confirm. The money
+pill in the HUD opens the full ledger: the split, what has
+been collected, what is pending, and a switch per player.
+
+The marks are on every match, past or future: plenty of people pay up front,
+and a fixture nobody can tick is a fixture nobody can collect for.
+
+The **organizer is always settled**: they pay the venue, so their mark is green
+and locked -- no button, no double click, and the API answers 422 if somebody
+tries to take it back. It is derived rather than stored, so handing the match to
+somebody else moves the mark with the crown instead of leaving the old
+organizer marked as having paid something they never did. Marking them paid is
+accepted and writes nothing, for the same reason.
+
+The mark flips **before the request finishes** and goes back if it fails: money
+changes hands faster than a round trip, and the toast says so when the save did
+not land.
+
+Marking a payment needs the **admin** session, unlike the rest of the lineup.
+There is no per-person login, so an open ledger would let anybody tick their
+own name -- an honour system rather than a record. Everyone can read it.
+
+## One date, one address
+
+The front page shows whichever match owns the moment. Every other date has
+its own readable address -- `/match/sep-2-2026` -- and the whole **Date cell**
+in the Matches drawer is the link to it: the front page for the one already
+there, its own page for the rest. That is where a future fixture gets filled
+in and paid off without waiting its turn on the pitch.
+
+A pinned screen is the same screen: same pitch, same lineup, same ledger. It
+just does not follow the clock -- the roll-over that hands the pitch to the
+next match is skipped, and refreshes reload that date rather than asking
+which one is current. The logo is the way back.
+
+Slugs are built from the calendar day in the pitch's zone and matched as
+strings, so the address of a match is the day it is played on, never the day
+it happens to be in UTC. Two matches on the same day would share an address;
+the earlier one wins.
+
+## Match galleries
+
+Every match has an album of photos and clips: `match_media` remembers where each
+file lives and `ON DELETE cascade` takes the album with the match. Reachable
+from the HUD for the match on the pitch, and from the gallery button on any row
+of the Matches drawer.
+
+**Anyone can add, only the session can delete.** A shared album is easy to
+empty by accident and there is nothing to restore it from. An admin gets a
+checkbox on every tile and a bulk bar, so a whole batch goes in one confirm;
+the requests fly in parallel and a partial failure says how many survived.
+
+Each tile is a fixed square with `overflow: hidden`. Hovering grows and tilts
+the **photo inside it**, never the frame, so nothing in the grid shifts. A
+skeleton holds the square until the thumbnail paints.
+
+### Sizes, and the viewer
+
+Nothing ever loads the original. `lib/media-url.ts` writes the
+transformation into the delivery URL and Cloudinary renders and caches each
+size. For one demo photo:
+
+| Variant | Used for | Bytes |
+| --- | --- | --- |
+| original | never | 109,669 |
+| `w_400,h_400,c_fill` | grid tile | 32,099 |
+| `w_40,q_30` | first paint in the viewer | 674 |
+| `w_2400,q_auto` | the open photo | 98,960 |
+
+An album of forty phone photos is a few hundred kilobytes of thumbnails
+instead of eighty megabytes of originals.
+
+Photos open in their own dialog, not the shared one: no card, no padding, 16px
+of air on every side and nothing else. It opens with the 40px version blown up
+and left deliberately blocky (`image-rendering: pixelated`), and the full photo
+fades over it when it arrives.
+
+The photo also **grows out of the thumbnail that opened it**, and shrinks back
+into whichever thumbnail is showing when it closes. The tile's rectangle is
+measured at the moment of the click and GSAP tweens the difference: the frame
+is already laid out at full size, so the tween runs from that offset back to
+nothing. Only `transform` is animated, never opacity, so a tween that never
+ticks leaves a small photo rather than an invisible one.
+
+Two details make that animation actually run, both learned the hard way:
+
+- The tween starts from the **ref callback**, not from an effect on mount.
+  Radix renders a portal empty on its first commit and fills it on the second,
+  so a mount effect fires while the node does not exist yet. That is why the
+  photo used to open with no animation while closing worked fine.
+- The tween is created with **`lazy: false`**. GSAP otherwise holds the first
+  render back to its next tick, and the photo sits full size for a frame
+  before snapping back to the thumbnail to start.
+
+### Stepping through the album
+
+Arrow keys, the buttons at either edge, or a horizontal swipe. Both photos
+move **at the same time**, on the app's curve: the one leaving and the one
+arriving are separate full-screen layers, so they can be different shapes and
+each still sits in the middle of the screen. When the slide ends the commit is
+forced through with `flushSync` *before* the layer's transform is cleared --
+the other order flashes the previous photo back into the middle for a frame.
+
+A downward swipe closes, and so does a click anywhere that is not the photo.
+The neighbours are fetched quietly in the background, so stepping through an
+album is usually instant; when it is not, the spinner says so.
+
+Files go from the browser **straight to Cloudinary**, not through this app.
+`/api/upload/ticket` signs a folder and a timestamp; the browser posts the file
+to Cloudinary with that signature and sends back only the metadata. Two reasons:
+a serverless request body caps out around 4.5 MB, which no video clears, and the
+API secret never leaves the server. Cloudinary rejects any parameter that is not
+in the signature, so a ticket cannot be turned into anything but "put a file in
+that folder".
+
+The metadata that comes back is not trusted either. The url has to be on
+`res.cloudinary.com` and the public id has to start with our gallery folder,
+or the endpoint answers 422 -- otherwise an open endpoint could be used to file
+any link in the world as match media.
+
+Caps are 10 MB per photo and 100 MB per clip, checked before the upload starts.
+Videos are the expensive part of a Cloudinary plan: storage, bandwidth and
+transformations all count against it, and a match full of clips adds up much
+faster than the player portraits ever did.
+
+## Dialog motion
+
+Dialogs rise 200px into place over 500ms and drop back out in 250ms -- half
+the time, because leaving should not keep anybody waiting. Both use the app
+curve, `cubic-bezier(0.32, 0.72, 0, 1)`.
+
+Two things make that work. The panel is centred with `inset-0` and
+`margin: auto` rather than `-translate-1/2`, since the slide animates the
+panel's own `transform` and a translate-based centring would be wiped out
+mid-flight. And the panel stays the **only child of the portal**: Radix wraps
+each child in its own `Presence`, so a plain centring wrapper would unmount
+the instant the dialog closes and cut the exit animation off before it ran.
 
 ## Who is online
 

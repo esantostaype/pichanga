@@ -178,8 +178,10 @@ const lineup = players.slice(0, 10);
 
 await db.batch(
   lineup.map((player, index) => ({
-    sql: "insert into match_players (match_id, player_id, slot, created_at) values (?, ?, ?, ?)",
-    args: [matchId, player.id, index, now + index],
+    sql: "insert into match_players (match_id, player_id, slot, paid_at, created_at) values (?, ?, ?, ?, ?)",
+    // The first three have already settled the rental, so the ledger and the
+    // check marks have something to show in development.
+    args: [matchId, player.id, index, index < 3 ? now : null, now + index],
   })),
 );
 

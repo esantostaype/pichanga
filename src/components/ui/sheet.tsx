@@ -57,7 +57,7 @@ function SheetContent({
         {children}
         <SheetPrimitive.Close
           className={cn(
-            "absolute right-4 top-5 rounded-full p-1.5 text-muted-foreground transition-colors",
+            "cursor-pointer absolute right-4 top-5 rounded-full p-1.5 text-muted-foreground transition-colors",
             "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
           )}
         >

@@ -24,6 +24,10 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
   { method: "DELETE", pattern: /^\/api\/matches\/[^/]+\/players\/[^/]+\/?$/ },
   // "This tab is open." Anyone visiting is counted, so anyone may say it.
   { method: "POST", pattern: /^\/api\/presence\/?$/ },
+  // The match gallery: anyone may add a photo or a clip. Deleting one is not
+  // here, so it falls through to the session.
+  { method: "POST", pattern: /^\/api\/upload\/ticket\/?$/ },
+  { method: "POST", pattern: /^\/api\/matches\/[^/]+\/media\/?$/ },
 ];
 
 /** Reads are public unless they are listed here. */

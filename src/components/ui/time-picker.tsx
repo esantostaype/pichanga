@@ -140,7 +140,7 @@ function TimeColumn({
                 onClick={() => onSelect(option)}
                 aria-pressed={isSelected}
                 className={cn(
-                  "h-9 shrink-0 rounded-lg text-center text-sm font-normal transition-colors",
+                  "cursor-pointer h-9 shrink-0 rounded-lg text-center text-sm font-normal transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                   isSelected
                     ? "bg-primary text-primary-foreground"

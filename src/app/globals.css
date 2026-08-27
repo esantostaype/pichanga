@@ -155,4 +155,37 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  /*
+   * The stamp that lands on a photo when somebody is marked as paid. Short and
+   * once only: it is a receipt, not a celebration.
+   */
+  @keyframes paid-stamp {
+    0% {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+    35% {
+      opacity: 1;
+      transform: scale(1.06);
+    }
+    70% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(1.12);
+    }
+  }
+
+  .animate-paid-stamp {
+    animation: paid-stamp 900ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-paid-stamp {
+      animation-duration: 1ms;
+    }
+  }
 }

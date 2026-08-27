@@ -57,6 +57,36 @@ export const lineupInputSchema = z.object({
   playerIds: z.array(z.string().min(1)).min(1, "Pick at least one player"),
 });
 
+export const paymentInputSchema = z.object({ paid: z.boolean() });
+
+/**
+ * Metadata for a file the browser has already uploaded to Cloudinary.
+ *
+ * The urls are pinned to Cloudinary's host: the endpoint is open to guests, so
+ * without that check anyone could file an arbitrary link as match media.
+ */
+const cloudinaryUrl = z
+  .string()
+  .url("Must be a valid URL")
+  .refine((value) => {
+    try {
+      return new URL(value).host === "res.cloudinary.com";
+    } catch {
+      return false;
+    }
+  }, "Must be a Cloudinary URL");
+
+export const mediaInputSchema = z.object({
+  publicId: z.string().trim().min(1).max(300),
+  url: cloudinaryUrl,
+  kind: z.enum(["image", "video"]),
+  thumbnailUrl: cloudinaryUrl.nullable().optional(),
+  width: z.number().int().positive().nullable().optional(),
+  height: z.number().int().positive().nullable().optional(),
+});
+
+export type MediaInput = z.infer<typeof mediaInputSchema>;
+
 /** Date (yyyy-MM-dd) + time (HH:mm) -> epoch ms in the browser timezone. */
 export function toEpoch(date: string, time: string) {
   const [y, m, d] = date.split("-").map(Number);

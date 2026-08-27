@@ -13,6 +13,8 @@ type PitchSceneProps = {
   /** Height of the floating HUD, kept clear at the top and bottom. */
   hudInset?: number;
   onRemovePlayer?: (player: Player) => void;
+  /** Passed only when this visitor may settle the rental. */
+  onTogglePaid?: (player: Player, paid: boolean) => void;
 };
 
 /** The pitch fills 100% of the screen; everything else sits on top of it. */
@@ -20,9 +22,17 @@ export function PitchScene({
   match,
   hudInset = 0,
   onRemovePlayer,
+  onTogglePaid,
 }: PitchSceneProps) {
   const [ref, size] = useElementSize<HTMLDivElement>();
   const players = match?.players ?? [];
+
+  /**
+   * Always on. The rental is usually collected after the whistle, but plenty of
+   * people pay up front, so the ledger has to be open on every match -- past,
+   * present and still to come.
+   */
+  const showPayments = !!match;
 
   return (
     <div
@@ -38,6 +48,8 @@ export function PitchScene({
           height={size.height}
           insetY={hudInset}
           organizerId={match?.organizerId}
+          paidPlayerIds={showPayments ? match.paidPlayerIds : undefined}
+          onTogglePaid={onTogglePaid}
           onRemovePlayer={onRemovePlayer}
         />
       ) : (

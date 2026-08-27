@@ -28,6 +28,13 @@ type PichangaState = {
   isSuperAdmin: boolean;
   /** False when the server has no password configured: sign-in is hidden. */
   authEnabled: boolean;
+  /**
+   * Set when the screen is pinned to one date rather than following the clock.
+   * Refreshes then reload that match instead of asking which one is current.
+   */
+  pinnedMatchId: string | null;
+  /** Which match the front page shows, so links can point at "/" for it. */
+  homeMatchId: string | null;
 };
 
 type PichangaContextValue = PichangaState & {
@@ -45,6 +52,14 @@ type PichangaContextValue = PichangaState & {
   deleteMatches: (ids: string[]) => Promise<void>;
   addPlayersToNextMatch: (playerIds: string[]) => Promise<void>;
   removePlayerFromNextMatch: (playerId: string) => Promise<void>;
+  /** Admin only: ticks a player off the rental ledger. */
+  setPlayerPaid: (playerId: string, paid: boolean) => Promise<void>;
+  /**
+   * Bumped whenever a gallery changes anywhere. Galleries fetch their own
+   * files, and this is how they hear about it without a second subscription to
+   * the realtime channel: unsubscribing one would tear down the other.
+   */
+  mediaVersion: number;
 };
 
 const PichangaContext = createContext<PichangaContextValue | null>(null);
@@ -57,6 +72,7 @@ export function PichangaProvider({
   children: React.ReactNode;
 }) {
   const [state, setState] = useState<PichangaState>(initial);
+  const [mediaVersion, setMediaVersion] = useState(0);
 
   const patch = useCallback(
     (next: Partial<PichangaState>) => setState((prev) => ({ ...prev, ...next })),
@@ -79,8 +95,13 @@ export function PichangaProvider({
   );
 
   const refreshNextMatch = useCallback(
-    async () => patch({ nextMatch: await api.matches.next() }),
-    [patch],
+    async () =>
+      patch({
+        nextMatch: state.pinnedMatchId
+          ? await api.matches.get(state.pinnedMatchId)
+          : await api.matches.next(),
+      }),
+    [patch, state.pinnedMatchId],
   );
 
   // Changes coming from other screens.
@@ -99,6 +120,9 @@ export function PichangaProvider({
     [REALTIME.events.lineupChanged]: () => {
       void refreshNextMatch();
     },
+    [REALTIME.events.mediaChanged]: () => {
+      setMediaVersion((version) => version + 1);
+    },
   });
 
   // When the fixture on screen reaches its final whistle, pull the next one:
@@ -111,12 +135,14 @@ export function PichangaProvider({
   useEffect(() => {
     const current = state.nextMatch;
     if (!current || now === null) return;
+    // Pinned to a date: the clock never moves this screen to another match.
+    if (state.pinnedMatchId) return;
     if (now < current.endsAt) return;
     if (rolledOver.current === current.id) return;
 
     rolledOver.current = current.id;
     void refreshNextMatch();
-  }, [now, state.nextMatch, refreshNextMatch]);
+  }, [now, state.nextMatch, state.pinnedMatchId, refreshNextMatch]);
 
   const value = useMemo<PichangaContextValue>(() => {
     /**
@@ -139,6 +165,24 @@ export function PichangaProvider({
       }
     };
 
+    /**
+     * Writes a ledger straight into local state: the pitch marks and the
+     * counter in the fixture list both read from here.
+     */
+    const applyPaid = (matchId: string, paidPlayerIds: string[]) =>
+      setState((prev) => ({
+        ...prev,
+        nextMatch:
+          prev.nextMatch?.id === matchId
+            ? { ...prev.nextMatch, paidPlayerIds }
+            : prev.nextMatch,
+        matches: prev.matches.map((match) =>
+          match.id === matchId
+            ? { ...match, paidCount: paidPlayerIds.length }
+            : match,
+        ),
+      }));
+
     /** Applies a mutation result to the match currently on screen. */
     const syncNextMatch = (match: Match) =>
       setState((prev) =>
@@ -147,6 +191,7 @@ export function PichangaProvider({
 
     return {
       ...state,
+      mediaVersion,
 
       login: async (password) => {
         // The password decides the role, so the answer is what flips the UI.
@@ -244,6 +289,33 @@ export function PichangaProvider({
         await refreshMatches();
       },
 
+      /**
+       * Applied on the spot and only then sent.
+       *
+       * Somebody hands over the money and the mark has to follow the hand, not
+       * the round trip; if the request fails the toast says so and the mark
+       * goes back where it was.
+       */
+      setPlayerPaid: async (playerId, paid) => {
+        const current = state.nextMatch;
+        if (!current) throw new Error("There is no active match");
+
+        const before = current.paidPlayerIds;
+        const after = paid
+          ? [...before.filter((id) => id !== playerId), playerId]
+          : before.filter((id) => id !== playerId);
+
+        applyPaid(current.id, after);
+
+        try {
+          syncNextMatch(await api.matches.setPaid(current.id, playerId, paid));
+          await refreshMatches();
+        } catch (error) {
+          applyPaid(current.id, before);
+          throw error;
+        }
+      },
+
       removePlayerFromNextMatch: async (playerId) => {
         if (!state.nextMatch) throw new Error("There is no active match");
         const match = await api.matches.removePlayer(
@@ -256,6 +328,7 @@ export function PichangaProvider({
     };
   }, [
     state,
+    mediaVersion,
     patch,
     refreshPlayers,
     refreshPlaces,

@@ -77,7 +77,7 @@ export function PhotoField({
           if (!disabled) handleFiles(event.dataTransfer.files);
         }}
         className={cn(
-          "group relative size-24 shrink-0 overflow-hidden rounded-full border border-dashed border-border bg-muted/40 transition-colors",
+          "cursor-pointer group relative size-24 shrink-0 overflow-hidden rounded-full border border-dashed border-border bg-muted/40 transition-colors",
           "hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
           "disabled:cursor-not-allowed disabled:opacity-60",
         )}
@@ -115,7 +115,7 @@ export function PhotoField({
               onSelect(null);
               if (inputRef.current) inputRef.current.value = "";
             }}
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-destructive hover:underline"
+            className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-destructive hover:underline"
           >
             <Icon icon={Cancel01Icon} size={12} />
             Remove photo

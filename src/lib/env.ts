@@ -15,6 +15,8 @@ const serverEnvSchema = z.object({
   CLOUDINARY_API_KEY: z.string().min(1),
   CLOUDINARY_API_SECRET: z.string().min(1),
   CLOUDINARY_UPLOAD_FOLDER: z.string().default("pichanga/players"),
+  /** Where match galleries land. Kept apart from the player portraits. */
+  CLOUDINARY_GALLERY_FOLDER: z.string().default("pichanga/matches"),
 
   // Optional: without it the place form simply drops the autocomplete and
   // keeps working with manually typed name and address.

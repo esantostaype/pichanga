@@ -35,6 +35,8 @@ export type MatchSummary = {
   recurrence: Recurrence | null;
   seriesId: string | null;
   playerCount: number;
+  /** How many of them have settled their share of the rental. */
+  paidCount: number;
   createdAt: number;
 };
 
@@ -48,6 +50,21 @@ export type Match = {
   seriesId: string | null;
   createdAt: number;
   players: Player[];
+  /** Ids of the players who already paid their share. */
+  paidPlayerIds: string[];
+};
+
+/** One photo or clip in a match gallery. */
+export type MatchMedia = {
+  id: string;
+  matchId: string;
+  kind: "image" | "video";
+  url: string;
+  /** Poster frame for a video; images use `url`. */
+  thumbnailUrl: string | null;
+  width: number | null;
+  height: number | null;
+  createdAt: number;
 };
 
 /** A venue suggestion coming from the Google Places autocomplete. */

@@ -1,7 +1,12 @@
 "use client";
 
-import { Cancel01Icon, CrownIcon } from "@hugeicons/core-free-icons";
-import { memo } from "react";
+import {
+  Cancel01Icon,
+  CrownIcon,
+  MoneyNotFound01Icon,
+  PaymentSuccess01Icon,
+} from "@hugeicons/core-free-icons";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { areaColor } from "@/components/players/area-badge";
 import { PlayerAvatar } from "@/components/players/player-avatar";
@@ -12,8 +17,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getArea } from "@/lib/constants";
-import { clamp, shortName } from "@/lib/utils";
+import { clamp, cn, shortName } from "@/lib/utils";
 import type { Player } from "@/types";
+
+/** Matches `.animate-paid-stamp` in globals.css. */
+const STAMP_MS = 900;
 
 type PlayerTokenProps = {
   player: Player;
@@ -23,6 +31,13 @@ type PlayerTokenProps = {
   plateWidth: number;
   /** Marks the match organizer, who wears the crown. */
   isOrganizer?: boolean;
+  /**
+   * Whether this player has settled their share of the rental. Undefined hides
+   * the mark entirely, which is what an upcoming match wants.
+   */
+  isPaid?: boolean;
+  /** Given only to whoever may settle the rental; the mark is read-only without it. */
+  onTogglePaid?: (player: Player, paid: boolean) => void;
   onRemove?: (player: Player) => void;
 };
 
@@ -36,6 +51,8 @@ function PlayerTokenBase({
   size,
   plateWidth,
   isOrganizer,
+  isPaid,
+  onTogglePaid,
   onRemove,
 }: PlayerTokenProps) {
   const color = areaColor(player.area);
@@ -44,12 +61,51 @@ function PlayerTokenBase({
   const nameSize = clamp(size * 0.21, 6.5, 18);
   const areaSize = clamp(size * 0.21, 6.5, 14);
 
+  /** The receipt stamped over the photo, cleared once it has played. */
+  const [stamping, setStamping] = useState(false);
+  const stampTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (stampTimer.current) clearTimeout(stampTimer.current);
+    },
+    [],
+  );
+
+  const canSettle = isPaid !== undefined && !!onTogglePaid;
+
+  const settle = (paid: boolean) => {
+    if (!onTogglePaid) return;
+
+    // Only a payment gets the stamp. Undoing one is a correction, not an event.
+    if (paid) {
+      if (stampTimer.current) clearTimeout(stampTimer.current);
+      setStamping(true);
+      stampTimer.current = setTimeout(() => setStamping(false), STAMP_MS);
+    }
+
+    onTogglePaid(player, paid);
+  };
+
   return (
     <div
       className="group/token relative flex flex-col items-center"
       style={{ width: plateWidth }}
     >
-      <div className="relative" style={{ width: size, height: size }}>
+      <div
+        className={cn("relative", canSettle && "cursor-pointer")}
+        style={{ width: size, height: size }}
+        // Double click on the photo is the fast way through a squad: no aiming
+        // at a small badge, and a stray single click never moves money.
+        onDoubleClick={canSettle ? () => settle(!isPaid) : undefined}
+        title={
+          canSettle
+            ? isPaid
+              ? "Double click to undo the payment"
+              : "Double click to mark as paid"
+            : undefined
+        }
+      >
         <PlayerAvatar
           player={player}
           className="size-full shadow-[0_10px_30px_-8px_rgba(0,0,0,0.9)]"
@@ -58,6 +114,19 @@ function PlayerTokenBase({
             outlineOffset: `-${Math.max(1.5, size * 0.03)}px`,
           }}
         />
+
+        {stamping ? (
+          <span
+            aria-hidden
+            className="animate-paid-stamp pointer-events-none absolute inset-0 z-20 grid place-items-center rounded-full bg-emerald-500/35 text-white backdrop-blur-[1px]"
+          >
+            <Icon
+              icon={PaymentSuccess01Icon}
+              size={Math.max(16, size * 0.55)}
+              strokeWidth={2}
+            />
+          </span>
+        ) : null}
 
         {isOrganizer ? (
           <Tooltip>
@@ -84,12 +153,25 @@ function PlayerTokenBase({
           </Tooltip>
         ) : null}
 
+        {/*
+          Left edge, halfway down the photo. The crown owns the top centre and
+          the remove button the top right, and the name plate rides up over the
+          bottom of the avatar, so this is the one side left free.
+        */}
+        {isPaid === undefined ? null : (
+          <PaidMark
+            paid={isPaid}
+            size={size}
+            onToggle={onTogglePaid ? () => settle(!isPaid) : undefined}
+          />
+        )}
+
         {onRemove ? (
           <button
             type="button"
             onClick={() => onRemove(player)}
             aria-label={`Remove ${player.firstName} from the match`}
-            className="absolute -right-1 -top-1 grid place-items-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-lg transition-all hover:border-destructive/60 hover:text-destructive focus-visible:opacity-100 group-hover/token:opacity-100 pointer-coarse:opacity-70"
+            className="absolute -right-1 -top-1 z-10 grid cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-lg transition-all hover:border-destructive/60 hover:text-destructive focus-visible:opacity-100 group-hover/token:opacity-100 pointer-coarse:opacity-70"
             style={{ width: size * 0.34, height: size * 0.34 }}
           >
             <Icon icon={Cancel01Icon} size={Math.max(8, size * 0.18)} />
@@ -116,6 +198,71 @@ function PlayerTokenBase({
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Whether this player has settled the rental: a receipt when they have, a red
+ * empty wallet when they have not.
+ *
+ * A button when the viewer is allowed to change it, plain text when not, so
+ * the cursor never promises something the server will refuse.
+ */
+function PaidMark({
+  paid,
+  size,
+  onToggle,
+}: {
+  paid: boolean;
+  size: number;
+  onToggle?: () => void;
+}) {
+  const label = paid ? "Paid the rental" : "Has not paid yet";
+  const side = Math.max(18, size * 0.36);
+
+  const className = cn(
+    "absolute -left-1 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border shadow-lg transition-colors",
+    paid
+      ? "border-emerald-300/40 bg-emerald-500 text-white"
+      : "border-red-400/40 bg-red-500/95 text-white",
+    onToggle &&
+      "cursor-pointer hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+  );
+
+  const content = (
+    <>
+      <span className="sr-only">{label}</span>
+      <Icon
+        icon={paid ? PaymentSuccess01Icon : MoneyNotFound01Icon}
+        size={Math.max(10, side * 0.6)}
+        strokeWidth={2}
+      />
+    </>
+  );
+
+  if (!onToggle) {
+    return (
+      <span
+        title={label}
+        className={className}
+        style={{ width: side, height: side }}
+      >
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      title={paid ? "Paid. Click to undo" : "Not paid. Click to mark as paid"}
+      aria-pressed={paid}
+      onClick={onToggle}
+      className={className}
+      style={{ width: side, height: side }}
+    >
+      {content}
+    </button>
   );
 }
 
