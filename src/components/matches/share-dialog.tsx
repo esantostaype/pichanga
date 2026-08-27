@@ -25,7 +25,12 @@ import {
 } from "@/components/ui/tooltip";
 import { useAction } from "@/hooks/use-action";
 import { formatShortDate } from "@/lib/date";
-import { matchShareText, renderMatchCard } from "@/lib/share-card";
+import {
+  matchShareText,
+  renderMatchCard,
+  type ShareScope,
+} from "@/lib/share-card";
+import { cn } from "@/lib/utils";
 import type { Match } from "@/types";
 
 /**
@@ -49,13 +54,24 @@ export function ShareDialog({
   const file = useRef<Blob | null>(null);
   const onPhone = useCoarsePointer();
 
+  /*
+   * Two messages about the same match, with the same squad in both: the
+   * fixture, and the ledger. One says who is playing, the other says who has
+   * put their money in -- and the second is the one nobody wants to write by
+   * hand.
+   */
+  const [scope, setScope] = useState<ShareScope>("match");
+  const owing = match
+    ? match.players.length - match.paidPlayerIds.length
+    : 0;
+
   useEffect(() => {
     if (!open || !match) return;
 
     let url: string | null = null;
     let cancelled = false;
 
-    void renderMatchCard(match)
+    void renderMatchCard(match, scope)
       .then((blob) => {
         if (cancelled) return;
         file.current = blob;
@@ -69,10 +85,10 @@ export function ShareDialog({
       if (url) URL.revokeObjectURL(url);
       setPreview(null);
     };
-  }, [open, match]);
+  }, [open, match, scope]);
 
   const name = match
-    ? `pichanga-${formatShortDate(match.playedAt).replace(/[ ,]+/g, "-").toLowerCase()}.jpg`
+    ? `pichanga-${formatShortDate(match.playedAt).replace(/[ ,]+/g, "-").toLowerCase()}${scope === "payments" ? "-payments" : ""}.jpg`
     : "pichanga.jpg";
 
   const download = () => {
@@ -110,11 +126,26 @@ export function ShareDialog({
         <DialogHeader>
           <DialogTitle>Share the lineup</DialogTitle>
           <DialogDescription>
-            {match
-              ? `${formatShortDate(match.playedAt)}, ${match.players.length} ${match.players.length === 1 ? "player" : "players"}.`
-              : "Nothing to share yet."}
+            {!match
+              ? "Nothing to share yet."
+              : scope === "payments"
+                ? `${formatShortDate(match.playedAt)}, ${owing} still to pay.`
+                : `${formatShortDate(match.playedAt)}, ${match.players.length} ${match.players.length === 1 ? "player" : "players"}.`}
           </DialogDescription>
         </DialogHeader>
+
+        <div role="tablist" className="grid grid-cols-2 gap-1 rounded-xl bg-muted/40 p-1">
+          <Tab
+            selected={scope === "match"}
+            onSelect={() => setScope("match")}
+            label="Match"
+          />
+          <Tab
+            selected={scope === "payments"}
+            onSelect={() => setScope("payments")}
+            label={`Payments${owing > 0 ? ` (${owing})` : ""}`}
+          />
+        </div>
 
         {/* No frame around it: the card has its own edge and its own ground. */}
         <div className="max-h-[52vh] overflow-y-auto rounded-xl scrollbar-thin">
@@ -156,13 +187,41 @@ export function ShareDialog({
             disabled={!match}
             onClick={() => {
               if (!match) return;
-              if (onPhone) openWhatsApp(match);
-              else void copyText(match);
+              if (onPhone) openWhatsApp(match, scope);
+              else void copyText(match, scope);
             }}
           />
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** One half of the switch between the two messages. */
+function Tab({
+  selected,
+  onSelect,
+  label,
+}: {
+  selected: boolean;
+  onSelect: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={selected}
+      onClick={onSelect}
+      className={cn(
+        "cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors",
+        selected
+          ? "bg-card text-foreground shadow-sm shadow-black/30"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -231,9 +290,9 @@ function useCoarsePointer() {
 }
 
 /** The message on the clipboard, ready to paste into whatever chat is open. */
-async function copyText(match: Match) {
+async function copyText(match: Match, scope: ShareScope) {
   try {
-    await navigator.clipboard.writeText(matchShareText(match));
+    await navigator.clipboard.writeText(matchShareText(match, scope));
     toast.success("Lineup copied. Paste it into WhatsApp.");
   } catch {
     toast.error("The clipboard is not available here.");
@@ -247,7 +306,7 @@ async function copyText(match: Match) {
  * scheme for it and its Business API does not address groups at all. The chat
  * is picked in WhatsApp itself, which costs one tap.
  */
-function openWhatsApp(match: Match) {
-  const text = encodeURIComponent(matchShareText(match));
+function openWhatsApp(match: Match, scope: ShareScope) {
+  const text = encodeURIComponent(matchShareText(match, scope));
   window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
 }

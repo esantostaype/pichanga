@@ -86,18 +86,37 @@ function circle(
 }
 
 /**
+ * What the card and the message are about.
+ *
+ * Both carry the same match and the same squad -- what changes is the subject.
+ * `match` is the fixture: where, when, and who is playing. `payments` is the
+ * ledger: the same names with a tick or an hourglass against each one, and the
+ * count of what is still owed.
+ *
+ * They are two different messages to send, not one message with a filter on it,
+ * which is why neither leaves anybody out.
+ */
+export type ShareScope = "match" | "payments";
+
+/**
  * Draws the whole card and hands back a file ready to download or share.
  *
  * JPEG rather than PNG: the same picture is a few hundred kilobytes instead of
  * several megabytes, and every chat app recompresses it anyway.
  */
-export async function renderMatchCard(match: Match): Promise<Blob> {
+export async function renderMatchCard(
+  match: Match,
+  scope: ShareScope = "match",
+): Promise<Blob> {
   const players = match.players;
   const paid = new Set(match.paidPlayerIds);
+  const paying = scope === "payments";
   const columns = Math.min(COLUMNS, Math.max(players.length, 1));
   const rows = Math.ceil(players.length / columns);
 
-  const headerH = 348;
+  // The fixture card has no line about who has settled up, so it is shorter by
+  // exactly that line.
+  const headerH = paying ? 348 : 306;
   const footerH = PAD;
   const height = headerH + rows * ROW_H + footerH;
 
@@ -159,24 +178,26 @@ export async function renderMatchCard(match: Match): Promise<Blob> {
   }
   y += 44;
 
-  // Where the rental stands, in one line: the reason the list is shared at all.
-  const owing = players.length - paid.size;
-  ctx.font = `500 25px "Sofia Sans", sans-serif`;
+  // Where the rental stands, in one line. Only the ledger asks.
+  if (paying) {
+    const owing = players.length - paid.size;
+    ctx.font = `500 25px "Sofia Sans", sans-serif`;
 
-  ctx.fillStyle = PAID;
-  const paidLabel = `${paid.size} paid`;
-  ctx.fillText(paidLabel, PAD, y + 22);
+    ctx.fillStyle = PAID;
+    const paidLabel = `${paid.size} paid`;
+    ctx.fillText(paidLabel, PAD, y + 22);
 
-  if (owing > 0) {
-    const at = PAD + ctx.measureText(paidLabel).width;
-    ctx.fillStyle = MUTED;
-    ctx.fillText("   ·   ", at, y + 22);
-    ctx.fillStyle = OWING;
-    ctx.fillText(
-      `${owing} pending${share === null ? "" : ` (${formatMoney(share * owing)})`}`,
-      at + ctx.measureText("   ·   ").width,
-      y + 22,
-    );
+    if (owing > 0) {
+      const at = PAD + ctx.measureText(paidLabel).width;
+      ctx.fillStyle = MUTED;
+      ctx.fillText("   ·   ", at, y + 22);
+      ctx.fillStyle = OWING;
+      ctx.fillText(
+        `${owing} pending${share === null ? "" : ` (${formatMoney(share * owing)})`}`,
+        at + ctx.measureText("   ·   ").width,
+        y + 22,
+      );
+    }
   }
 
   y = headerH;
@@ -234,10 +255,13 @@ export async function renderMatchCard(match: Match): Promise<Blob> {
     ctx.stroke();
 
     const textX = photoX + PHOTO + GAP;
-    // Room on the right for the mark that says whether they have paid.
-    const textW = colW - 16 - (textX - x) - 66;
+    // Room on the right for the mark that says whether they have paid, which
+    // only the ledger draws: the fixture card is not about the money.
+    const textW = colW - 16 - (textX - x) - (paying ? 66 : 16);
 
-    drawPaidMark(ctx, x + colW - 16 - 44, top + (ROW_H - 14) / 2, paid.has(player.id));
+    if (paying) {
+      drawPaidMark(ctx, x + colW - 16 - 44, top + (ROW_H - 14) / 2, paid.has(player.id));
+    }
 
     // The organizer wears the crown here too, the way they do on the pitch.
     const organizing = player.id === match.organizerId;
@@ -335,8 +359,10 @@ function drawPaidMark(
 }
 
 /** The same information as a message, for a chat that wants text. */
-export function matchShareText(match: Match) {
-  const share = perPlayer(match.place?.price, match.players.length);
+export function matchShareText(match: Match, scope: ShareScope = "match") {
+  const paying = scope === "payments";
+  const players = match.players;
+  const share = perPlayer(match.place?.price, players.length);
 
   const lines = [
     `*${formatLongDate(match.playedAt)}*`,
@@ -344,26 +370,32 @@ export function matchShareText(match: Match) {
   ];
 
   if (share !== null) lines.push(`${formatMoney(share)} each`);
-  const maps = placeMapsUrl(match.place);
+  const maps = paying ? null : placeMapsUrl(match.place);
   if (maps) lines.push(maps);
 
   const paid = new Set(match.paidPlayerIds);
-  const owing = match.players.length - paid.size;
+  const owing = players.length - paid.size;
 
   lines.push("");
-  lines.push(`*${match.players.length} on the pitch*`);
-  lines.push(
-    owing === 0
-      ? "Everybody has paid"
-      : `${paid.size} paid, ${owing} pending${share === null ? "" : ` (${formatMoney(share * owing)})`}`,
-  );
-  lines.push("");
+  lines.push(`*${players.length} on the pitch*`);
 
-  match.players.forEach((player, index) => {
-    const crown = player.id === match.organizerId ? " (organizer)" : "";
-    const mark = paid.has(player.id) ? "✅" : "⏳";
+  if (paying) {
     lines.push(
-      `${mark} ${index + 1}. ${player.firstName} ${player.lastName}${crown}`,
+      owing === 0
+        ? "Everybody has paid"
+        : `${paid.size} paid, ${owing} pending${share === null ? "" : ` (${formatMoney(share * owing)})`}`,
+    );
+  }
+
+  lines.push("");
+
+  players.forEach((player, index) => {
+    const crown = player.id === match.organizerId ? " (organizer)" : "";
+    // Ticks belong to the ledger. On the fixture they would start an argument
+    // about money in a message that was only saying who is playing.
+    const mark = paying ? `${paid.has(player.id) ? "✅" : "⏳"} ` : "";
+    lines.push(
+      `${mark}${index + 1}. ${player.firstName} ${player.lastName}${crown}`,
     );
   });
 

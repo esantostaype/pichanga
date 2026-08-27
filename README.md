@@ -371,6 +371,20 @@ addresses a chat, and its Business API does not address groups at all -- only
 one-to-one conversations with people who opted in. The chat is picked in
 WhatsApp itself, which costs one tap.
 
+**Two tabs, two messages, the same squad in both.**
+
+*Match* is the fixture: date, time, venue with the maps link, and the numbered
+lineup. No ticks against the names and no line about what is owed -- it is a
+message about who is playing, and money in it starts a different conversation.
+
+*Payments* is the ledger: the same header, the same names, each with a
+✅ or an ⏳, and the count of what is still pending. The maps link goes,
+because nobody chasing a debt needs directions to the pitch, and the tab
+carries the number of people still to pay.
+
+The two cards differ the same way: the fixture drops the paid marks from the
+rows and the settled-up line from the header, which makes it one line shorter.
+
 Three icon buttons, no labels: the card above them is the subject, and three
 words under it were louder than the picture.
 
