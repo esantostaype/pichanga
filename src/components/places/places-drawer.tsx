@@ -10,7 +10,9 @@ import {
 import { useState } from "react";
 
 import { usePichanga } from "@/components/providers/pichanga-provider";
+import { BulkBar } from "@/components/ui/bulk-bar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
@@ -31,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAction } from "@/hooks/use-action";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import type { Place } from "@/types";
 import { PlaceFormDialog } from "./place-form-dialog";
 
@@ -41,16 +44,32 @@ export function PlacesDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { places, isAdmin, deletePlace } = usePichanga();
+  const { places, isAdmin, deletePlaces } = usePichanga();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Place | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<Place | null>(null);
+  /** Ids queued for deletion: one row or a whole selection, same path. */
+  const [pendingDelete, setPendingDelete] = useState<string[]>([]);
 
-  const remove = useAction(async (place: Place) => deletePlace(place.id), {
-    success: "Place deleted",
-    onSuccess: () => setPendingDelete(null),
+  const selection = useRowSelection(places);
+
+  const remove = useAction(async (ids: string[]) => deletePlaces(ids), {
+    success: "Places deleted",
+    onSuccess: () => {
+      setPendingDelete([]);
+      selection.clear();
+    },
   });
+
+  const deleteLabel = (() => {
+    if (pendingDelete.length !== 1) {
+      return `${pendingDelete.length} venues will be removed. Matches played there are kept, just without a venue.`;
+    }
+    const one = places.find((place) => place.id === pendingDelete[0]);
+    return one
+      ? `${one.name} will be removed. Matches played there are kept, just without a venue.`
+      : undefined;
+  })();
 
   const openCreate = () => {
     setEditing(null);
@@ -96,9 +115,29 @@ export function PlacesDrawer({
                 }
               />
             ) : (
-              <Table>
+              <>
+                {isAdmin ? (
+                  <BulkBar
+                    count={selection.count}
+                    noun="place"
+                    disabled={remove.pending}
+                    onClear={selection.clear}
+                    onDelete={() => setPendingDelete(selection.selected)}
+                  />
+                ) : null}
+
+                <Table>
                 <TableHeader>
                   <TableRow>
+                    {isAdmin ? (
+                      <TableHead className="w-px">
+                        <Checkbox
+                          checked={selection.headerState}
+                          onCheckedChange={selection.toggleAll}
+                          aria-label="Select every place"
+                        />
+                      </TableHead>
+                    ) : null}
                     <TableHead className="w-px whitespace-nowrap">
                       Place
                     </TableHead>
@@ -110,7 +149,23 @@ export function PlacesDrawer({
                 </TableHeader>
                 <TableBody>
                   {places.map((place) => (
-                    <TableRow key={place.id}>
+                    <TableRow
+                      key={place.id}
+                      data-state={
+                        selection.isSelected(place.id) ? "selected" : undefined
+                      }
+                    >
+                      {isAdmin ? (
+                        <TableCell className="align-top">
+                          <Checkbox
+                            className="mt-1"
+                            checked={selection.isSelected(place.id)}
+                            onCheckedChange={() => selection.toggle(place.id)}
+                            aria-label={`Select ${place.name}`}
+                          />
+                        </TableCell>
+                      ) : null}
+
                       <TableCell className="align-top whitespace-nowrap font-medium">
                         {place.mapsUrl ? (
                           <a
@@ -150,7 +205,7 @@ export function PlacesDrawer({
                               size="icon-sm"
                               aria-label={`Delete ${place.name}`}
                               className="text-muted-foreground hover:text-destructive"
-                              onClick={() => setPendingDelete(place)}
+                              onClick={() => setPendingDelete([place.id])}
                             >
                               <Icon icon={Delete02Icon} size={15} />
                             </Button>
@@ -160,7 +215,8 @@ export function PlacesDrawer({
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+                </Table>
+              </>
             )}
           </SheetBody>
         </SheetContent>
@@ -173,16 +229,16 @@ export function PlacesDrawer({
       />
 
       <ConfirmDialog
-        open={!!pendingDelete}
-        onOpenChange={(next) => !next && setPendingDelete(null)}
-        title="Delete place"
-        description={
-          pendingDelete
-            ? `${pendingDelete.name} will be removed. Matches played there are kept, just without a venue.`
-            : undefined
+        open={pendingDelete.length > 0}
+        onOpenChange={(next) => !next && setPendingDelete([])}
+        title={
+          pendingDelete.length > 1
+            ? `Delete ${pendingDelete.length} places`
+            : "Delete place"
         }
+        description={deleteLabel}
         pending={remove.pending}
-        onConfirm={() => pendingDelete && remove.run(pendingDelete)}
+        onConfirm={() => remove.run(pendingDelete)}
       />
     </>
   );

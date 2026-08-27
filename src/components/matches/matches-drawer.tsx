@@ -13,7 +13,9 @@ import { useState } from "react";
 
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Badge } from "@/components/ui/badge";
+import { BulkBar } from "@/components/ui/bulk-bar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
@@ -35,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { useAction } from "@/hooks/use-action";
 import { useNow } from "@/hooks/use-now";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import {
   formatShortDate,
   formatTimeRange,
@@ -53,17 +56,33 @@ export function MatchesDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { matches, nextMatch, isAdmin, deleteMatch } = usePichanga();
+  const { matches, nextMatch, isAdmin, deleteMatches } = usePichanga();
   const now = useNow();
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<MatchSummary | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<MatchSummary | null>(null);
+  /** Ids queued for deletion: one row or a whole selection, same path. */
+  const [pendingDelete, setPendingDelete] = useState<string[]>([]);
 
-  const remove = useAction(async (match: MatchSummary) => deleteMatch(match.id), {
-    success: "Match deleted",
-    onSuccess: () => setPendingDelete(null),
+  const selection = useRowSelection(matches);
+
+  const remove = useAction(async (ids: string[]) => deleteMatches(ids), {
+    success: "Matches deleted",
+    onSuccess: () => {
+      setPendingDelete([]);
+      selection.clear();
+    },
   });
+
+  const deleteLabel = (() => {
+    if (pendingDelete.length !== 1) {
+      return `${pendingDelete.length} dates and their lineups will be removed. Player profiles are kept.`;
+    }
+    const one = matches.find((match) => match.id === pendingDelete[0]);
+    return one
+      ? `The ${formatShortDate(one.playedAt)} date and its lineup will be removed${one.recurrence === "weekly" ? ", and the weekly fixture stops repeating" : ""}. Player profiles are kept.`
+      : undefined;
+  })();
 
   const openCreate = () => {
     setEditing(null);
@@ -110,9 +129,29 @@ export function MatchesDrawer({
                 }
               />
             ) : (
-              <Table>
+              <>
+                {isAdmin ? (
+                  <BulkBar
+                    count={selection.count}
+                    noun="match"
+                    disabled={remove.pending}
+                    onClear={selection.clear}
+                    onDelete={() => setPendingDelete(selection.selected)}
+                  />
+                ) : null}
+
+                <Table>
                 <TableHeader>
                   <TableRow>
+                    {isAdmin ? (
+                      <TableHead className="w-px">
+                        <Checkbox
+                          checked={selection.headerState}
+                          onCheckedChange={selection.toggleAll}
+                          aria-label="Select every match"
+                        />
+                      </TableHead>
+                    ) : null}
                     {/*
                       `w-px` shrinks a column to its content and `w-full` makes
                       Place absorb the leftover width, so the table stays
@@ -144,7 +183,21 @@ export function MatchesDrawer({
                       <TableRow
                         key={match.id}
                         className={cn(isNext && "bg-primary/5")}
+                        data-state={
+                          selection.isSelected(match.id) ? "selected" : undefined
+                        }
                       >
+                        {isAdmin ? (
+                          <TableCell className="align-top">
+                            <Checkbox
+                              className="mt-1"
+                              checked={selection.isSelected(match.id)}
+                              onCheckedChange={() => selection.toggle(match.id)}
+                              aria-label={`Select the ${formatShortDate(match.playedAt)} match`}
+                            />
+                          </TableCell>
+                        ) : null}
+
                         <TableCell className="whitespace-nowrap align-top">
                           {/*
                             The chip sits beside the date from md up; below that
@@ -235,7 +288,7 @@ export function MatchesDrawer({
                                 size="icon-sm"
                                 aria-label="Delete match"
                                 className="text-muted-foreground hover:text-destructive"
-                                onClick={() => setPendingDelete(match)}
+                                onClick={() => setPendingDelete([match.id])}
                               >
                                 <Icon icon={Delete02Icon} size={15} />
                               </Button>
@@ -246,7 +299,8 @@ export function MatchesDrawer({
                     );
                   })}
                 </TableBody>
-              </Table>
+                </Table>
+              </>
             )}
           </SheetBody>
         </SheetContent>
@@ -259,16 +313,16 @@ export function MatchesDrawer({
       />
 
       <ConfirmDialog
-        open={!!pendingDelete}
-        onOpenChange={(next) => !next && setPendingDelete(null)}
-        title="Delete match"
-        description={
-          pendingDelete
-            ? `The ${formatShortDate(pendingDelete.playedAt)} date and its lineup will be removed${pendingDelete.recurrence === "weekly" ? ", and the weekly fixture stops repeating" : ""}. Player profiles are kept.`
-            : undefined
+        open={pendingDelete.length > 0}
+        onOpenChange={(next) => !next && setPendingDelete([])}
+        title={
+          pendingDelete.length > 1
+            ? `Delete ${pendingDelete.length} matches`
+            : "Delete match"
         }
+        description={deleteLabel}
         pending={remove.pending}
-        onConfirm={() => pendingDelete && remove.run(pendingDelete)}
+        onConfirm={() => remove.run(pendingDelete)}
       />
     </>
   );

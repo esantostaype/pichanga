@@ -33,13 +33,14 @@ type PichangaContextValue = PichangaState & {
   logout: () => Promise<void>;
   createPlayer: (input: PlayerInput) => Promise<Player>;
   updatePlayer: (id: string, input: PlayerInput) => Promise<Player>;
-  deletePlayer: (id: string) => Promise<void>;
+  /** Takes a list so one row and a bulk selection share the same path. */
+  deletePlayers: (ids: string[]) => Promise<void>;
   createPlace: (input: PlaceInput) => Promise<Place>;
   updatePlace: (id: string, input: PlaceInput) => Promise<Place>;
-  deletePlace: (id: string) => Promise<void>;
+  deletePlaces: (ids: string[]) => Promise<void>;
   createMatch: (input: MatchInput) => Promise<Match>;
   updateMatch: (id: string, input: MatchInput) => Promise<Match>;
-  deleteMatch: (id: string) => Promise<void>;
+  deleteMatches: (ids: string[]) => Promise<void>;
   addPlayersToNextMatch: (playerIds: string[]) => Promise<void>;
   removePlayerFromNextMatch: (playerId: string) => Promise<void>;
 };
@@ -116,6 +117,26 @@ export function PichangaProvider({
   }, [now, state.nextMatch, refreshNextMatch]);
 
   const value = useMemo<PichangaContextValue>(() => {
+    /**
+     * Deletes every id, then refreshes once instead of once per row. Uses
+     * `allSettled` so one failure does not abandon the rest, and reports how
+     * many actually went through.
+     */
+    const deleteAll = async (
+      ids: string[],
+      remove: (id: string) => Promise<unknown>,
+      noun: string,
+    ) => {
+      const results = await Promise.allSettled(ids.map(remove));
+      const failed = results.filter((r) => r.status === "rejected").length;
+
+      if (failed) {
+        throw new Error(
+          `${ids.length - failed} of ${ids.length} ${noun} deleted, ${failed} failed`,
+        );
+      }
+    };
+
     /** Applies a mutation result to the match currently on screen. */
     const syncNextMatch = (match: Match) =>
       setState((prev) =>
@@ -149,13 +170,17 @@ export function PichangaProvider({
         return player;
       },
 
-      deletePlayer: async (id) => {
-        await api.players.remove(id);
-        await Promise.all([
-          refreshPlayers(),
-          refreshMatches(),
-          refreshNextMatch(),
-        ]);
+      deletePlayers: async (ids) => {
+        try {
+          await deleteAll(ids, api.players.remove, "players");
+        } finally {
+          // Refresh even on a partial failure: some rows are already gone.
+          await Promise.all([
+            refreshPlayers(),
+            refreshMatches(),
+            refreshNextMatch(),
+          ]);
+        }
       },
 
       createPlace: async (input) => {
@@ -174,13 +199,16 @@ export function PichangaProvider({
         return place;
       },
 
-      deletePlace: async (id) => {
-        await api.places.remove(id);
-        await Promise.all([
-          refreshPlaces(),
-          refreshMatches(),
-          refreshNextMatch(),
-        ]);
+      deletePlaces: async (ids) => {
+        try {
+          await deleteAll(ids, api.places.remove, "places");
+        } finally {
+          await Promise.all([
+            refreshPlaces(),
+            refreshMatches(),
+            refreshNextMatch(),
+          ]);
+        }
       },
 
       createMatch: async (input) => {
@@ -195,9 +223,12 @@ export function PichangaProvider({
         return match;
       },
 
-      deleteMatch: async (id) => {
-        await api.matches.remove(id);
-        await Promise.all([refreshMatches(), refreshNextMatch()]);
+      deleteMatches: async (ids) => {
+        try {
+          await deleteAll(ids, api.matches.remove, "matches");
+        } finally {
+          await Promise.all([refreshMatches(), refreshNextMatch()]);
+        }
       },
 
       addPlayersToNextMatch: async (playerIds) => {

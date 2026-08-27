@@ -10,7 +10,9 @@ import {
 import { useMemo, useState } from "react";
 
 import { usePichanga } from "@/components/providers/pichanga-provider";
+import { BulkBar } from "@/components/ui/bulk-bar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
@@ -32,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAction } from "@/hooks/use-action";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import { getArea } from "@/lib/constants";
 import { normalize } from "@/lib/utils";
 import type { Player } from "@/types";
@@ -46,12 +49,13 @@ export function PlayersDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const { players, deletePlayer } = usePichanga();
+  const { players, deletePlayers } = usePichanga();
 
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Player | null>(null);
-  const [pendingDelete, setPendingDelete] = useState<Player | null>(null);
+  /** Ids queued for deletion: one row or a whole selection, same path. */
+  const [pendingDelete, setPendingDelete] = useState<string[]>([]);
 
   const results = useMemo(() => {
     const needle = normalize(query.trim());
@@ -64,10 +68,27 @@ export function PlayersDrawer({
     );
   }, [players, query]);
 
-  const remove = useAction(async (player: Player) => deletePlayer(player.id), {
-    success: "Player deleted",
-    onSuccess: () => setPendingDelete(null),
+  // Selection follows the filtered rows, so "select all" means what is on
+  // screen rather than every player in the database.
+  const selection = useRowSelection(results);
+
+  const remove = useAction(async (ids: string[]) => deletePlayers(ids), {
+    success: "Players deleted",
+    onSuccess: () => {
+      setPendingDelete([]);
+      selection.clear();
+    },
   });
+
+  const deleteLabel = (() => {
+    if (pendingDelete.length !== 1) {
+      return `${pendingDelete.length} players will be removed, and they will leave every match they are signed up for.`;
+    }
+    const one = players.find((player) => player.id === pendingDelete[0]);
+    return one
+      ? `${one.firstName} ${one.lastName} will also be dropped from every match they are signed up for.`
+      : undefined;
+  })();
 
   const openCreate = () => {
     setEditing(null);
@@ -129,55 +150,85 @@ export function PlayersDrawer({
                 }
               />
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Player</TableHead>
-                    <TableHead>Area</TableHead>
-                    <TableHead className="w-24 text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {results.map((player) => (
-                    <TableRow key={player.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <PlayerAvatar player={player} className="size-9" />
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium">
-                              {player.firstName} {player.lastName}
-                            </span>
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <AreaBadge area={player.area} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Edit ${player.firstName}`}
-                            onClick={() => openEdit(player)}
-                          >
-                            <Icon icon={PencilEdit02Icon} size={15} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Delete ${player.firstName}`}
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => setPendingDelete(player)}
-                          >
-                            <Icon icon={Delete02Icon} size={15} />
-                          </Button>
-                        </div>
-                      </TableCell>
+              <>
+                <BulkBar
+                  count={selection.count}
+                  noun="player"
+                  disabled={remove.pending}
+                  onClear={selection.clear}
+                  onDelete={() => setPendingDelete(selection.selected)}
+                />
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-px">
+                        <Checkbox
+                          checked={selection.headerState}
+                          onCheckedChange={selection.toggleAll}
+                          aria-label="Select every player shown"
+                        />
+                      </TableHead>
+                      <TableHead>Player</TableHead>
+                      <TableHead>Area</TableHead>
+                      <TableHead className="w-24 text-right">Actions</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {results.map((player) => (
+                      <TableRow
+                        key={player.id}
+                        data-state={
+                          selection.isSelected(player.id) ? "selected" : undefined
+                        }
+                      >
+                        <TableCell className="align-top">
+                          <Checkbox
+                            className="mt-2.5"
+                            checked={selection.isSelected(player.id)}
+                            onCheckedChange={() => selection.toggle(player.id)}
+                            aria-label={`Select ${player.firstName} ${player.lastName}`}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <PlayerAvatar player={player} className="size-9" />
+                            <span className="min-w-0">
+                              <span className="block truncate font-medium">
+                                {player.firstName} {player.lastName}
+                              </span>
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <AreaBadge area={player.area} />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Edit ${player.firstName}`}
+                              onClick={() => openEdit(player)}
+                            >
+                              <Icon icon={PencilEdit02Icon} size={15} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              aria-label={`Delete ${player.firstName}`}
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => setPendingDelete([player.id])}
+                            >
+                              <Icon icon={Delete02Icon} size={15} />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
             )}
           </SheetBody>
         </SheetContent>
@@ -190,16 +241,16 @@ export function PlayersDrawer({
       />
 
       <ConfirmDialog
-        open={!!pendingDelete}
-        onOpenChange={(next) => !next && setPendingDelete(null)}
-        title="Delete player"
-        description={
-          pendingDelete
-            ? `${pendingDelete.firstName} ${pendingDelete.lastName} will also be dropped from every match they are signed up for.`
-            : undefined
+        open={pendingDelete.length > 0}
+        onOpenChange={(next) => !next && setPendingDelete([])}
+        title={
+          pendingDelete.length > 1
+            ? `Delete ${pendingDelete.length} players`
+            : "Delete player"
         }
+        description={deleteLabel}
         pending={remove.pending}
-        onConfirm={() => pendingDelete && remove.run(pendingDelete)}
+        onConfirm={() => remove.run(pendingDelete)}
       />
     </>
   );
