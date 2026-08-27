@@ -525,6 +525,23 @@ mid-flight. And the panel stays the **only child of the portal**: Radix wraps
 each child in its own `Presence`, so a plain centring wrapper would unmount
 the instant the dialog closes and cut the exit animation off before it ran.
 
+**How a dialog is centred.** Radix's content element is the whole screen, and
+the card is a grid item centred inside it. It used to be the card itself,
+absolutely positioned with `inset-0` and `margin: auto` -- which asks the
+browser to size a box to its content between a top and a bottom, and Safari on
+iOS answers "fill the screen": the card grew to the whole viewport with its
+buttons stranded at the foot of it.
+
+It has to stay the portal's only child, because Radix wraps each child in its
+own `Presence` and a plain wrapper would unmount instantly, cutting the exit
+short. So the fade lives on the full-screen element, where Radix watches for it
+to finish, and the slide is on the card, driven by the same `data-state`
+through `group`. The space around the card is a `Close` of its own: it is no
+longer "outside" the dialog, so a tap there has to say so itself.
+
+Footers put their buttons on one line, right-aligned, phone included. `Cancel`
+and `Remove` are two words; stacking them full-width made a small question look
+like a big one.
 ## Who is online
 
 A quiet line in the bottom-left corner reads *3 people are watching Pichanga

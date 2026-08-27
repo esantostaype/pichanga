@@ -38,35 +38,54 @@ function DialogContent({
     <DialogPortal>
       <DialogOverlay />
       {/*
-        Centred with `inset-0` and `margin: auto`, not with `-translate-1/2`.
-        The slide animates this element's own `transform`, which would wipe a
-        translate-based centring out mid-flight; and it has to stay the portal's
-        only child, because Radix wraps each child in its own `Presence` and a
-        plain wrapper would unmount instantly, cutting the exit animation off.
+        Radix's content is the full screen here, and the card is the box inside
+        it. Centring it with `inset-0` and `margin: auto` instead relied on an
+        absolutely positioned box sizing itself to its content between a top and
+        a bottom, which Safari on iOS resolves as "fill the screen": the card
+        grew to the whole viewport with its buttons stranded at the foot of it.
+        Grid centring asks nothing of the browser that every browser does not
+        already do.
+
+        It also has to stay the portal's only child -- Radix wraps each child in
+        its own `Presence`, and a plain wrapper would unmount instantly, cutting
+        the exit animation off -- so the card cannot be a sibling either. The
+        fade lives out here, where Radix watches for it to end; the slide is on
+        the card, driven by the same `data-state` through `group`.
+
+        Since the screen around the card now belongs to the dialog, a tap out
+        there is no longer "outside" as far as Radix is concerned. The space is
+        a `Close` of its own, so it closes the dialog the way it always did.
       */}
       <DialogPrimitive.Content
-        className={cn(
-          "fixed inset-0 z-50 m-auto grid h-fit w-[calc(100vw-2rem)] max-w-lg gap-5",
-          "max-h-[calc(100dvh-2rem)] overflow-y-auto scrollbar-thin",
-          "rounded-2xl border border-border bg-card p-6 shadow-2xl shadow-black/60",
-          // Rises 200px into place on the app's curve, and drops back out in
-          // half the time: leaving should not keep anybody waiting.
-          "ease-pichanga data-[state=open]:animate-in data-[state=open]:duration-500 data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-[200px]",
-          "data-[state=closed]:animate-out data-[state=closed]:duration-[250ms] data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-[200px]",
-          className,
-        )}
+        className="group fixed inset-0 z-50 grid place-items-center p-4 ease-pichanga data-[state=open]:animate-in data-[state=open]:duration-500 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:duration-[250ms] data-[state=closed]:fade-out-0"
         {...props}
       >
-        {children}
-        <DialogPrimitive.Close
+        <DialogPrimitive.Close asChild>
+          <span aria-hidden className="absolute inset-0" />
+        </DialogPrimitive.Close>
+
+        <div
           className={cn(
-            "absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-muted-foreground transition-colors",
-            "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+            "relative grid max-h-[calc(100dvh-2rem)] w-full max-w-lg gap-5 overflow-y-auto scrollbar-thin",
+            "rounded-2xl border border-border bg-card p-6 shadow-2xl shadow-black/60",
+            // Rises 200px into place on the app's curve, and drops back out in
+            // half the time: leaving should not keep anybody waiting.
+            "ease-pichanga group-data-[state=open]:animate-in group-data-[state=open]:duration-500 group-data-[state=open]:slide-in-from-bottom-[200px]",
+            "group-data-[state=closed]:animate-out group-data-[state=closed]:duration-[250ms] group-data-[state=closed]:slide-out-to-bottom-[200px]",
+            className,
           )}
         >
-          <Icon icon={Cancel01Icon} size={16} />
-          <span className="sr-only">Close</span>
-        </DialogPrimitive.Close>
+          {children}
+          <DialogPrimitive.Close
+            className={cn(
+              "absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-muted-foreground transition-colors",
+              "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+            )}
+          >
+            <Icon icon={Cancel01Icon} size={16} />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </div>
       </DialogPrimitive.Content>
     </DialogPortal>
   );
@@ -80,7 +99,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        "flex flex-wrap items-center justify-end gap-2",
         className,
       )}
       {...props}
