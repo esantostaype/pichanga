@@ -43,6 +43,7 @@ const RATIO = {
   goalWidth: 7.32 / 68,
 } as const;
 
+/** Ten stripes across the pitch, so the halfway line splits them five a side. */
 const STRIPES = 10;
 const ARC_SEGMENTS = 22;
 
@@ -173,6 +174,11 @@ export function buildPitchGeometry(
     goals,
     arcs,
     corners,
-    stripeSize: L / STRIPES,
+    // Measured across the whole container, not the field: the gradient starts
+    // at the container edge, so sizing it off `L` left the boundaries out of
+    // step with the pitch and the halfway line fell mid-stripe. Since the
+    // margin is symmetric, container/2 *is* the halfway line, which puts
+    // exactly five stripes on each side at any screen size.
+    stripeSize: (landscape ? containerWidth : containerHeight) / STRIPES,
   };
 }

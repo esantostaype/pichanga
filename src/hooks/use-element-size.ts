@@ -18,15 +18,28 @@ export function useElementSize<T extends HTMLElement>() {
     const node = ref.current;
     if (!node) return;
 
-    const observer = new ResizeObserver(([entry]) => {
-      const border = entry.borderBoxSize?.[0];
-      const width = border ? border.inlineSize : entry.contentRect.width;
-      const height = border ? border.blockSize : entry.contentRect.height;
-
+    const apply = (width: number, height: number) =>
       setSize((prev) =>
         Math.abs(prev.width - width) < 1 && Math.abs(prev.height - height) < 1
           ? prev
           : { width, height },
+      );
+
+    // Measure once up front instead of waiting for the observer's first
+    // delivery. Without this, anything that depends on the size stays at zero
+    // until a notification arrives, and if one never does the pitch simply
+    // never draws. Deferred to a microtask so the effect writes no state
+    // synchronously.
+    queueMicrotask(() => {
+      const box = node.getBoundingClientRect();
+      apply(box.width, box.height);
+    });
+
+    const observer = new ResizeObserver(([entry]) => {
+      const border = entry.borderBoxSize?.[0];
+      apply(
+        border ? border.inlineSize : entry.contentRect.width,
+        border ? border.blockSize : entry.contentRect.height,
       );
     });
 

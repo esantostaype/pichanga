@@ -65,10 +65,17 @@ export function LineupLayer({
         // touching the same properties. Without it a layout change landing
         // mid-entrance leaves two tweens interleaved and the token settles on
         // a hybrid position (x from one slot, y from another).
+        //
+        // Because of that, this tween has to describe the *whole* resting
+        // state, not just the position: if it interrupts an entrance it also
+        // inherits the job of finishing it. Animating only x/y left the token
+        // stuck at `autoAlpha: 0, scale: 0.3` — invisible for good.
         if (placed.current.has(player.id)) {
           gsap.to(node, {
             x: slot.x,
             y: slot.y,
+            scale: 1,
+            autoAlpha: 1,
             duration: 0.6,
             ease: "power3.out",
             overwrite: true,
