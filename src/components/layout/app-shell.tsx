@@ -22,6 +22,10 @@ import { AppMenu, type PanelName } from "./app-menu";
 import { Brand } from "./brand";
 import { LoginDialog } from "./login-dialog";
 import { MatchHudCard } from "./match-hud-card";
+import { MatchInfoButton } from "./match-info-button";
+
+/** Height of the floating add button plus its padding. */
+const FAB_CLEARANCE = 48 + 16;
 
 export function AppShell() {
   const { nextMatch, removePlayerFromNextMatch } = usePichanga();
@@ -62,34 +66,48 @@ export function AppShell() {
     <main className="relative h-dvh w-full overflow-hidden">
       <PitchScene
         match={nextMatch}
-        hudInset={hudSize.height ? hudSize.height + 10 : 0}
+        // The band is reserved on both edges, so it also has to clear the
+        // floating button sitting at the bottom right.
+        hudInset={Math.max(hudSize.height, FAB_CLEARANCE) + 10}
         onRemovePlayer={setPendingRemoval}
       />
 
       {/* Overlaid HUD: the pitch fills 100% of the screen */}
       <div
         ref={hudRef}
-        className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-2 md:p-4"
+        className="pointer-events-none absolute inset-x-0 top-0 flex items-center md:items-start justify-between gap-3 p-2 md:p-4"
       >
-        {/* Logo and match details share one card, 16px from the top-left. */}
-        <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-black/55 px-3 py-2 md:px-4 md:py-3 backdrop-blur-md sm:gap-4">
+        {/*
+          On a phone this is the bare logo: no card, no padding, so the pitch
+          stays visible. From md up it becomes the card with the details beside
+          the logo.
+        */}
+        <div className="pointer-events-auto flex min-w-0 items-center gap-2 rounded-2xl md:border md:border-white/10 md:bg-black/55 md:px-4 md:py-3 md:backdrop-blur-md md:gap-4">
           <Brand />
-          <span aria-hidden className="h-11 w-px shrink-0 bg-white/10 hidden md:block" />
-          <MatchHudCard match={nextMatch} />
+          <span aria-hidden className="hidden h-11 w-px shrink-0 bg-white/10 md:block" />
+          <div className="hidden min-w-0 md:block">
+            <MatchHudCard match={nextMatch} />
+          </div>
         </div>
 
         <div className="pointer-events-auto flex items-center gap-2">
-          <Button
-            size="icon"
-            aria-label="Add players to the match"
-            disabled={!nextMatch}
-            onClick={() => setAddOpen(true)}
-          >
-            <Icon icon={PlusSignIcon} size={20} strokeWidth={2.2} />
-          </Button>
-
+          {/* The details live behind this button only where they are hidden. */}
+          <MatchInfoButton match={nextMatch} className="md:hidden" />
           <AppMenu onSelect={setPanel} onSignIn={() => setLoginOpen(true)} />
         </div>
+      </div>
+
+      {/* Adding players is the one thing everyone does, so it gets the thumb. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-end p-4">
+        <Button
+          size="icon-lg"
+          className="pointer-events-auto"
+          aria-label="Add players to the match"
+          disabled={!nextMatch}
+          onClick={() => setAddOpen(true)}
+        >
+          <Icon icon={PlusSignIcon} size={22} strokeWidth={2.2} />
+        </Button>
       </div>
 
       <MatchesDrawer

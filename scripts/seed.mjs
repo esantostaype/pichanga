@@ -161,17 +161,19 @@ const matchId = crypto.randomUUID();
 
 // Seeded as a weekly fixture so the recurrence path has something to roll.
 await db.execute({
-  sql: "insert into matches (id, played_at, ends_at, place_id, recurrence, series_id, created_at) values (?, ?, ?, ?, 'weekly', ?, ?)",
+  sql: "insert into matches (id, played_at, ends_at, place_id, organizer_id, recurrence, series_id, created_at) values (?, ?, ?, ?, ?, 'weekly', ?, ?)",
   args: [
     matchId,
     playedAt,
     playedAt + 90 * 60 * 1000,
     placeId,
+    players[0].id,
     crypto.randomUUID(),
     now,
   ],
 });
 
+// The organizer is first, so the seeded lineup puts the crown dead centre.
 const lineup = players.slice(0, 10);
 
 await db.batch(

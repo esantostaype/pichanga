@@ -17,6 +17,8 @@ type LineupLayerProps = {
   height: number;
   /** Space reserved top and bottom so the HUD never covers a token. */
   insetY?: number;
+  /** Their token takes the centre slot and wears the crown. */
+  organizerId?: string | null;
   onRemovePlayer?: (player: Player) => void;
 };
 
@@ -30,19 +32,28 @@ export function LineupLayer({
   width,
   height,
   insetY = 0,
+  organizerId,
   onRemovePlayer,
 }: LineupLayerProps) {
   const scope = useRef<HTMLDivElement>(null);
   /** Ids already animated: tells "first entrance" apart from "reposition". */
   const placed = useRef(new Set<string>());
 
+  // The organizer goes first, because slot 0 is the centre of the pitch.
+  const ordered = useMemo(() => {
+    if (!organizerId) return players;
+    const organizer = players.find((player) => player.id === organizerId);
+    if (!organizer) return players;
+    return [organizer, ...players.filter((player) => player.id !== organizerId)];
+  }, [players, organizerId]);
+
   const formation = useMemo(
-    () => buildFormation(players.length, width, height, insetY),
-    [players.length, width, height, insetY],
+    () => buildFormation(ordered.length, width, height, insetY, !!organizerId),
+    [ordered.length, width, height, insetY, organizerId],
   );
 
   // The array identity changes on every refresh; only the order matters.
-  const signature = players.map((player) => player.id).join(",");
+  const signature = ordered.map((player) => player.id).join(",");
 
   useGSAP(
     () => {
@@ -53,7 +64,7 @@ export function LineupLayer({
       const cy = height / 2;
       const alive = new Set<string>();
 
-      players.forEach((player, index) => {
+      ordered.forEach((player, index) => {
         const node = root.querySelector<HTMLElement>(
           `[data-token="${player.id}"]`,
         );
@@ -107,7 +118,7 @@ export function LineupLayer({
 
   return (
     <div ref={scope} className="absolute inset-0">
-      {players.map((player) => (
+      {ordered.map((player) => (
         <div
           key={player.id}
           data-token={player.id}
@@ -118,6 +129,7 @@ export function LineupLayer({
               player={player}
               size={formation.tokenSize}
               plateWidth={formation.plateWidth}
+              isOrganizer={player.id === organizerId}
               onRemove={onRemovePlayer}
             />
           </div>

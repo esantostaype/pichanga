@@ -37,6 +37,7 @@ export function PitchScene({
           width={size.width}
           height={size.height}
           insetY={hudInset}
+          organizerId={match?.organizerId}
           onRemovePlayer={onRemovePlayer}
         />
       ) : (

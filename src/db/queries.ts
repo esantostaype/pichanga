@@ -51,11 +51,24 @@ const toMatch = (
   playedAt: row.playedAt.getTime(),
   endsAt: endOf(row),
   place: toPlace(place),
+  organizerId: row.organizerId,
   recurrence: (row.recurrence as Recurrence | null) ?? null,
   seriesId: row.seriesId,
   createdAt: row.createdAt.getTime(),
   players: lineup.map((entry) => toPlayer(entry.player)),
 });
+
+/**
+ * The organizer plays: they are forced into the lineup and put first, which is
+ * the slot the formation reserves for the centre of the pitch.
+ */
+const withOrganizerFirst = (
+  playerIds: string[],
+  organizerId: string | null | undefined,
+) =>
+  organizerId
+    ? [organizerId, ...playerIds.filter((id) => id !== organizerId)]
+    : playerIds;
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -234,6 +247,7 @@ async function materializeRecurringMatches(): Promise<void> {
           playedAt: new Date(next),
           endsAt: new Date(next + duration),
           placeId: source.placeId,
+          organizerId: source.organizerId,
           recurrence: source.recurrence,
           seriesId: source.seriesId,
         })
@@ -285,6 +299,7 @@ export async function listMatches(): Promise<MatchSummary[]> {
     playedAt: row.match.playedAt.getTime(),
     endsAt: endOf(row.match),
     place: toPlace(row.place),
+    organizerId: row.match.organizerId,
     recurrence: (row.match.recurrence as Recurrence | null) ?? null,
     seriesId: row.match.seriesId,
     createdAt: row.match.createdAt.getTime(),
@@ -345,15 +360,18 @@ export async function createMatch(input: MatchInput): Promise<Match> {
       playedAt: new Date(input.playedAt),
       endsAt: new Date(input.endsAt),
       placeId: input.placeId ?? null,
+      organizerId: input.organizerId ?? null,
       recurrence: input.recurrence ?? null,
       // A recurring fixture opens its own series; occurrences inherit the id.
       seriesId: input.recurrence ? crypto.randomUUID() : null,
     })
     .returning();
 
-  if (input.playerIds.length) {
+  const lineup = withOrganizerFirst(input.playerIds, input.organizerId);
+
+  if (lineup.length) {
     await db.insert(matchPlayers).values(
-      input.playerIds.map((playerId, index) => ({
+      lineup.map((playerId, index) => ({
         matchId: row.id,
         playerId,
         slot: index,
@@ -383,6 +401,7 @@ export async function updateMatch(
       playedAt: new Date(input.playedAt),
       endsAt: new Date(input.endsAt),
       placeId: input.placeId ?? null,
+      organizerId: input.organizerId ?? null,
       recurrence: input.recurrence ?? null,
       seriesId,
     })
@@ -393,9 +412,11 @@ export async function updateMatch(
 
   await db.delete(matchPlayers).where(eq(matchPlayers.matchId, id));
 
-  if (input.playerIds.length) {
+  const lineup = withOrganizerFirst(input.playerIds, input.organizerId);
+
+  if (lineup.length) {
     await db.insert(matchPlayers).values(
-      input.playerIds.map((playerId, index) => ({
+      lineup.map((playerId, index) => ({
         matchId: id,
         playerId,
         slot: index,

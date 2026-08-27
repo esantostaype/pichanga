@@ -11,6 +11,7 @@ import { LiveBadge } from "@/components/matches/live-badge";
 import { Icon } from "@/components/ui/icon";
 import { useNow } from "@/hooks/use-now";
 import { formatMoney, perPlayer } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { formatLongDate, formatTimeRange, isLive, relativeLabel } from "@/lib/date";
 import type { Match } from "@/types";
 
@@ -18,7 +19,14 @@ import type { Match } from "@/types";
  * Match details. Chrome-less on purpose: it lives inside the shared HUD card,
  * to the right of the logo.
  */
-export function MatchHudCard({ match }: { match: Match | null }) {
+export function MatchHudCard({
+  match,
+  stacked,
+}: {
+  match: Match | null;
+  /** One item per line, for the centred dialog on a phone. */
+  stacked?: boolean;
+}) {
   const now = useNow();
 
   if (!match) {
@@ -40,7 +48,12 @@ export function MatchHudCard({ match }: { match: Match | null }) {
   return (
     <div className="min-w-0">
       <p
-        className="mt-1 flex items-center gap-2 truncate font-display text-lg uppercase leading-tight tracking-[0.04em] sm:text-xl"
+        className={cn(
+          "mt-1 flex gap-2 font-display uppercase leading-tight tracking-[0.04em]",
+          stacked
+            ? "flex-col items-start text-xl"
+            : "items-center truncate text-lg sm:text-xl",
+        )}
       >
         {formatLongDate(match.playedAt)}
 
@@ -58,7 +71,10 @@ export function MatchHudCard({ match }: { match: Match | null }) {
         */}
         {share !== null ? (
           <span
-            className="ml-auto flex shrink-0 items-baseline gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5"
+            className={cn(
+              "flex shrink-0 items-baseline gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5",
+              stacked ? "" : "ml-auto",
+            )}
             title={`${formatMoney(match.place!.price!)} split across ${match.players.length} ${match.players.length === 1 ? "player" : "players"}`}
           >
             <span className="text-sm tabular-nums text-foreground">
@@ -71,7 +87,14 @@ export function MatchHudCard({ match }: { match: Match | null }) {
         ) : null}
       </p>
 
-      <div className="mt-0.5 flex flex-wrap items-center gap-x-3.5 gap-y-1 text-sm text-muted-foreground">
+      <div
+        className={cn(
+          "text-sm text-muted-foreground",
+          stacked
+            ? "mt-3 flex flex-col items-start gap-2"
+            : "mt-0.5 flex flex-wrap items-center gap-x-3.5 gap-y-1",
+        )}
+      >
         <span className="flex items-center gap-1.5">
           <Icon icon={Time04Icon} size={13} />
           {formatTimeRange(match.playedAt, match.endsAt)}

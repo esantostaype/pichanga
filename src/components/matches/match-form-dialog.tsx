@@ -39,8 +39,9 @@ import { suggestedMatchDate, toDateInput, toTimeInput } from "@/lib/date";
 import { toEpoch } from "@/lib/validators";
 import type { MatchSummary } from "@/types";
 
-/** Sentinel for "no venue": Radix Select cannot hold an empty string value. */
+/** Sentinels: Radix Select cannot hold an empty string value. */
 const NO_PLACE = "none";
+const NO_ORGANIZER = "none";
 
 const formSchema = z
   .object({
@@ -48,6 +49,7 @@ const formSchema = z
     time: z.string().min(1, "Pick a start time"),
     endTime: z.string().min(1, "Pick an end time"),
     placeId: z.string(),
+    organizerId: z.string(),
     recurring: z.boolean(),
   })
   .refine((values) => toEpoch(values.date, values.endTime) > toEpoch(values.date, values.time), {
@@ -122,6 +124,7 @@ function MatchForm({
       time: toTimeInput(base),
       endTime: toTimeInput(baseEnd),
       placeId: match?.place?.id ?? NO_PLACE,
+      organizerId: match?.organizerId ?? NO_ORGANIZER,
       recurring: match?.recurrence === "weekly",
     },
   });
@@ -157,6 +160,8 @@ function MatchForm({
         playedAt: toEpoch(values.date, values.time),
         endsAt: toEpoch(values.date, values.endTime),
         placeId: values.placeId === NO_PLACE ? null : values.placeId,
+        organizerId:
+          values.organizerId === NO_ORGANIZER ? null : values.organizerId,
         recurrence: values.recurring ? ("weekly" as const) : null,
         playerIds: selected,
       };
@@ -277,6 +282,44 @@ function MatchForm({
                   {places.map((place) => (
                     <SelectItem key={place.id} value={place.id}>
                       {place.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Organizer
+          </span>
+
+          <Controller
+            control={form.control}
+            name="organizerId"
+            render={({ field }) => (
+              <Select
+                value={field.value}
+                onValueChange={(next) => {
+                  field.onChange(next);
+                  // They play, so tick them: the crown needs a token.
+                  if (next !== NO_ORGANIZER) {
+                    setSelected((prev) =>
+                      prev.includes(next) ? prev : [...prev, next],
+                    );
+                  }
+                }}
+                disabled={pending}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pick the organizer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_ORGANIZER}>No organizer</SelectItem>
+                  {players.map((player) => (
+                    <SelectItem key={player.id} value={player.id}>
+                      {player.firstName} {player.lastName}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -1,11 +1,16 @@
 "use client";
 
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, CrownIcon } from "@hugeicons/core-free-icons";
 import { memo } from "react";
 
 import { areaColor } from "@/components/players/area-badge";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { Icon } from "@/components/ui/icon";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { getArea } from "@/lib/constants";
 import { clamp, shortName } from "@/lib/utils";
 import type { Player } from "@/types";
@@ -16,6 +21,8 @@ type PlayerTokenProps = {
   size: number;
   /** Name plate width in px. */
   plateWidth: number;
+  /** Marks the match organizer, who wears the crown. */
+  isOrganizer?: boolean;
   onRemove?: (player: Player) => void;
 };
 
@@ -28,6 +35,7 @@ function PlayerTokenBase({
   player,
   size,
   plateWidth,
+  isOrganizer,
   onRemove,
 }: PlayerTokenProps) {
   const color = areaColor(player.area);
@@ -50,6 +58,31 @@ function PlayerTokenBase({
             outlineOffset: `-${Math.max(1.5, size * 0.03)}px`,
           }}
         />
+
+        {isOrganizer ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {/*
+                Focusable on purpose: the crown is the only hint that this
+                player runs the match, so it has to reach the keyboard and a
+                screen reader too, not just the pointer.
+              */}
+              <span
+                tabIndex={0}
+                aria-label="Match organizer"
+                className="absolute -top-1 left-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                style={{ width: size * 0.48, height: size * 0.48 }}
+              >
+                <Icon
+                  icon={CrownIcon}
+                  size={Math.max(9, size * 0.28)}
+                  strokeWidth={1.5}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">Organizer</TooltipContent>
+          </Tooltip>
+        ) : null}
 
         {onRemove ? (
           <button

@@ -79,6 +79,10 @@ export const matches = sqliteTable(
     placeId: text("place_id").references(() => places.id, {
       onDelete: "set null",
     }),
+    /** Whoever is running this one. Their token wears the crown. */
+    organizerId: text("organizer_id").references(() => players.id, {
+      onDelete: "set null",
+    }),
     /** `null` for a one-off, `"weekly"` for a repeating fixture. */
     recurrence: text("recurrence"),
     /** Groups every occurrence generated from the same recurring fixture. */

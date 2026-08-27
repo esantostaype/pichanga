@@ -40,6 +40,7 @@ export const matchInputSchema = z
     playedAt: z.coerce.number().int().positive("Pick a valid date"),
     endsAt: z.coerce.number().int().positive("Pick a valid end time"),
     placeId: z.string().min(1).nullable().optional(),
+    organizerId: z.string().min(1).nullable().optional(),
   /** `null` for a one-off fixture. */
   recurrence: z.literal("weekly").nullable().optional(),
     /** No upper bound: a match takes as many players as sign up. */

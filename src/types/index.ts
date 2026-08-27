@@ -30,6 +30,8 @@ export type MatchSummary = {
   playedAt: number;
   endsAt: number;
   place: Place | null;
+  /** Player running the match; their token wears the crown. */
+  organizerId: string | null;
   recurrence: Recurrence | null;
   seriesId: string | null;
   playerCount: number;
@@ -41,6 +43,7 @@ export type Match = {
   playedAt: number;
   endsAt: number;
   place: Place | null;
+  organizerId: string | null;
   recurrence: Recurrence | null;
   seriesId: string | null;
   createdAt: number;

@@ -167,6 +167,18 @@ zone, the formatting locale is pinned rather than taken from the runtime: the
 server and the browser would otherwise disagree and the SSR markup would not
 match.
 
+## The organizer
+
+A match points at one of the players with `organizer_id`. That player wears a
+crown on the pitch instead of taking a line in the HUD, and the form ticks them
+into the lineup when picked: the crown needs a token to sit on.
+
+The organizer always stands on the exact center spot. `buildFormation()` takes
+a `centerSlot` flag that forces an odd row count and an odd middle row, which
+is the only shape where a slot lands dead center; the queries then push the
+organizer to the head of the lineup, and slot 0 is the position closest to the
+center. Without an organizer nothing changes and the grid stays as it was.
+
 ## Bulk delete
 
 Every drawer table has a checkbox column with a select-all header. Ticking
