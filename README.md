@@ -29,9 +29,15 @@ Copy `.env.example` to `.env.local` and fill in the Turso, Pusher and Cloudinary
 credentials. Then:
 
 ```bash
-npm run db:push
+npm run db:migrate
 npm run dev
 ```
+
+`db:migrate` is the one to reach for whenever the app says it cannot read the
+database: it applies the migrations that have not run yet and adds nothing
+else. `db:push` rewrites tables to match the schema, which on a database with
+rows in it means losing them -- it is how this one was emptied once -- so it is
+for an empty local file and nothing else.
 
 ### Scripts
 
@@ -41,10 +47,13 @@ npm run dev
 | `npm run build` / `start` | Production build and start |
 | `npm run lint` | ESLint |
 | `npm test` | Vitest, once |
-| `npm run db:migrate` | Applies pending migrations (use this, not push) |
+| `npm run db:migrate` | Applies pending migrations. **This is the one.** |
+| `npm run db:migrate:plan` | Lists what it would run, and writes nothing |
+| `npm run demo:clear` | Counts the sandbox rows in the database, writes nothing |
+| `npm run demo:clear:yes` | Deletes them |
 | `npm run test:watch` | Vitest, watching |
 | `npm run db:generate` | Generates migration SQL from the schema |
-| `npm run db:push` | Applies the schema to Turso |
+| `npm run db:push` | Rebuilds tables from the schema. Local files only: it drops what it cannot keep, and refuses a remote database without `ALLOW_REMOTE_DB=1` |
 | `npm run db:studio` | Drizzle data browser |
 | `npm run db:seed` | Creates tables and seeds sample data |
 
@@ -175,16 +184,19 @@ match is about any more.
 `match_players.paid_at` records when each player settled their share. The pitch
 marks every token on the left edge of the photo, halfway down: a receipt when
 they have paid, a red empty wallet when they have not. For an admin the mark is
-a button and **double clicking the photo** does the same thing, which is the
-fast way through a squad -- a stamp flashes over the photo to confirm. The money
-pill in the HUD opens the full ledger: the split, what has
-been collected, what is pending, and a switch per player.
+a button, and it is **the only way to move money on the pitch** -- a stamp
+flashes over the photo to confirm. Double clicking the photo used to do the
+same thing, which was quick until you remember the photo is also how a card is
+opened: a gesture that moves money sharing a target with a gesture that reads
+about somebody is one that eventually fires by mistake. The money pill in the
+HUD opens the full ledger: the split, what has been collected, what is
+pending, and a switch per player.
 
 The marks are on every match, past or future: plenty of people pay up front,
 and a fixture nobody can tick is a fixture nobody can collect for.
 
 The **organizer is always settled**: they pay the venue, so their mark is green
-and locked -- no button, no double click, and the API answers 422 if somebody
+and locked -- no button at all, and the API answers 422 if somebody
 tries to take it back. It is derived rather than stored, so handing the match to
 somebody else moves the mark with the crown instead of leaving the old
 organizer marked as having paid something they never did. Marking them paid is
@@ -321,6 +333,41 @@ address you are on is left alone.
 
 Links are still `next/link`, so the page itself is usually prefetched and
 waiting by the time the wipe has finished closing.
+
+## Crests
+
+A shield in the side's colour with its short form on it, drawn rather than
+drawn *by hand*: fourteen names in the pool and more to come, each needing a
+crest in two sizes and both themes. As artwork that is fourteen files to keep
+in step with a list in a constants file; as a shape plus a colour plus two
+letters, a new name arrives with its crest already made. `Los 404` reads
+`404` because the pool carries the short form; a name from outside it falls
+back to initials, which is never wrong even when it is dull.
+
+**Two letters at most.** A shield is read from the touchline at the size of a
+thumbnail, and three characters in it are a word nobody can make out. They are
+big enough to fill it now, which is what retired the stripe across the middle:
+that was there to stop the badge reading as a sticker with letters on it, and
+the lettering does that itself. The baseline is placed so the capitals straddle
+the middle of the shield rather than relying on `dominant-baseline`, which is a
+different centre in every browser.
+
+**The colour belongs to the name**, so a side is the same colour every week,
+and the six are spread as far around the wheel as six hues get: two teams a
+shade apart are two teams nobody can tell apart from the touchline. Both are
+copied onto the team row when the sides are drawn, so changing the pool renames
+nothing that has already been played.
+
+**Picking names cannot spin.** They are walked from a point the seed decides in
+steps rather than one by one, which keeps the pairs from always being
+neighbours in the list -- but a step that shares a factor with the pool walks a
+circle smaller than the pool. Three into six visits two names and no more, and
+the loop filling four sides from that circle never came back: the request hung
+and the server sat there holding it, which is exactly what happened the first
+time the pool went from fourteen names to six. The step is nudged until the two
+are coprime, so the walk visits every name before it repeats one, and a turnout
+needing more sides than there are names gets the pool again with a numeral on
+it. It lives in `lib/teams.ts` now, with tests.
 
 ## Sharing a lineup
 
@@ -762,11 +809,31 @@ click for the payment mark, and two gestures a fifth of a second apart on the
 same target is how somebody ends up marked as paid for trying to read about
 them.
 
+The **X** that drops somebody from the lineup carries an invisible square
+eight pixels wider than itself on every side. It is a small circle sitting half
+off the corner of a token, which made it a thing you had to travel to and could
+lose on the way -- leaving the token takes the hover with it. The square
+catches the clicks that land just wide, and because it belongs to a child of
+the token it keeps the token hovered while the pointer crosses the gap.
+
 The overall is the same number the balancer uses, weighed by the position they
 picked, so the card explains the teams instead of sitting next to them. And the
 hexagon is there because six bars say the same numbers but the shape is what
 gets remembered: a forward and a defender with the same overall look nothing
 alike on it.
+
+It opens from the **photo** as well as the name. The photo used to belong to
+the payment mark -- a double click on it settled somebody's share -- and that
+was quick until you remember the name right under it opens a card: a gesture
+that moves money sharing a target with one that reads about somebody is one
+that eventually fires by mistake. The mark on the edge does the money now, and
+the whole token reads as one thing to press.
+
+**Whose card it is outlives the card being open.** Closing it used to clear the
+player, which unmounted the dialog on the spot: it arrived with a transition
+and vanished without one. The player stays until the next tap replaces them,
+and only the open flag comes down, so there is still something on screen for
+the way out to animate.
 
 ### How many teams
 
@@ -876,6 +943,12 @@ paid" on the lineup. The two never share a page, so neither has to guess.
 puts a clock on screen that means nothing. The sandbox is exempt, because it
 exists to be played with at four on a Tuesday afternoon.
 
+**The lineup can change under a night in progress.** Somebody turns up, or
+somebody has to leave, and this screen was only handed the match once -- at
+render -- so a side kept a player who had walked off until the next reload. It
+listens for `lineup:changed` now and reads the match again, which is the same
+event the lineup screen has always broadcast.
+
 The header is **the same component**, not one that matches: `AppHeader` is
 rendered by the lineup and by match night, and the page brings the same provider
 with it so the logo, the details, the album, the share sheet and the menu are
@@ -920,6 +993,67 @@ The board is the game being played: both crests, the score, and a clock counted
 from one timestamp. Only `startedAt` is stored, and every phone works the time
 out from it -- the only way six devices agree about how long is left.
 
+**The gloves can be moved by hand.** The balancer names a keeper for every
+side and is right most of the time, but it cannot know whose knee hurts or who
+has spent three weeks refusing. A glove sits on the left edge of the keeper's
+token -- the edge the ledger uses before the sides are drawn, free once they
+are -- and every other player's name plate carries one on its corner: press it
+and they take over. The same control is in the Teams dialog, next to each name.
+
+The team sheets on match night carry it too, which is where somebody is
+standing when they find out the keeper's knee hurts: a glove beside each name,
+quiet until the sheet is reached for and always there on a touch screen.
+
+**Not while a game is on, with three sides or more.** A side reshuffling in
+front of the two waiting to come on is a side being unfair to them, and the
+table is being kept on the result. With two sides there is nobody waiting, so
+the gloves move whenever those two agree -- which is how a pickup game actually
+works. The server holds that rule; the screens only decide whether to offer it.
+
+**Somebody arriving after the draw goes on a side**, rather than standing on
+the pitch belonging to nobody: the one with fewest players, and between two of
+the same size the weaker one, which is what the balancer was aiming at anyway.
+Redrawing everything instead would be tidier arithmetic and worse football --
+the sides have been read out, and one person arriving should not rearrange the
+other fourteen. If they keep and that side was making do with somebody who does
+not, the gloves are theirs, which is the whole reason a keeper turning up late
+is good news.
+
+**And nobody is left with an empty net.** Taking the keeper off the lineup
+hands the gloves to the next best on that side -- a volunteer first, then
+whoever keeps best, the same order the draw uses.
+
+**How long a game runs is agreed when the sides are drawn**, in the Teams
+dialog -- which opens wider for three sides or more, as many across as the
+screen fits and the rest underneath, because reading a triangular in a column
+means scrolling past one team to compare it with another -- because that is the moment everyone is standing together looking at the
+same screen. Ten minutes unless somebody says otherwise, kept on the match
+rather than on the place -- the same pitch is rented for an hour some weeks and
+two others, and it is the night that decides how long the side waiting has to
+wait. It reads on the board next to the game number, and it is not behind the
+session: the length of a game is settled out loud at the ground and the phone
+that types it in is whichever one is out.
+
+**Two sides can play with no clock at all**, which is the other thing an
+office does: one game, running until the pitch is up. The choice only appears
+with two sides drawn, because with three there is always somebody waiting for
+the game to end and a game that never ends is a side that never plays. The
+board says "no clock" where it would say the minutes, the clock counts up and
+never turns amber, and full time stops asking whether it is too early -- there
+is nothing to be early for.
+
+**The clock says how close it is.** It turns amber at three quarters of that
+length and red at the last twentieth, and stays red past it. Neither stops
+anything -- the whistle is still a person pressing a button -- but nobody has
+to do arithmetic with a stopwatch to know whether to let this one run.
+
+**Full time asks, while there is anything to ask about.** Blowing up with
+minutes left says how many are left and waits for a yes -- nobody does that by
+accident, but somebody reaching for the goals button at arm's length might. In
+the **last thirty seconds** it just blows: nobody plays on for half a minute,
+and a dialog in the last seconds of a game is a dialog in front of somebody
+watching a game.
+
 **A goal can only be taken back off the game being played.** One mistyped is
 noticed within the minute; one removed from a game that finished an hour ago
 rewrites a result the teams already played on, and the table with it. The
@@ -951,10 +1085,18 @@ browser that tapped it in -- not a person, nobody has an account, but enough to
 tell four goals from four phones apart from four off one.
 
 **GOAL goes up on every screen at the ground**, over the whole display: the
-word in `SPORTNEWS` tilted ten degrees, the scorer's name, and their area. A
-ball hitting a net was drawn here first, and it was the better drawing and the
-worse thing to look at -- the only two facts anybody wants in that second are
-*goal* and *who*, and they were the two arriving last.
+scorer's face, the word in `SPORTNEWS` tilted ten degrees a hand below it, then
+their name and their area. A ball hitting a net was drawn here first, and it
+was the better drawing and the worse thing to look at -- the only two facts
+anybody wants in that second are *goal* and *who*, and they were the two
+arriving last. The photo is there for the same reason: six people look up at
+once and a name takes a moment to read, while a face does not.
+
+**It leaves the way it came in.** The name goes back down and the word shrinks
+and turns back to where it started, over the same times and with the same ease,
+in reverse order -- and the veil goes with the word, so the pitch is back the
+moment the shout is. It used to be a flat fade on both at once, which after all
+that arriving read as the screen being switched off.
 
 It is shown the moment the scorer is tapped rather than when the server answers:
 the tap and the shout are the same moment on a pitch, and the network is not
@@ -1044,11 +1186,31 @@ It is a **world**, not a mock. Every listing reads with a `demo` flag and every
 write marks what it creates, so the sandbox never sees the office's rows and the
 office never sees the sandbox's. A mock would have tested the mock.
 
+The squad and the pitch live in `src/data/demo.json` -- a list of names,
+areas, positions and skills, which is the one thing in the app somebody might
+want to edit without reading any code. They are rows in the database like
+everything else, though: the sandbox is a **world**, not a fixture file, and
+the whole point is that it goes through the same queries, endpoints and rules
+the real match does.
+
+`npm run demo:clear` counts what the sandbox owns in whatever database
+`.env.local` points at and writes nothing; `npm run demo:clear:yes` deletes it.
+Both print the database first. Everything the demo owns carries `is_demo`, so
+the deletes cannot reach anything real, and its teams, games, goals and lineup
+cascade off the match.
+
 The squad is seeded on the way in rather than by a script somebody has to
 remember to run, and **kick-off is always half an hour ahead**. That one detail
 is what opens every gate at once -- the teams can be drawn, the night can be
 played, the ledger is live -- without a single date being special-cased. Reset
 the demo from the menu when it gets messy.
+
+**Nothing in it is seeded twice.** The check used to key off the sandbox
+match alone, so deleting that fixture -- which the sandbox exists to let you do
+-- brought back a second Demo pitch and a second copy of all eighteen players
+on the next visit. Two Emilio Cardenas in one lineup, and taking one off leaves
+the other standing there. What is already in the sandbox is reused now; only
+what is missing is made.
 
 **And it rolls on.** Finish the sandbox match and the next one is waiting: the
 same squad, the same pitch, half an hour ahead again, with its own sides to

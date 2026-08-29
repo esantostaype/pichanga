@@ -4,6 +4,7 @@ import {
   SKILL_DEFAULT,
   type PositionId,
 } from "./constants";
+import { TEAM_NAMES } from "./constants";
 import type { Player } from "@/types";
 
 export type PlannedTeam = {
@@ -368,4 +369,45 @@ function mulberry32(seed: number) {
     value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
     return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/** Sides beyond the pool are the pool again, numbered. */
+const ROUNDS = ["", "II", "III", "IV", "V"];
+
+const gcd = (left: number, right: number): number =>
+  right === 0 ? left : gcd(right, left % right);
+
+/**
+ * Distinct names for the sides, walked from a point the seed decides.
+ *
+ * Walking in steps rather than one by one keeps the pairs from always being
+ * neighbours in the list -- but a step that shares a factor with the pool walks
+ * a circle smaller than the pool. Three into six visits two names and no more,
+ * and the loop that was filling four sides from that circle never finished:
+ * the request never answered and the server sat there holding it. So the step
+ * is nudged until the two are coprime, which makes the walk visit every name
+ * before it repeats one.
+ *
+ * A turnout big enough to need more sides than there are names gets the pool
+ * again with a numeral on it, which is still a name nobody else has.
+ */
+export function pickNames(count: number, seed: number) {
+  const pool = TEAM_NAMES;
+  if (count <= 0) return [];
+
+  const start = Math.abs(Math.trunc(seed)) % pool.length;
+
+  let step = 1 + (Math.abs(Math.trunc(seed / pool.length)) % 3);
+  while (gcd(step, pool.length) !== 1) step += 1;
+
+  return Array.from({ length: count }, (_, index) => {
+    const entry = pool[(start + index * step) % pool.length];
+    const round = Math.floor(index / pool.length);
+    if (round === 0) return { ...entry };
+
+    return {
+      ...entry,
+      name: `${entry.name} ${ROUNDS[round] ?? round + 1}`,
+    };
+  });
 }

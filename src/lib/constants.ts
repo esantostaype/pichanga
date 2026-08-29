@@ -85,10 +85,38 @@ export const SKILL_DEFAULT = 3;
  * nobody volunteers.
  */
 export const POSITION_WEIGHTS: Record<PositionId, Record<SkillId, number>> = {
-  gk: { goalkeeping: 0.6, pace: 0.1, stamina: 0.1, passing: 0.1, defending: 0.1, finishing: 0 },
-  def: { defending: 0.4, stamina: 0.25, pace: 0.2, passing: 0.15, finishing: 0, goalkeeping: 0 },
-  mid: { passing: 0.35, stamina: 0.3, pace: 0.2, finishing: 0.15, defending: 0, goalkeeping: 0 },
-  fwd: { finishing: 0.4, pace: 0.35, passing: 0.15, stamina: 0.1, defending: 0, goalkeeping: 0 },
+  gk: {
+    goalkeeping: 0.6,
+    pace: 0.1,
+    stamina: 0.1,
+    passing: 0.1,
+    defending: 0.1,
+    finishing: 0,
+  },
+  def: {
+    defending: 0.4,
+    stamina: 0.25,
+    pace: 0.2,
+    passing: 0.15,
+    finishing: 0,
+    goalkeeping: 0,
+  },
+  mid: {
+    passing: 0.35,
+    stamina: 0.3,
+    pace: 0.2,
+    finishing: 0.15,
+    defending: 0,
+    goalkeeping: 0,
+  },
+  fwd: {
+    finishing: 0.4,
+    pace: 0.35,
+    passing: 0.15,
+    stamina: 0.1,
+    defending: 0,
+    goalkeeping: 0,
+  },
 };
 
 /**
@@ -103,24 +131,25 @@ export type PitchFormat = (typeof PITCH_FORMATS)[number];
  * The pool the drawn teams are named from.
  *
  * Every one of them has to work as a crest, which is a harder test than being
- * funny in a list: a short badge, a colour, and something an office of people
- * who write software will recognise from across a pitch.
+ * funny in a list: a short badge, a colour, and something readable from across
+ * a pitch. They are named after the floors the squad comes off -- the people
+ * who write the code, the ones who read the numbers, the ones who make it look
+ * like something -- so a side reads as a side and not as an in-joke.
+ *
+ * The colour belongs to the name, so a side is the same colour every week --
+ * and the six are spread as far around the wheel as six hues get, because two
+ * teams a shade apart is two teams nobody can tell apart from the touchline.
+ *
+ * A name and its colour are copied onto the team row when the sides are drawn,
+ * so changing this list renames nothing that has already been played.
  */
 export const TEAM_NAMES = [
-  { name: "Los 404", badge: "404", accent: "#f472b6" },
-  { name: "Kernel Panic", badge: "KP", accent: "#fb7185" },
-  { name: "Merge Conflict", badge: "MC", accent: "#c6f432" },
-  { name: "Cache Miss", badge: "CM", accent: "#fbbf24" },
-  { name: "Deploy Friday", badge: "DF", accent: "#38bdf8" },
-  { name: "Los Sudo", badge: "SU", accent: "#a78bfa" },
-  { name: "Null Pointers", badge: "NP", accent: "#2dd4bf" },
-  { name: "Legacy FC", badge: "LG", accent: "#94a3b8" },
-  { name: "Prod Hotfix", badge: "PH", accent: "#f97316" },
-  { name: "Los Cron Jobs", badge: "CJ", accent: "#7dd3fc" },
-  { name: "Rate Limited", badge: "RL", accent: "#ef4444" },
-  { name: "Stack Overflow", badge: "SO", accent: "#84cc16" },
-  { name: "Los Daemons", badge: "DM", accent: "#8b5cf6" },
-  { name: "Latency United", badge: "LU", accent: "#22d3ee" },
+  { name: "Code FC", badge: "CF", accent: "#c6f432" },
+  { name: "Full Stack United", badge: "FS", accent: "#a78bfa" },
+  { name: "Data Miners FC", badge: "DM", accent: "#38bdf8" },
+  { name: "Analytics City", badge: "AC", accent: "#fb923c" },
+  { name: "Creative United", badge: "CU", accent: "#f472b6" },
+  { name: "Brand Builders", badge: "BB", accent: "#4ade80" },
 ] as const;
 
 /**
@@ -134,6 +163,24 @@ export const TEAMS_OPEN_MS = 2 * 60 * 60 * 1000;
 
 /** Teams for a place that never said how big it is. */
 export const DEFAULT_PITCH_FORMAT = 7;
+
+/**
+ * How long a game runs before the sides change, for a night nobody agreed one
+ * for. Ten minutes is what an office plays: long enough to be a game, short
+ * enough that the side waiting is not waiting.
+ */
+export const DEFAULT_GAME_MINUTES = 10;
+
+/** What the night can be set to. Anything else is somebody else's sport. */
+export const GAME_MINUTES_CHOICES = [5, 8, 10, 12, 15, 20] as const;
+
+/**
+ * No clock: the game runs as long as the match does.
+ *
+ * Only offered with two sides, because with three there is somebody waiting
+ * and a game that never ends is a side that never plays.
+ */
+export const INDEFINITE_GAME = 0;
 
 /**
  * How long the form assumes a match runs when you pick a start time.
@@ -193,9 +240,10 @@ export const GALLERY = {
   maxVideoBytes: 100 * 1024 * 1024,
 } as const;
 
-export const GALLERY_ACCEPT = [...GALLERY.imageTypes, ...GALLERY.videoTypes].join(
-  ",",
-);
+export const GALLERY_ACCEPT = [
+  ...GALLERY.imageTypes,
+  ...GALLERY.videoTypes,
+].join(",");
 
 /** Pusher channel and events. */
 export const REALTIME = {

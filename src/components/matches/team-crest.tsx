@@ -9,6 +9,10 @@ import { cn } from "@/lib/utils";
  * fourteen files to keep in step with a list in a constants file. As a shape
  * plus a colour plus two letters, a new name arrives with its crest already
  * made.
+ *
+ * Two letters at most, in the app's display face: a shield is read from the
+ * touchline at the size of a thumbnail, and three characters in it are a word
+ * nobody can make out.
  */
 export function TeamCrest({
   name,
@@ -40,17 +44,24 @@ export function TeamCrest({
         strokeWidth={2.5}
         strokeLinejoin="round"
       />
-      {/* The stripe across the middle is what makes it read as a badge and not
-          as a sticker with letters on it. */}
-      <path d="M3 22h42" stroke={accent} strokeOpacity={0.35} strokeWidth={2} />
+      {/*
+        No stripe across it any more: it was there to stop the shield reading
+        as a sticker with letters on it, and the letters do that themselves
+        once they are the scoreboard face and big enough to fill the shield.
+      */}
+      {/*
+        No `dominant-baseline`: the baseline is put where the capitals end up
+        straddling the middle of the shield, which is the same in every browser
+        and does not depend on the font's own idea of a centre.
+      */}
       <text
         x="24"
-        y="38"
+        y="35"
         textAnchor="middle"
         fill={accent}
-        fontSize={badge.length > 2 ? 15 : 18}
+        fontSize={28}
         fontWeight={700}
-        letterSpacing={badge.length > 2 ? 0 : 0.5}
+        letterSpacing={1.5}
         fontFamily="var(--font-display), system-ui, sans-serif"
       >
         {badge}

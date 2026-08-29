@@ -1,0 +1,280 @@
+{
+  "place": {
+    "name": "Demo pitch",
+    "address": "Wherever you like",
+    "price": 210,
+    "format": 7
+  },
+  "squad": [
+    {
+      "firstName": "Maximo",
+      "lastName": "Guzman",
+      "area": "data",
+      "position": "gk",
+      "photoUrl": "/api/demo/avatar/men-0",
+      "skills": {
+        "pace": 1,
+        "stamina": 1,
+        "finishing": 1,
+        "passing": 1,
+        "defending": 1,
+        "goalkeeping": 5
+      }
+    },
+    {
+      "firstName": "Erick",
+      "lastName": "Santos",
+      "area": "dev",
+      "position": "def",
+      "photoUrl": "/api/demo/avatar/men-1",
+      "skills": {
+        "pace": 3,
+        "stamina": 4,
+        "finishing": 2,
+        "passing": 1,
+        "defending": 4,
+        "goalkeeping": 2
+      }
+    },
+    {
+      "firstName": "Joaquin",
+      "lastName": "Angeles",
+      "area": "it",
+      "position": "def",
+      "photoUrl": "/api/demo/avatar/men-2",
+      "skills": {
+        "pace": 5,
+        "stamina": 2,
+        "finishing": 3,
+        "passing": 1,
+        "defending": 2,
+        "goalkeeping": 3
+      }
+    },
+    {
+      "firstName": "Adrian",
+      "lastName": "Zavaleta",
+      "area": "marketing",
+      "position": "mid",
+      "photoUrl": null,
+      "skills": {
+        "pace": 2,
+        "stamina": 5,
+        "finishing": 4,
+        "passing": 1,
+        "defending": 5,
+        "goalkeeping": 1
+      }
+    },
+    {
+      "firstName": "Victor",
+      "lastName": "Amaya",
+      "area": "sales",
+      "position": "mid",
+      "photoUrl": "/api/demo/avatar/men-4",
+      "skills": {
+        "pace": 4,
+        "stamina": 3,
+        "finishing": 5,
+        "passing": 1,
+        "defending": 3,
+        "goalkeeping": 2
+      }
+    },
+    {
+      "firstName": "Alfredo",
+      "lastName": "Saira",
+      "area": "product",
+      "position": "fwd",
+      "photoUrl": "/api/demo/avatar/men-5",
+      "skills": {
+        "pace": 1,
+        "stamina": 1,
+        "finishing": 1,
+        "passing": 1,
+        "defending": 1,
+        "goalkeeping": 3
+      }
+    },
+    {
+      "firstName": "Cristian",
+      "lastName": "Maldonado",
+      "area": "design",
+      "position": "gk",
+      "photoUrl": "/api/demo/avatar/men-6",
+      "skills": {
+        "pace": 3,
+        "stamina": 4,
+        "finishing": 2,
+        "passing": 1,
+        "defending": 4,
+        "goalkeeping": 5
+      }
+    },
+    {
+      "firstName": "Emilio",
+      "lastName": "Cardenas",
+      "area": "finance",
+      "position": "def",
+      "photoUrl": null,
+      "skills": {
+        "pace": 5,
+        "stamina": 2,
+        "finishing": 3,
+        "passing": 1,
+        "defending": 2,
+        "goalkeeping": 2
+      }
+    },
+    {
+      "firstName": "Diego",
+      "lastName": "Villalobos",
+      "area": "hr",
+      "position": "def",
+      "photoUrl": "/api/demo/avatar/men-8",
+      "skills": {
+        "pace": 2,
+        "stamina": 5,
+        "finishing": 4,
+        "passing": 1,
+        "defending": 5,
+        "goalkeeping": 3
+      }
+    },
+    {
+      "firstName": "Luis",
+      "lastName": "Bermudez",
+      "area": "legal",
+      "position": "mid",
+      "photoUrl": "/api/demo/avatar/men-9",
+      "skills": {
+        "pace": 4,
+        "stamina": 3,
+        "finishing": 5,
+        "passing": 1,
+        "defending": 3,
+        "goalkeeping": 1
+      }
+    },
+    {
+      "firstName": "Marco",
+      "lastName": "Ferreyra",
+      "area": "operations",
+      "position": "mid",
+      "photoUrl": "/api/demo/avatar/men-10",
+      "skills": {
+        "pace": 1,
+        "stamina": 1,
+        "finishing": 1,
+        "passing": 1,
+        "defending": 1,
+        "goalkeeping": 2
+      }
+    },
+    {
+      "firstName": "Sergio",
+      "lastName": "Palacios",
+      "area": "support",
+      "position": "fwd",
+      "photoUrl": null,
+      "skills": {
+        "pace": 3,
+        "stamina": 4,
+        "finishing": 2,
+        "passing": 1,
+        "defending": 4,
+        "goalkeeping": 3
+      }
+    },
+    {
+      "firstName": "Bruno",
+      "lastName": "Carranza",
+      "area": "management",
+      "position": "gk",
+      "photoUrl": "/api/demo/avatar/men-12",
+      "skills": {
+        "pace": 5,
+        "stamina": 2,
+        "finishing": 3,
+        "passing": 1,
+        "defending": 2,
+        "goalkeeping": 5
+      }
+    },
+    {
+      "firstName": "Ivan",
+      "lastName": "Rojas",
+      "area": "guest",
+      "position": "def",
+      "photoUrl": "/api/demo/avatar/men-13",
+      "skills": {
+        "pace": 2,
+        "stamina": 5,
+        "finishing": 4,
+        "passing": 1,
+        "defending": 5,
+        "goalkeeping": 2
+      }
+    },
+    {
+      "firstName": "Pablo",
+      "lastName": "Quiroz",
+      "area": "other",
+      "position": "mid",
+      "photoUrl": "/api/demo/avatar/men-14",
+      "skills": {
+        "pace": 4,
+        "stamina": 3,
+        "finishing": 5,
+        "passing": 1,
+        "defending": 3,
+        "goalkeeping": 3
+      }
+    },
+    {
+      "firstName": "Hugo",
+      "lastName": "Lazo",
+      "area": "data",
+      "position": "fwd",
+      "photoUrl": null,
+      "skills": {
+        "pace": 1,
+        "stamina": 1,
+        "finishing": 1,
+        "passing": 1,
+        "defending": 1,
+        "goalkeeping": 1
+      }
+    },
+    {
+      "firstName": "Ruben",
+      "lastName": "Tapia",
+      "area": "dev",
+      "position": "def",
+      "photoUrl": "/api/demo/avatar/men-16",
+      "skills": {
+        "pace": 3,
+        "stamina": 4,
+        "finishing": 2,
+        "passing": 1,
+        "defending": 4,
+        "goalkeeping": 2
+      }
+    },
+    {
+      "firstName": "Tomas",
+      "lastName": "Escobar",
+      "area": "it",
+      "position": "mid",
+      "photoUrl": "/api/demo/avatar/men-17",
+      "skills": {
+        "pace": 5,
+        "stamina": 2,
+        "finishing": 3,
+        "passing": 1,
+        "defending": 2,
+        "goalkeeping": 3
+      }
+    }
+  ]
+}

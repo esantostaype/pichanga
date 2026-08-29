@@ -192,6 +192,18 @@ export const api = {
         method: "POST",
         body: body({ gameId, playerId, recordedBy }),
       }),
+    /** Puts somebody in goal for one side, by hand. */
+    setKeeper: (id: string, teamId: string, playerId: string) =>
+      request<Match>(`/api/matches/${id}/teams/${teamId}/keeper`, {
+        method: "POST",
+        body: body({ playerId }),
+      }),
+    /** How long each game runs on the night. */
+    setGameMinutes: (id: string, minutes: number) =>
+      request<Match>(`/api/matches/${id}/game-length`, {
+        method: "POST",
+        body: body({ minutes }),
+      }),
     /** The last whistle: ends the running game and the night with it. */
     finishNight: (id: string) =>
       request<Match>(`/api/matches/${id}/live/finish`, { method: "POST" }),

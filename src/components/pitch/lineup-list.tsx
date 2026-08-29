@@ -1,11 +1,12 @@
 "use client";
 
-import { Cancel01Icon, CrownIcon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, CrownIcon, GloveIcon } from "@hugeicons/core-free-icons";
 
 import { TeamCrest } from "@/components/matches/team-crest";
 import { areaColor } from "@/components/players/area-badge";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { Icon } from "@/components/ui/icon";
+import { Spinner } from "@/components/ui/spinner";
 import { getArea } from "@/lib/constants";
 import type { MatchTeam, Player } from "@/types";
 import { PaidMark } from "./paid-mark";
@@ -34,6 +35,8 @@ export function LineupList({
   onRemovePlayer,
   onTogglePaid,
   onViewPlayer,
+  onSetKeeper,
+  keeperPending,
 }: {
   players: Player[];
   /** Undefined leaves the payment marks off, as on the pitch. */
@@ -46,16 +49,23 @@ export function LineupList({
   onRemovePlayer?: (player: Player) => void;
   onTogglePaid?: (player: Player, paid: boolean) => void;
   onViewPlayer?: (player: Player) => void;
+  onSetKeeper?: (teamId: string, playerId: string) => void;
+  keeperPending?: string | null;
 }) {
   const drawn = (teams ?? []).filter((team) => team.playerIds.length > 0);
   const byId = new Map(players.map((player) => [player.id, player]));
   const grid = { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` };
 
-  const row = (player: Player, accent?: string) => (
+  const row = (player: Player, accent?: string, team?: MatchTeam) => (
     <Row
       key={player.id}
       player={player}
       accent={accent}
+      isKeeper={team?.keeperId === player.id}
+      onMakeKeeper={
+        onSetKeeper && team ? () => onSetKeeper(team.id, player.id) : undefined
+      }
+      keeperPending={keeperPending === player.id}
       isOrganizer={player.id === organizerId}
       paid={paidPlayerIds?.includes(player.id)}
       onTogglePaid={
@@ -81,9 +91,9 @@ export function LineupList({
           drawn.map((team) => (
             <section key={team.id}>
               <header className="mb-2 flex items-center gap-2">
-                <TeamCrest name={team.name} accent={team.accent} size={22} />
+                <TeamCrest name={team.name} accent={team.accent} size={30} />
                 <span
-                  className="min-w-0 truncate font-display text-sm uppercase tracking-[0.08em]"
+                  className="min-w-0 truncate font-display text-lg uppercase tracking-[0.04em]"
                   style={{ color: team.accent }}
                 >
                   {team.name}
@@ -97,7 +107,7 @@ export function LineupList({
                 {team.playerIds
                   .map((id) => byId.get(id))
                   .filter((player) => player !== undefined)
-                  .map((player) => row(player, team.accent))}
+                  .map((player) => row(player, team.accent, team))}
               </ul>
             </section>
           ))
@@ -119,8 +129,14 @@ function Row({
   onTogglePaid,
   onView,
   onRemove,
+  isKeeper,
+  onMakeKeeper,
+  keeperPending,
 }: {
   player: Player;
+  isKeeper?: boolean;
+  onMakeKeeper?: () => void;
+  keeperPending?: boolean;
   /** The side they are on. It takes the ring, the way it does on the pitch. */
   accent?: string;
   isOrganizer: boolean;
@@ -143,6 +159,18 @@ function Row({
             outlineOffset: "-2px",
           }}
         />
+
+        {/* The photo opens the card too. The name beside it is the keyboard's. */}
+        {onView ? (
+          <button
+            type="button"
+            aria-hidden
+            tabIndex={-1}
+            onClick={() => onView(player)}
+            title={`View ${player.firstName}'s card`}
+            className="absolute inset-0 cursor-pointer rounded-full"
+          />
+        ) : null}
 
         {isOrganizer ? (
           <span
@@ -173,11 +201,42 @@ function Row({
       </button>
 
       <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        {isKeeper ? (
+          <span
+            aria-label="In goal"
+            title="In goal"
+            className="grid size-6 place-items-center rounded-full border"
+            style={{
+              color: accent ?? area,
+              borderColor: `${accent ?? area}66`,
+              backgroundColor: `color-mix(in oklab, ${accent ?? area} 22%, var(--background))`,
+            }}
+          >
+            <Icon icon={GloveIcon} size={12} strokeWidth={2} />
+          </span>
+        ) : onMakeKeeper ? (
+          <button
+            type="button"
+            onClick={onMakeKeeper}
+            disabled={keeperPending}
+            aria-label={`Put ${player.firstName} in goal`}
+            title={`Put ${player.firstName} in goal`}
+            className="grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default"
+          >
+            {keeperPending ? (
+              <Spinner size={12} />
+            ) : (
+              <Icon icon={GloveIcon} size={12} />
+            )}
+          </button>
+        ) : null}
         {paid === undefined ? null : (
           <PaidMark
             paid={paid}
             side={26}
-            onToggle={onTogglePaid ? () => onTogglePaid(player, !paid) : undefined}
+            onToggle={
+              onTogglePaid ? () => onTogglePaid(player, !paid) : undefined
+            }
           />
         )}
 

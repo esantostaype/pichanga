@@ -1,8 +1,5 @@
 import type { MatchGame, MatchGoal, MatchTeam } from "@/types";
 
-/** How long a game runs before the sides change. Ten minutes, by custom. */
-export const GAME_LENGTH_MS = 10 * 60 * 1000;
-
 /** The game being played, if one is. */
 export function currentGame(games: MatchGame[]): MatchGame | null {
   return games.find((game) => game.endedAt === null) ?? null;

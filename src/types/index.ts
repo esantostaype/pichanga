@@ -70,6 +70,8 @@ export type Match = {
   id: string;
   playedAt: number;
   endsAt: number;
+  /** Minutes each game runs before the sides change, agreed for the night. */
+  gameMinutes: number;
   place: Place | null;
   organizerId: string | null;
   recurrence: Recurrence | null;

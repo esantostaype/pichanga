@@ -34,6 +34,10 @@ type LineupLayerProps = {
   onTogglePaid?: (player: Player, paid: boolean) => void;
   onViewPlayer?: (player: Player) => void;
   onRemovePlayer?: (player: Player) => void;
+  /** Hands one side's gloves to somebody else. Absent leaves them alone. */
+  onSetKeeper?: (teamId: string, playerId: string) => void;
+  /** Whose gloves are on their way from the server. */
+  keeperPending?: string | null;
 };
 
 /**
@@ -57,6 +61,8 @@ export function LineupLayer({
   onTogglePaid,
   onViewPlayer,
   onRemovePlayer,
+  onSetKeeper,
+  keeperPending,
 }: LineupLayerProps) {
   const scope = useRef<HTMLDivElement>(null);
   /** Ids already animated: tells "first entrance" apart from "reposition". */
@@ -93,7 +99,10 @@ export function LineupLayer({
     const organizer = players.find((player) => player.id === organizerId);
     if (!organizer) return players;
 
-    return [organizer, ...players.filter((player) => player.id !== organizerId)];
+    return [
+      organizer,
+      ...players.filter((player) => player.id !== organizerId),
+    ];
   }, [players, organizerId, drawn, grouped]);
 
   const layout = useMemo(() => {
@@ -205,6 +214,23 @@ export function LineupLayer({
     { dependencies: [layout, signature], scope },
   );
 
+  /* Who has the gloves, and how to hand them to somebody else. */
+  const keeperOf = new Map(
+    drawn.flatMap((team) =>
+      team.playerIds.map((id) => [id, id === team.keeperId] as const),
+    ),
+  );
+
+  const teamOf = new Map(
+    drawn.flatMap((team) => team.playerIds.map((id) => [id, team.id] as const)),
+  );
+
+  const makeKeeper = (playerId: string) => {
+    const teamId = teamOf.get(playerId);
+    if (!onSetKeeper || !teamId) return undefined;
+    return () => onSetKeeper(teamId, playerId);
+  };
+
   return (
     <div ref={scope} className="absolute inset-0">
       {/* One crest per band, at the head of the side it belongs to. */}
@@ -222,9 +248,9 @@ export function LineupLayer({
               width: band.width,
             }}
           >
-            <TeamCrest name={team.name} accent={team.accent} size={26} />
+            <TeamCrest name={team.name} accent={team.accent} size={30} />
             <span
-              className="max-w-full truncate px-2 font-display text-sm uppercase tracking-[0.08em]"
+              className="max-w-full truncate px-2 font-display text-lg uppercase tracking-[0.04em]"
               style={{ color: team.accent }}
             >
               {team.name}
@@ -258,6 +284,9 @@ export function LineupLayer({
               }
               onView={onViewPlayer}
               onRemove={onRemovePlayer}
+              isKeeper={keeperOf.get(player.id) === true}
+              onMakeKeeper={makeKeeper(player.id)}
+              keeperPending={keeperPending === player.id}
             />
           </div>
         </div>

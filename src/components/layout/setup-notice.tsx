@@ -14,7 +14,15 @@ const REQUIRED = [
   "CLOUDINARY_API_SECRET",
 ];
 
-/** Startup screen shown when the app has no credentials or no schema yet. */
+/**
+ * Startup screen shown when the app cannot read the database.
+ *
+ * Usually that is a missing environment, and sometimes it is a schema behind
+ * the code -- a column the app selects that the database does not have yet.
+ * Both are answered by the same two steps, and neither of them is `db:push`:
+ * that rebuilds tables to match the schema, which on a database with rows in
+ * it means losing them.
+ */
 export function SetupNotice({ detail }: { detail?: string }) {
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6">
@@ -28,7 +36,7 @@ export function SetupNotice({ detail }: { detail?: string }) {
               Environment not configured
             </h1>
             <p className="text-sm text-muted-foreground">
-              The database could not be read.
+              No credentials, or a schema behind the code.
             </p>
           </div>
         </div>
@@ -51,8 +59,10 @@ export function SetupNotice({ detail }: { detail?: string }) {
             </ul>
           </li>
           <li>
-            2. Create the tables with{" "}
-            <code className="text-foreground">npm run db:push</code>.
+            2. Bring the schema up to date with{" "}
+            <code className="text-foreground">npm run db:migrate</code>. It only
+            adds what is missing; see it first with{" "}
+            <code className="text-foreground">npm run db:migrate:plan</code>.
           </li>
           <li>
             3. Restart the server with{" "}

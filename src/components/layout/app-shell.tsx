@@ -57,6 +57,7 @@ export function AppShell() {
     removePlayerFromNextMatch,
     setPlayerPaid,
     drawTeams,
+    setKeeper,
     demo,
   } = usePichanga();
 
@@ -66,8 +67,21 @@ export function AppShell() {
 
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [teamsDialogOpen, setTeamsDialogOpen] = useState(false);
-  /** Whose card is open, from a tap on their name anywhere on the pitch. */
+  /*
+   * Whose card is open, from a tap on their name anywhere on the pitch.
+   *
+   * Two pieces of state rather than one: closing only lowers the flag, and
+   * the player stays until the next tap replaces them. Clearing them on close
+   * unmounted the dialog on the spot, so it went in with a transition and out
+   * with nothing.
+   */
   const [viewing, setViewing] = useState<Player | null>(null);
+  const [cardOpen, setCardOpen] = useState(false);
+
+  const viewPlayer = useCallback((player: Player) => {
+    setViewing(player);
+    setCardOpen(true);
+  }, []);
 
   // The button turns up two hours before kick-off, so the shell needs a clock.
   const now = useNow(60_000);
@@ -86,6 +100,30 @@ export function AppShell() {
     !!nextMatch &&
     nextMatch.players.length >= 4 &&
     (hasTeams || (now !== null && now >= nextMatch.playedAt - TEAMS_OPEN_MS));
+
+  /*
+   * The app names a keeper for every side and is usually right, but it cannot
+   * know whose knee hurts. When this is allowed is the server's rule -- with
+   * three sides it refuses while a game is being played -- and the toast
+   * carries the refusal back.
+   */
+  const gloves = useAction(
+    async ({ teamId, playerId }: { teamId: string; playerId: string }) =>
+      setKeeper(teamId, playerId),
+    { success: "Keeper changed" },
+  );
+
+  /*
+   * Whose gloves are in flight. The button they were pressed on is only
+   * visible while the token is hovered, and a spinner that disappears when the
+   * mouse moves away answers nothing.
+   */
+  const [handing, setHanding] = useState<string | null>(null);
+
+  const handOver = (teamId: string, playerId: string) => {
+    setHanding(playerId);
+    void gloves.run({ teamId, playerId }).finally(() => setHanding(null));
+  };
 
   const draw = useAction(async () => drawTeams(newSeed()), {
     success: "Teams drawn",
@@ -151,7 +189,9 @@ export function AppShell() {
         // clear rather than mirroring the whole HUD.
         bottomInset={FAB_CLEARANCE + HUD_GAP}
         onRemovePlayer={setPendingRemoval}
-        onViewPlayer={setViewing}
+        onViewPlayer={viewPlayer}
+        onSetKeeper={hasTeams ? handOver : undefined}
+        keeperPending={handing}
         // The mark stays read-only for everyone else: the server refuses it
         // anyway, and a button that always fails is worse than no button.
         onTogglePaid={
@@ -180,10 +220,14 @@ export function AppShell() {
         {/*
           Match day lives by the thumb, not in the corner with the browsing.
           Drawing the sides and keeping score both happen with a phone in one
-          hand at the ground, so they stack above the button that is already
+          hand at the ground, so they sit beside the button that is already
           there -- softer than it, because it is still the one you press most.
+
+          In a row on a phone and a column on a screen: three buttons stacked
+          up the side of a small display climb into the lineup, while across
+          the bottom they are all under the same thumb.
         */}
-        <div className="pointer-events-auto ml-auto flex flex-col items-end gap-3">
+        <div className="pointer-events-auto ml-auto flex flex-row items-center gap-3 sm:flex-col sm:items-end">
           {teamsOpen ? (
             <Button
               variant="soft"
@@ -256,8 +300,8 @@ export function AppShell() {
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
 
       <PlayerCardDialog
-        open={!!viewing}
-        onOpenChange={(next) => !next && setViewing(null)}
+        open={cardOpen}
+        onOpenChange={setCardOpen}
         player={viewing}
         isOrganizer={!!viewing && viewing.id === nextMatch?.organizerId}
       />

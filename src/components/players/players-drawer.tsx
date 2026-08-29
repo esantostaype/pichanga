@@ -57,7 +57,9 @@ export function PlayersDrawer({
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Player | null>(null);
   /** Whose card is open. Reading a profile is not editing one. */
+  /* Kept after closing, so the card has something to animate out. */
   const [viewing, setViewing] = useState<Player | null>(null);
+  const [cardOpen, setCardOpen] = useState(false);
   /** Ids queued for deletion: one row or a whole selection, same path. */
   const [pendingDelete, setPendingDelete] = useState<string[]>([]);
 
@@ -183,7 +185,9 @@ export function PlayersDrawer({
                       <TableRow
                         key={player.id}
                         data-state={
-                          selection.isSelected(player.id) ? "selected" : undefined
+                          selection.isSelected(player.id)
+                            ? "selected"
+                            : undefined
                         }
                       >
                         <TableCell className="align-top">
@@ -213,7 +217,10 @@ export function PlayersDrawer({
                               variant="ghost"
                               size="icon-sm"
                               aria-label={`View ${player.firstName}`}
-                              onClick={() => setViewing(player)}
+                              onClick={() => {
+                                setViewing(player);
+                                setCardOpen(true);
+                              }}
                             >
                               <Icon icon={ViewIcon} size={15} />
                             </Button>
@@ -247,8 +254,8 @@ export function PlayersDrawer({
       </Sheet>
 
       <PlayerCardDialog
-        open={!!viewing}
-        onOpenChange={(next) => !next && setViewing(null)}
+        open={cardOpen}
+        onOpenChange={setCardOpen}
         player={viewing}
       />
 

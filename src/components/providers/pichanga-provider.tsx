@@ -71,6 +71,10 @@ type PichangaContextValue = PichangaState & {
   drawTeams: (seed: number, mixAreas?: boolean) => Promise<void>;
   /** Puts the drawn sides away, back to one squad. */
   clearTeams: () => Promise<void>;
+  /** Agrees how long each game runs on the night. */
+  setGameMinutes: (minutes: number) => Promise<void>;
+  /** Hands one side's gloves to somebody else. */
+  setKeeper: (teamId: string, playerId: string) => Promise<void>;
   /** Admin only: ticks a player off the rental ledger. */
   /** Defaults to the match on screen; any other one is named outright. */
   setPlayerPaid: (
@@ -99,7 +103,8 @@ export function PichangaProvider({
   const [mediaVersion, setMediaVersion] = useState(0);
 
   const patch = useCallback(
-    (next: Partial<PichangaState>) => setState((prev) => ({ ...prev, ...next })),
+    (next: Partial<PichangaState>) =>
+      setState((prev) => ({ ...prev, ...next })),
     [],
   );
 
@@ -208,6 +213,14 @@ export function PichangaProvider({
             : match,
         ),
       }));
+
+    /** Writes the agreed game length straight into local state. */
+    const applyMinutes = (matchId: string, gameMinutes: number) =>
+      setState((prev) =>
+        prev.nextMatch?.id === matchId
+          ? { ...prev, nextMatch: { ...prev.nextMatch, gameMinutes } }
+          : prev,
+      );
 
     /** Applies a mutation result to the match currently on screen. */
     const syncNextMatch = (match: Match) =>
@@ -319,6 +332,30 @@ export function PichangaProvider({
         syncNextMatch(await api.matches.clearTeams(state.nextMatch.id));
       },
 
+      setKeeper: async (teamId, playerId) => {
+        if (!state.nextMatch) throw new Error("There is no active match");
+        syncNextMatch(
+          await api.matches.setKeeper(state.nextMatch.id, teamId, playerId),
+        );
+      },
+
+      setGameMinutes: async (minutes) => {
+        const match = state.nextMatch;
+        if (!match) throw new Error("There is no active match");
+
+        // Six people are looking at the same screen agreeing on this; the one
+        // pressing it should see it land, not watch a round trip first.
+        const before = match.gameMinutes;
+        applyMinutes(match.id, minutes);
+
+        try {
+          syncNextMatch(await api.matches.setGameMinutes(match.id, minutes));
+        } catch (error) {
+          applyMinutes(match.id, before);
+          throw error;
+        }
+      },
+
       addPlayersToNextMatch: async (playerIds) => {
         if (!state.nextMatch) throw new Error("There is no active match");
         const match = await api.matches.addPlayers(
@@ -345,11 +382,13 @@ export function PichangaProvider({
          * one holding a ledger in local state. Any other date is ticked off
          * from its own dialog, which keeps its own copy.
          */
-        const onScreen = state.nextMatch?.id === target ? state.nextMatch : null;
+        const onScreen =
+          state.nextMatch?.id === target ? state.nextMatch : null;
         const before = onScreen?.paidPlayerIds;
 
         if (onScreen && before) {
-          applyPaid(target,
+          applyPaid(
+            target,
             paid
               ? [...before.filter((id) => id !== playerId), playerId]
               : before.filter((id) => id !== playerId),
@@ -388,7 +427,9 @@ export function PichangaProvider({
   ]);
 
   return (
-    <PichangaContext.Provider value={value}>{children}</PichangaContext.Provider>
+    <PichangaContext.Provider value={value}>
+      {children}
+    </PichangaContext.Provider>
   );
 }
 

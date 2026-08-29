@@ -32,6 +32,10 @@ type PitchSceneProps = {
   onTogglePaid?: (player: Player, paid: boolean) => void;
   /** Opens a player's card. Everyone gets this one. */
   onViewPlayer?: (player: Player) => void;
+  /** Hands one side's gloves to somebody else. */
+  onSetKeeper?: (teamId: string, playerId: string) => void;
+  /** Whose gloves are on their way from the server. */
+  keeperPending?: string | null;
   /** Played out: the sides come off the pitch and the ledger comes back. */
   over?: boolean;
 };
@@ -44,6 +48,8 @@ export function PitchScene({
   onRemovePlayer,
   onTogglePaid,
   onViewPlayer,
+  onSetKeeper,
+  keeperPending,
   over = false,
 }: PitchSceneProps) {
   const [ref, size] = useElementSize<HTMLDivElement>();
@@ -90,6 +96,8 @@ export function PitchScene({
           onRemovePlayer={onRemovePlayer}
           onTogglePaid={onTogglePaid}
           onViewPlayer={onViewPlayer}
+          onSetKeeper={over ? undefined : onSetKeeper}
+          keeperPending={keeperPending}
         />
       ) : players.length > 0 ? (
         <LineupLayer
@@ -103,6 +111,8 @@ export function PitchScene({
           onTogglePaid={onTogglePaid}
           onViewPlayer={onViewPlayer}
           onRemovePlayer={onRemovePlayer}
+          onSetKeeper={over ? undefined : onSetKeeper}
+          keeperPending={keeperPending}
         />
       ) : (
         <div className="pointer-events-none absolute inset-0 grid place-items-center px-6">

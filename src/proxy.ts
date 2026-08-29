@@ -29,14 +29,29 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
   // endpoint checks that window itself. Clearing them is not here -- undoing
   // somebody's teams is a bigger thing than making them.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/teams\/?$/ },
+  // Who goes in goal, which is the same conversation as the draw and gets
+  // settled the same way: out loud, by whoever is standing there.
+  {
+    method: "POST",
+    pattern: /^\/api\/matches\/[^/]+\/teams\/[^/]+\/keeper\/?$/,
+  },
+  // How long a game runs, which is agreed out loud at the ground with the
+  // sides just drawn. The same standing-around as the draw itself.
+  { method: "POST", pattern: /^\/api\/matches\/[^/]+\/game-length\/?$/ },
   // Match night: starting a game, blowing the whistle on it, and putting the
   // goals up. All of it happens on a pitch with everybody standing around, and
   // whoever has their phone out does it -- including taking a goal back off,
   // because the same finger that mistyped it should be able to fix it.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/games\/?$/ },
-  { method: "PATCH", pattern: /^\/api\/matches\/[^/]+\/live\/games\/[^/]+\/?$/ },
+  {
+    method: "PATCH",
+    pattern: /^\/api\/matches\/[^/]+\/live\/games\/[^/]+\/?$/,
+  },
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/goals\/?$/ },
-  { method: "DELETE", pattern: /^\/api\/matches\/[^/]+\/live\/goals\/[^/]+\/?$/ },
+  {
+    method: "DELETE",
+    pattern: /^\/api\/matches\/[^/]+\/live\/goals\/[^/]+\/?$/,
+  },
   // The last whistle: the same hands that keep score end the night.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/finish\/?$/ },
   // The match gallery: anyone may add a photo or a clip. Deleting one is not
@@ -83,7 +98,9 @@ export async function proxy(request: NextRequest) {
   }
 
   const required: Role = protectedRead?.role ?? "admin";
-  const role = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+  const role = await verifySessionToken(
+    request.cookies.get(SESSION_COOKIE)?.value,
+  );
 
   if (role && allows(role, required)) return NextResponse.next();
 

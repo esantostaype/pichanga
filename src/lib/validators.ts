@@ -91,12 +91,12 @@ export const matchInputSchema = z
     endsAt: z.coerce.number().int().positive("Pick a valid end time"),
     placeId: z.string().min(1).nullable().optional(),
     organizerId: z.string().min(1).nullable().optional(),
-  /** `null` for a one-off fixture. */
-  recurrence: z.literal("weekly").nullable().optional(),
+    /** `null` for a one-off fixture. */
+    recurrence: z.literal("weekly").nullable().optional(),
     /** No upper bound: a match takes as many players as sign up. */
     playerIds: z.array(z.string().min(1)).default([]),
-  /** Sandbox row, written by the demo screen and seen only there. */
-  isDemo: z.boolean().optional(),
+    /** Sandbox row, written by the demo screen and seen only there. */
+    isDemo: z.boolean().optional(),
   })
   .refine((input) => input.endsAt > input.playedAt, {
     message: "The end time must be after the start",
@@ -133,8 +133,32 @@ export const goalInputSchema = z.object({
   recordedBy: z.string().max(64).nullable().optional(),
 });
 
+/**
+ * The minutes agreed for a game, or zero for a game with no clock at all.
+ * Anything between one and two is a typo, not a game.
+ */
+export const gameLengthInputSchema = z.object({
+  minutes: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(45)
+    .refine((minutes) => minutes === 0 || minutes >= 3, {
+      message: "A game is either three minutes or more, or has no clock",
+    }),
+});
+
+/** Who goes in goal for one side. */
+export const keeperInputSchema = z.object({
+  playerId: z.string().min(1, "Pick a player"),
+});
+
 export const teamDrawInputSchema = z.object({
-  seed: z.number().int().min(0).max(2 ** 31 - 1),
+  seed: z
+    .number()
+    .int()
+    .min(0)
+    .max(2 ** 31 - 1),
   /** Spread the floors across the sides as well as the strength. */
   mixAreas: z.boolean().optional(),
 });

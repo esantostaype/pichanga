@@ -14,7 +14,10 @@
     "db:seed": "node scripts/seed.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "node --env-file=.env.local scripts/db-migrate.mjs --yes",
+    "db:migrate:plan": "node --env-file=.env.local scripts/db-migrate.mjs",
+    "demo:clear": "node --env-file=.env.local scripts/demo-clear.mjs",
+    "demo:clear:yes": "node --env-file=.env.local scripts/demo-clear.mjs --yes"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

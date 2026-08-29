@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft01Icon,
+  GloveIcon,
   ChartLineData01Icon,
   CheckmarkCircle02Icon,
   Delete02Icon,
@@ -10,6 +11,7 @@ import {
   StopIcon,
 } from "@hugeicons/core-free-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { AppHeader } from "@/components/layout/app-header";
 import { type PanelName } from "@/components/layout/app-menu";
@@ -46,10 +48,9 @@ import { useNow } from "@/hooks/use-now";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { api } from "@/lib/api-client";
-import { getArea } from "@/lib/constants";
+import { getArea, INDEFINITE_GAME } from "@/lib/constants";
 import { formatTimeRange } from "@/lib/date";
 import {
-  GAME_LENGTH_MS,
   currentGame,
   gameScore,
   minuteOf,
@@ -77,6 +78,14 @@ const RETRY_MS = 5_000;
  */
 const FINISH_CLEARANCE = 48 + 16 + 16;
 
+/**
+ * How close to the end is close enough to blow up without being asked twice.
+ *
+ * Half a minute: nobody plays on for it, and a dialog in the last seconds of a
+ * game is a dialog in front of somebody watching a game.
+ */
+const EARLY_MS = 30_000;
+
 /** How long an unanswered echo waits before it stops being expected. */
 const ECHO_MS = 8_000;
 
@@ -93,7 +102,7 @@ const ECHO_MS = 8_000;
  * anywhere on the screen moves the night rather than only over the cards.
  */
 export function LiveScreen({
-  match,
+  match: served,
   backHref,
   initial,
 }: {
@@ -102,6 +111,13 @@ export function LiveScreen({
   backHref: string;
   initial: MatchLive;
 }) {
+  /*
+   * The lineup can change under a night in progress -- somebody turns up, or
+   * somebody has to leave -- and this screen was only handed the match once,
+   * at render. It listens for that now, so a side loses a player here at the
+   * same moment they walk off, not the next time somebody reloads.
+   */
+  const [match, setMatch] = useState(served);
   const [live, setLive] = useState(initial);
   const [pending, setPending] = useState<
     Array<{ gameId: string; playerId: string }>
@@ -109,6 +125,7 @@ export function LiveScreen({
   const [busy, setBusy] = useState(false);
   const [shout, setShout] = useState<{
     key: number;
+    player: Player;
     name: string;
     role: string;
     accent: string;
@@ -125,6 +142,10 @@ export function LiveScreen({
   const [goalsOpen, setGoalsOpen] = useState(false);
   const [tableOpen, setTableOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  /** Blowing up with time left, which is worth one question. */
+  const [endingEarly, setEndingEarly] = useState(false);
+  /** Whose gloves are on their way from the server. */
+  const [handing, setHanding] = useState<string | null>(null);
   /** Which game's goals are being read. Null follows whatever is on. */
   const [goalsGame, setGoalsGame] = useState<string | null>(null);
 
@@ -178,6 +199,7 @@ export function LiveScreen({
 
     setShout({
       key: (shoutCount.current += 1),
+      player: scorer,
       name: `${scorer.firstName} ${scorer.lastName}`,
       role: getArea(scorer.area).label,
       accent: team?.accent ?? "#c6f432",
@@ -189,6 +211,14 @@ export function LiveScreen({
     "live:changed": (payload) => {
       if ((payload as { matchId?: string })?.matchId !== match.id) return;
       void refresh();
+    },
+    "lineup:changed": (payload) => {
+      if ((payload as { matchId?: string })?.matchId !== match.id) return;
+
+      void api.matches
+        .get(match.id)
+        .then(setMatch)
+        .catch(() => undefined);
     },
     "live:goal": (payload) => {
       const { matchId, playerId } = (payload ?? {}) as {
@@ -274,6 +304,28 @@ export function LiveScreen({
       .catch(() => undefined);
   };
 
+  /*
+   * Handing the gloves over from here, which is where somebody is standing
+   * when they find out the keeper's knee hurts. Only between games -- or at
+   * any time with two sides, since there is nobody waiting to be unfair to.
+   * The server holds the same rule and the toast carries its refusal back.
+   */
+  const handOver = (teamId: string, playerId: string) => {
+    setHanding(playerId);
+
+    void api.matches
+      .setKeeper(match.id, teamId, playerId)
+      .then(setMatch)
+      .catch((error: unknown) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Could not change the keeper",
+        );
+      })
+      .finally(() => setHanding(null));
+  };
+
   const kickOff = () => {
     if (!pairing) return;
     setBusy(true);
@@ -296,6 +348,18 @@ export function LiveScreen({
         go(backHref);
       })
       .catch(() => setBusy(false));
+  };
+
+  /*
+   * Nobody blows up four minutes early by accident, but somebody reaching for
+   * the goals button at arm's length might. So it is asked -- once, and only
+   * while there is enough time left on it to be worth asking about.
+   */
+  const whistle = () => {
+    // Nothing to be early for when there is no clock: the game ends when
+    // somebody says it does, which is what they agreed to.
+    if (timed && remaining > EARLY_MS) setEndingEarly(true);
+    else fullTime();
   };
 
   const fullTime = () => {
@@ -324,8 +388,23 @@ export function LiveScreen({
   const away = game ? teamById.get(game.awayTeamId) : undefined;
   const running = game ? gameScore(live.goals, game) : null;
   const elapsed = game && now ? now - game.startedAt : 0;
+  /**
+   * What is left of the length agreed for the night, and whether there is a
+   * length at all: two sides may agree to play the whole match as one game.
+   */
+  const timed = match.gameMinutes > INDEFINITE_GAME;
+  const remaining = timed
+    ? Math.max(0, match.gameMinutes * 60_000 - elapsed)
+    : Infinity;
   const nextHome = pairing ? teamById.get(pairing.homeTeamId) : undefined;
   const nextAway = pairing ? teamById.get(pairing.awayTeamId) : undefined;
+
+  /*
+   * Whether the gloves may move: between games always, and during one only
+   * when two sides are playing -- with three there is a side waiting to come
+   * on and a table being kept on the result.
+   */
+  const glovesMove = !game || teams.length === 2;
 
   /** The two sides on the pitch, or the two about to be. */
   const left = home ?? nextHome;
@@ -360,6 +439,7 @@ export function LiveScreen({
       {shout ? (
         <GolOverlay
           key={shout.key}
+          player={shout.player}
           name={shout.name}
           role={shout.role}
           accent={shout.accent}
@@ -429,7 +509,7 @@ export function LiveScreen({
               busy={busy}
               unsent={pending.length}
               onKickOff={kickOff}
-              onFullTime={fullTime}
+              onFullTime={whistle}
               onGoals={() => {
                 // Back to the current game every time it is opened.
                 setGoalsGame(null);
@@ -447,6 +527,12 @@ export function LiveScreen({
               players={squadOf(left)}
               goals={goalsOf(left)}
               onScore={game ? score : undefined}
+              onSetKeeper={
+                glovesMove
+                  ? (playerId) => handOver(left.id, playerId)
+                  : undefined
+              }
+              keeperPending={handing}
               // Narrower than its column, and pushed towards the board: two
               // sheets stretched across a wide screen put the names further
               // from the score than they are from the edge.
@@ -460,6 +546,12 @@ export function LiveScreen({
               players={squadOf(right)}
               goals={goalsOf(right)}
               onScore={game ? score : undefined}
+              onSetKeeper={
+                glovesMove
+                  ? (playerId) => handOver(right.id, playerId)
+                  : undefined
+              }
+              keeperPending={handing}
               className="xs:col-start-2 md:col-start-3 md:row-start-1 md:w-full md:max-w-[20rem] md:justify-self-start"
             />
           ) : null}
@@ -586,6 +678,19 @@ export function LiveScreen({
       </div>
 
       <ConfirmDialog
+        open={endingEarly}
+        onOpenChange={setEndingEarly}
+        title="There is still time on the clock"
+        description={`${clock(remaining)} left of the ${match.gameMinutes} minutes agreed for a game. Blow up anyway?`}
+        confirmLabel="Full time"
+        pending={busy}
+        onConfirm={() => {
+          setEndingEarly(false);
+          fullTime();
+        }}
+      />
+
+      <ConfirmDialog
         open={finishing}
         onOpenChange={setFinishing}
         title="Finish the match"
@@ -643,6 +748,17 @@ export function LiveScreen({
  * It is the thing being looked at, and a box around it would be a second thing
  * to look at. The pitch is the background it deserves.
  */
+/**
+ * When the clock starts warning.
+ *
+ * Two readings rather than one: amber says the game is nearly up, so whoever
+ * is refereeing can let it run to something, and red says it is up. Neither
+ * stops anything -- the whistle is still a person pressing a button -- they
+ * just mean nobody has to do arithmetic with a stopwatch.
+ */
+const CLOCK_AMBER = 0.75;
+const CLOCK_RED = 0.95;
+
 function Board({
   match,
   backHref,
@@ -680,6 +796,16 @@ function Board({
   onGoals: () => void;
   onTable: () => void;
 }) {
+  /*
+   * How far through the agreed length this game is -- and never, if the two
+   * sides are playing the match out as one game. A clock with nothing to run
+   * out has no reason to go amber.
+   */
+  const share =
+    match.gameMinutes > INDEFINITE_GAME
+      ? elapsed / (match.gameMinutes * 60_000)
+      : 0;
+
   return (
     <section className="py-2 text-center md:px-4">
       <div className="mb-3 flex items-center justify-center gap-3">
@@ -715,21 +841,29 @@ function Board({
 
           <p
             className={cn(
-              "mt-4 font-display text-3xl tabular-nums tracking-[0.08em]",
-              elapsed >= GAME_LENGTH_MS && playing
-                ? "text-destructive"
-                : "text-foreground",
+              "mt-4 font-display text-3xl tabular-nums tracking-[0.08em] transition-colors",
+              !playing
+                ? "text-foreground"
+                : share >= CLOCK_RED
+                  ? "text-destructive"
+                  : share >= CLOCK_AMBER
+                    ? "text-amber-400"
+                    : "text-foreground",
             )}
           >
             {playing ? clock(elapsed) : "--:--"}
           </p>
 
-          <p className="mt-1 font-display text-[0.6875rem] uppercase tracking-[0.24em] text-muted-foreground">
+          <p className="mt-1.5 font-display text-sm uppercase tracking-[0.2em] text-muted-foreground">
             {playing
               ? `game ${gameNumber}`
               : gameNumber === null
                 ? "next up"
                 : "between games"}
+            {" · "}
+            {match.gameMinutes > INDEFINITE_GAME
+              ? `${match.gameMinutes} min`
+              : "no clock"}
           </p>
         </>
       ) : (
@@ -836,6 +970,8 @@ function TeamSheet({
   players,
   goals,
   onScore,
+  onSetKeeper,
+  keeperPending,
   className,
 }: {
   team: MatchTeam;
@@ -843,6 +979,10 @@ function TeamSheet({
   goals: MatchGoal[];
   /** Absent between games: there is nothing to score in. */
   onScore?: (player: Player) => void;
+  /** Absent while a game is on with three sides drawn. */
+  onSetKeeper?: (playerId: string) => void;
+  /** Whose gloves are on their way from the server. */
+  keeperPending?: string | null;
   className?: string;
 }) {
   const tally = new Map<string, number>();
@@ -853,19 +993,20 @@ function TeamSheet({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-2xl bg-card/70 backdrop-blur-md",
+        "group/sheet overflow-hidden rounded-2xl bg-card/70 backdrop-blur-md",
         className,
       )}
     >
       {/*
-        No outline: the side's own colour, poured down the card and never
-        quite running out, is what separates it from the pitch behind. A
-        border around that was a second edge saying the same thing.
+        One flat wash of the side's colour -- the same mix the score wears, so
+        the card and the number on the board read as the same team. No outline
+        and no gradient: the colour is the edge, and a fade down the card was a
+        second thing happening for no reason.
       */}
       <div
         className="p-4"
         style={{
-          background: `linear-gradient(180deg, ${team.accent}33 0%, ${team.accent}14 45%, ${team.accent}0a 100%)`,
+          backgroundColor: `color-mix(in oklab, ${team.accent} 12%, var(--background))`,
         }}
       >
         <header className="mb-3 flex items-center gap-2.5">
@@ -899,7 +1040,7 @@ function TeamSheet({
             const scored = tally.get(player.id) ?? 0;
 
             return (
-              <li key={player.id}>
+              <li key={player.id} className="flex items-center gap-1">
                 <button
                   type="button"
                   onDoubleClick={onScore ? () => onScore(player) : undefined}
@@ -909,7 +1050,7 @@ function TeamSheet({
                       ? `Double tap to give ${player.firstName} a goal`
                       : undefined
                   }
-                  className="flex w-full select-none items-center gap-2.5 rounded-xl text-left transition-opacity enabled:cursor-pointer enabled:hover:opacity-80 enabled:active:scale-[0.99] disabled:cursor-default"
+                  className="flex min-w-0 flex-1 select-none items-center gap-2.5 rounded-xl text-left transition-opacity enabled:cursor-pointer enabled:hover:opacity-80 enabled:active:scale-[0.99] disabled:cursor-default"
                 >
                   <PlayerAvatar
                     player={player}
@@ -924,9 +1065,8 @@ function TeamSheet({
                     <span className="block truncate text-sm font-medium leading-tight">
                       {player.firstName} {player.lastName}
                     </span>
-                    <span className="block truncate font-display text-[0.6875rem] uppercase leading-tight tracking-widest text-muted-foreground">
+                    <span className="block truncate font-display text-[0.8125rem] uppercase leading-tight tracking-widest text-muted-foreground">
                       {getArea(player.area).label}
-                      {player.id === team.keeperId ? " · GK" : ""}
                     </span>
                   </span>
 
@@ -943,6 +1083,48 @@ function TeamSheet({
                     </span>
                   ) : null}
                 </button>
+
+                {/*
+                  The gloves, on the right where the eye can run down them.
+                  The one wearing them and the way to hand them over are the
+                  same mark at the same size -- the size they are on the pitch
+                  -- so there is one thing to look for and one place to press.
+
+                  Beside the row rather than inside it: the row is already a
+                  button, and one cannot hold another.
+                */}
+                {player.id === team.keeperId ? (
+                  <span
+                    aria-label="In goal"
+                    title="In goal"
+                    className="grid size-8 shrink-0 place-items-center rounded-full border"
+                    style={{
+                      color: team.accent,
+                      borderColor: `${team.accent}66`,
+                      backgroundColor: `color-mix(in oklab, ${team.accent} 22%, var(--background))`,
+                    }}
+                  >
+                    <Icon icon={GloveIcon} size={16} strokeWidth={2} />
+                  </span>
+                ) : onSetKeeper ? (
+                  <button
+                    type="button"
+                    onClick={() => onSetKeeper(player.id)}
+                    disabled={keeperPending === player.id}
+                    aria-label={`Put ${player.firstName} in goal`}
+                    title={`Put ${player.firstName} in goal`}
+                    className={cn(
+                      "grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-all hover:text-foreground focus-visible:opacity-100 group-hover/sheet:opacity-100 disabled:cursor-default pointer-coarse:opacity-70",
+                      keeperPending === player.id ? "opacity-100" : "opacity-0",
+                    )}
+                  >
+                    {keeperPending === player.id ? (
+                      <Spinner size={16} />
+                    ) : (
+                      <Icon icon={GloveIcon} size={16} />
+                    )}
+                  </button>
+                ) : null}
               </li>
             );
           })}

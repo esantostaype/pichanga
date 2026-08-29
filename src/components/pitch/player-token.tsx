@@ -3,6 +3,7 @@
 import {
   Cancel01Icon,
   CrownIcon,
+  GloveIcon,
   PaymentSuccess01Icon,
 } from "@hugeicons/core-free-icons";
 import { memo, useEffect, useRef, useState } from "react";
@@ -18,6 +19,7 @@ import {
 import { getArea } from "@/lib/constants";
 import { clamp, cn, shortName } from "@/lib/utils";
 import type { Player } from "@/types";
+import { Spinner } from "@/components/ui/spinner";
 import { PaidMark } from "./paid-mark";
 
 /** Matches `.animate-paid-stamp` in globals.css. */
@@ -47,6 +49,12 @@ type PlayerTokenProps = {
   /** Opens their card. The name plate is what carries it. */
   onView?: (player: Player) => void;
   onRemove?: (player: Player) => void;
+  /** They are the one in goal for their side. */
+  isKeeper?: boolean;
+  /** Hands them the gloves. Absent when there is nothing to hand over. */
+  onMakeKeeper?: () => void;
+  /** Their gloves are on their way from the server. */
+  keeperPending?: boolean;
 };
 
 /**
@@ -64,6 +72,9 @@ function PlayerTokenBase({
   onTogglePaid,
   onView,
   onRemove,
+  isKeeper,
+  onMakeKeeper,
+  keeperPending,
 }: PlayerTokenProps) {
   const color = accent ?? areaColor(player.area);
   // Low floors so a very large squad shrinks the labels instead of spilling
@@ -81,8 +92,6 @@ function PlayerTokenBase({
     },
     [],
   );
-
-  const canSettle = isPaid !== undefined && !!onTogglePaid;
 
   const settle = (paid: boolean) => {
     if (!onTogglePaid) return;
@@ -102,20 +111,14 @@ function PlayerTokenBase({
       className="group/token relative flex flex-col items-center"
       style={{ width: plateWidth }}
     >
-      <div
-        className={cn("relative", canSettle && "cursor-pointer")}
-        style={{ width: size, height: size }}
-        // Double click on the photo is the fast way through a squad: no aiming
-        // at a small badge, and a stray single click never moves money.
-        onDoubleClick={canSettle ? () => settle(!isPaid) : undefined}
-        title={
-          canSettle
-            ? isPaid
-              ? "Double click to undo the payment"
-              : "Double click to mark as paid"
-            : undefined
-        }
-      >
+      {/*
+        The photo opens their card, the same as the name under it -- it is the
+        biggest thing on the token and the first thing anybody aims at. It is
+        no longer the payment target: a gesture that moves money sharing a
+        target with one that reads about somebody eventually fires by mistake,
+        so settling up is the mark on the edge and nothing else.
+      */}
+      <div className="relative" style={{ width: size, height: size }}>
         <PlayerAvatar
           player={player}
           className="size-full shadow-[0_10px_30px_-8px_rgba(0,0,0,0.9)]"
@@ -124,6 +127,24 @@ function PlayerTokenBase({
             outlineOffset: `-${Math.max(1.5, size * 0.03)}px`,
           }}
         />
+
+        {onView ? (
+          /*
+           * A sheet over the photo rather than a button around it: the mark and
+           * the remove control sit inside this box at `z-10`, and a button
+           * cannot contain other buttons. Hidden from the keyboard and from a
+           * screen reader on purpose -- the name plate below carries the same
+           * action, and one player should be one stop, not two.
+           */
+          <button
+            type="button"
+            aria-hidden
+            tabIndex={-1}
+            onClick={() => onView(player)}
+            title={`View ${player.firstName}'s card`}
+            className="absolute inset-0 cursor-pointer rounded-full"
+          />
+        ) : null}
 
         {stamping ? (
           <span
@@ -177,12 +198,54 @@ function PlayerTokenBase({
           />
         )}
 
+        {/*
+          Once the sides are drawn the ledger comes off the pitch, which leaves
+          that same edge free for the one thing that matters while a game is
+          on: who is in goal.
+        */}
+        {isKeeper ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                tabIndex={0}
+                aria-label="In goal"
+                className="absolute -left-1 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                style={{
+                  width: Math.max(18, size * 0.36),
+                  height: Math.max(18, size * 0.36),
+                  color,
+                  borderColor: `${color}66`,
+                  // Mixed rather than faded: over grass, a translucent badge
+                  // takes the pitch markings through it.
+                  backgroundColor: `color-mix(in oklab, ${color} 22%, var(--background))`,
+                }}
+              >
+                <Icon
+                  icon={GloveIcon}
+                  size={Math.max(9, size * 0.2)}
+                  strokeWidth={2}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="left">In goal</TooltipContent>
+          </Tooltip>
+        ) : null}
+
         {onRemove ? (
+          /*
+           * The circle is small and it sits on the corner, half off the token
+           * -- which made it a thing you had to travel to and could lose on the
+           * way, because leaving the token takes the hover with it. The square
+           * before it is invisible and eight pixels bigger on every side: it
+           * catches the clicks that land just wide, and because it belongs to a
+           * child of the token it also keeps the token hovered while the
+           * pointer crosses the gap.
+           */
           <button
             type="button"
             onClick={() => onRemove(player)}
             aria-label={`Remove ${player.firstName} from the match`}
-            className="absolute -right-1 -top-1 z-10 grid cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-lg transition-all hover:border-destructive/60 hover:text-destructive focus-visible:opacity-100 group-hover/token:opacity-100 pointer-coarse:opacity-70"
+            className="absolute -right-1 -top-1 z-10 grid cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-lg transition-all before:absolute before:-inset-2 before:content-[''] hover:border-destructive/60 hover:text-destructive focus-visible:opacity-100 group-hover/token:opacity-100 pointer-coarse:opacity-70"
             style={{ width: size * 0.34, height: size * 0.34 }}
           >
             <Icon icon={Cancel01Icon} size={Math.max(8, size * 0.18)} />
@@ -190,25 +253,60 @@ function PlayerTokenBase({
         ) : null}
       </div>
 
-      <Plate
-        onView={onView ? () => onView(player) : undefined}
-        label={`View ${player.firstName}'s card`}
-        style={{ marginTop: -size * 0.1 }}
-      >
-        <p
-          className="truncate font-display uppercase leading-none tracking-widest text-foreground"
-          style={{ fontSize: nameSize }}
-          title={`${player.firstName} ${player.lastName}`}
+      <div className="relative w-full" style={{ marginTop: -size * 0.1 }}>
+        {onMakeKeeper && !isKeeper ? (
+          /*
+            Half off the corner of the plate, the way the remove button sits on
+            the corner of the photo, and with the same invisible square around
+            it because it is the same small circle to aim at. Its own button
+            rather than something inside the plate: the plate is already one,
+            and a button cannot hold another.
+          */
+          <button
+            type="button"
+            onClick={onMakeKeeper}
+            disabled={keeperPending}
+            aria-label={`Put ${player.firstName} in goal`}
+            title={`Put ${player.firstName} in goal`}
+            className={cn(
+              "absolute -right-1.5 -top-1.5 z-20 grid cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-lg transition-all before:absolute before:-inset-2 before:content-[''] hover:text-foreground focus-visible:opacity-100 group-hover/token:opacity-100 disabled:cursor-default pointer-coarse:opacity-70",
+              // Quiet until the token is reached for -- unless the gloves are
+              // already on their way, in which case taking the mouse away must
+              // not take the answer with it.
+              keeperPending ? "opacity-100" : "opacity-0",
+            )}
+            style={{
+              width: Math.max(18, size * 0.34),
+              height: Math.max(18, size * 0.34),
+            }}
+          >
+            {keeperPending ? (
+              <Spinner size={Math.max(9, size * 0.19)} />
+            ) : (
+              <Icon icon={GloveIcon} size={Math.max(9, size * 0.19)} />
+            )}
+          </button>
+        ) : null}
+
+        <Plate
+          onView={onView ? () => onView(player) : undefined}
+          label={`View ${player.firstName}'s card`}
         >
-          {shortName(player.firstName, player.lastName)}
-        </p>
-        <p
-          className="truncate font-display uppercase leading-none tracking-widest text-foreground mt-1"
-          style={{ fontSize: areaSize, color }}
-        >
-          {getArea(player.area).label}
-        </p>
-      </Plate>
+          <p
+            className="truncate font-display uppercase leading-none tracking-widest text-foreground"
+            style={{ fontSize: nameSize }}
+            title={`${player.firstName} ${player.lastName}`}
+          >
+            {shortName(player.firstName, player.lastName)}
+          </p>
+          <p
+            className="mt-1 truncate font-display uppercase leading-none tracking-widest text-foreground"
+            style={{ fontSize: areaSize, color }}
+          >
+            {getArea(player.area).label}
+          </p>
+        </Plate>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { planTeams, strengthOf, teamCountFor } from "./teams";
+import { pickNames, planTeams, strengthOf, teamCountFor } from "./teams";
 import type { PositionId, SkillId } from "./constants";
 import type { Player } from "@/types";
 
@@ -303,5 +303,45 @@ describe("planTeams with mixAreas", () => {
 
     expect(plan.teams.every((team) => team.keeperId !== null)).toBe(true);
     expect(plan.teams.every((team) => !team.borrowedKeeper)).toBe(true);
+  });
+});
+
+describe("pickNames", () => {
+  it("gives every side a name of its own", () => {
+    for (let count = 2; count <= 6; count += 1) {
+      for (const seed of [0, 1, 2, 3, 7, 12, 99, 1234]) {
+        const picked = pickNames(count, seed);
+
+        expect(picked).toHaveLength(count);
+        expect(new Set(picked.map((one) => one.name)).size).toBe(count);
+      }
+    }
+  });
+
+  it("finishes when the step and the pool share a factor", () => {
+    // The bug this covers: three steps into a pool of six visits two names for
+    // ever, and the loop filling four sides from it never came back -- the
+    // request hung and the server sat there holding it.
+    const picked = pickNames(4, 3);
+
+    expect(picked).toHaveLength(4);
+    expect(new Set(picked.map((one) => one.name)).size).toBe(4);
+  });
+
+  it("keeps naming sides after the pool runs out", () => {
+    const picked = pickNames(9, 5);
+
+    expect(picked).toHaveLength(9);
+    expect(new Set(picked.map((one) => one.name)).size).toBe(9);
+  });
+
+  it("gives a name the same colour every time", () => {
+    const first = pickNames(6, 1);
+    const later = pickNames(6, 40);
+
+    for (const team of first) {
+      const again = later.find((one) => one.name === team.name);
+      expect(again?.accent).toBe(team.accent);
+    }
   });
 });

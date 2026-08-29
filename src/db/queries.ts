@@ -14,12 +14,12 @@ import {
 import { cache } from "react";
 
 import {
-  AREA_IDS,
+  DEFAULT_GAME_MINUTES,
   DEFAULT_MATCH_DURATION_MS,
   DEFAULT_PITCH_FORMAT,
   MATCH_GRACE_MS,
-  TEAM_NAMES,
 } from "@/lib/constants";
+import DEMO from "@/data/demo.json";
 import { matchSlug } from "@/lib/date";
 import type {
   MatchInput,
@@ -41,7 +41,7 @@ import type {
 import { db } from "./index";
 import { buildStats } from "@/lib/stats";
 import type { Stats } from "@/lib/stats";
-import { planTeams } from "@/lib/teams";
+import { pickNames, planTeams, strengthOf } from "@/lib/teams";
 import {
   matchGames,
   matchGoals,
@@ -130,6 +130,7 @@ const toMatch = (
   id: row.id,
   playedAt: row.playedAt.getTime(),
   endsAt: endOf(row),
+  gameMinutes: row.gameMinutes ?? DEFAULT_GAME_MINUTES,
   place: toPlace(place),
   organizerId: row.organizerId,
   recurrence: (row.recurrence as Recurrence | null) ?? null,
@@ -856,9 +857,80 @@ export async function addPlayersToMatch(
         slot: nextSlot + index,
       })),
     );
+
+    await placeNewcomers(matchId, fresh);
   }
 
   return hydrate(match);
+}
+
+/**
+ * Puts a late arrival on a side.
+ *
+ * Somebody turning up after the draw used to land on the pitch belonging to
+ * nobody -- a token with no band, in a match where everybody else has one. They
+ * go to the side that needs them most: fewest players first, and between two of
+ * the same size the weaker one, which is the same thing the balancer is trying
+ * to do.
+ *
+ * Redrawing the whole thing instead would be tidier arithmetic and worse
+ * football: the sides have been read out, and one person arriving should not
+ * rearrange the other fourteen.
+ */
+async function placeNewcomers(matchId: string, playerIds: string[]) {
+  const teams = await loadTeams(matchId);
+  if (!teams.length) return;
+
+  const lineup = await loadLineup(matchId);
+
+  const squads = new Map(
+    teams.map((team) => [
+      team.id,
+      lineup.filter((entry) => entry.teamId === team.id),
+    ]),
+  );
+
+  const worth = (squad: typeof lineup) =>
+    squad.reduce(
+      (total, entry) => total + strengthOf(toPlayer(entry.player)),
+      0,
+    );
+
+  for (const playerId of playerIds) {
+    const arriving = lineup.find((entry) => entry.player.id === playerId);
+    if (!arriving) continue;
+
+    const [teamId, squad] = [...squads.entries()].sort(
+      ([, left], [, right]) =>
+        left.length - right.length || worth(left) - worth(right),
+    )[0];
+
+    await db
+      .update(matchPlayers)
+      .set({ teamId })
+      .where(
+        and(
+          eq(matchPlayers.matchId, matchId),
+          eq(matchPlayers.playerId, playerId),
+        ),
+      );
+
+    squad.push({ ...arriving, teamId });
+
+    /*
+     * And if they keep and the side is making do with somebody who does not,
+     * the gloves are theirs. That is the whole reason a keeper turning up late
+     * is good news.
+     */
+    const keeper = squad.find((entry) => entry.isKeeper);
+    if (
+      arriving.player.position === "gk" &&
+      keeper &&
+      keeper.player.position !== "gk"
+    ) {
+      await setKeeper(matchId, teamId, playerId);
+    }
+  }
 }
 
 /**
@@ -960,30 +1032,6 @@ async function releaseTeams(matchId: string) {
   await db.delete(matchTeams).where(eq(matchTeams.matchId, matchId));
 }
 
-/** Distinct names from the pool, walked from a point the seed decides. */
-function pickNames(count: number, seed: number) {
-  const start = Math.abs(Math.trunc(seed)) % TEAM_NAMES.length;
-  const step = 1 + (Math.abs(Math.trunc(seed / TEAM_NAMES.length)) % 3);
-
-  const picked: Array<(typeof TEAM_NAMES)[number]> = [];
-  const used = new Set<number>();
-
-  for (let index = 0; picked.length < count; index += 1) {
-    // Walking in steps rather than one by one keeps the pairs from always
-    // being neighbours in the list. The guard is for a step that lands on the
-    // same name twice; the pool is far bigger than any turnout.
-    const at = (start + index * step) % TEAM_NAMES.length;
-    if (used.has(at)) continue;
-
-    used.add(at);
-    picked.push(TEAM_NAMES[at]);
-
-    if (used.size === TEAM_NAMES.length) break;
-  }
-
-  return picked;
-}
-
 /* -------------------------------- the season ----------------------------- */
 
 /**
@@ -1081,26 +1129,14 @@ export async function getStats(demo = false): Promise<Stats> {
 
 /* -------------------------------- the demo ------------------------------- */
 
-const DEMO_NAMES: Array<[string, string, string]> = [
-  ["Maximo", "Guzman", "gk"],
-  ["Erick", "Santos", "def"],
-  ["Joaquin", "Angeles", "def"],
-  ["Adrian", "Zavaleta", "mid"],
-  ["Victor", "Amaya", "mid"],
-  ["Alfredo", "Saira", "fwd"],
-  ["Cristian", "Maldonado", "gk"],
-  ["Emilio", "Cardenas", "def"],
-  ["Diego", "Villalobos", "def"],
-  ["Luis", "Bermudez", "mid"],
-  ["Marco", "Ferreyra", "mid"],
-  ["Sergio", "Palacios", "fwd"],
-  ["Bruno", "Carranza", "gk"],
-  ["Ivan", "Rojas", "def"],
-  ["Pablo", "Quiroz", "mid"],
-  ["Hugo", "Lazo", "fwd"],
-  ["Ruben", "Tapia", "def"],
-  ["Tomas", "Escobar", "mid"],
-];
+/**
+ * The sandbox squad, and the pitch they play on.
+ *
+ * Kept as data in `src/data/demo.json` rather than written out here: it is a
+ * list of names and numbers, it is the one thing in the app somebody might
+ * want to edit without reading any code, and a file of it is easier to read
+ * than a loop that derives eighteen sets of skills from an index.
+ */
 
 /**
  * Makes sure the sandbox exists, and hands back its match.
@@ -1141,36 +1177,62 @@ export async function ensureDemo(): Promise<Match> {
     );
   }
 
-  const [place] = await db
-    .insert(places)
-    .values({
-      name: "Demo pitch",
-      address: "Wherever you like",
-      price: 210,
-      format: 7,
-      isDemo: true,
-    })
-    .returning();
+  /*
+   * Nothing is seeded twice.
+   *
+   * This used to key off the match alone, so deleting the sandbox fixture --
+   * which the sandbox exists to let you do -- brought back a second Demo pitch
+   * and a second copy of all eighteen players on the next visit. Two Emilio
+   * Cardenas in one lineup, and taking one off leaves the other standing
+   * there. What is already here is reused; only what is missing is made.
+   */
+  const [pitch] = await db
+    .select()
+    .from(places)
+    .where(eq(places.isDemo, true))
+    .limit(1);
+
+  const place =
+    pitch ??
+    (
+      await db
+        .insert(places)
+        .values({ ...DEMO.place, isDemo: true })
+        .returning()
+    )[0];
+
+  const standing = await db
+    .select()
+    .from(players)
+    .where(eq(players.isDemo, true))
+    .orderBy(asc(players.createdAt));
+
+  if (standing.length) {
+    return demoMatch(
+      place.id,
+      standing[0].id,
+      standing.map((player) => player.id),
+    );
+  }
 
   const squad = await db
     .insert(players)
     .values(
-      DEMO_NAMES.map(([firstName, lastName, position], index) => ({
-        firstName,
-        lastName,
-        area: AREA_IDS[index % AREA_IDS.length],
+      DEMO.squad.map((one) => ({
+        firstName: one.firstName,
+        lastName: one.lastName,
+        area: one.area,
+        position: one.position,
         // Faces, through this app's own proxy so the share card can draw them.
-        // Every fourth one goes without, which is what the real squad looks
-        // like and what exercises the initials fallback.
-        photoUrl: index % 4 === 3 ? null : `/api/demo/avatar/men-${index}`,
-        position,
-        // Spread across the range, so the balancer has something to balance.
-        pace: 1 + ((index * 7) % 5),
-        stamina: 1 + ((index * 3) % 5),
-        finishing: 1 + ((index * 11) % 5),
-        passing: 1 + ((index * 5) % 5),
-        defending: 1 + ((index * 13) % 5),
-        goalkeeping: position === "gk" ? 5 : 1 + (index % 3),
+        // Some go without, which is what the real squad looks like and what
+        // exercises the initials fallback.
+        photoUrl: one.photoUrl,
+        pace: one.skills.pace,
+        stamina: one.skills.stamina,
+        finishing: one.skills.finishing,
+        passing: one.skills.passing,
+        defending: one.skills.defending,
+        goalkeeping: one.skills.goalkeeping,
         isDemo: true,
       })),
     )
@@ -1358,6 +1420,25 @@ export async function addGoal(
 }
 
 /**
+ * How long a game runs on this night.
+ *
+ * Kept on the match rather than on the place: the same pitch is rented for an
+ * hour some weeks and two others, and it is the night that decides how long
+ * the side waiting has to wait.
+ */
+export async function setGameMinutes(
+  matchId: string,
+  minutes: number,
+): Promise<Match | null> {
+  await db
+    .update(matches)
+    .set({ gameMinutes: minutes })
+    .where(eq(matches.id, matchId));
+
+  return getMatch(matchId);
+}
+
+/**
  * Ends the night.
  *
  * The running game is whistled off and the match's end is moved to now, which
@@ -1425,8 +1506,106 @@ export async function removePlayerFromMatch(
   matchId: string,
   playerId: string,
 ): Promise<Match | null> {
+  const [leaving] = await db
+    .select({ teamId: matchPlayers.teamId, isKeeper: matchPlayers.isKeeper })
+    .from(matchPlayers)
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    );
+
   await db
     .delete(matchPlayers)
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    );
+
+  // The one place on the pitch that has to be filled. Somebody dropping out an
+  // hour before kick-off should not leave a side playing with an empty net.
+  if (leaving?.isKeeper && leaving.teamId) {
+    await appointKeeper(matchId, leaving.teamId);
+  }
+
+  return getMatch(matchId);
+}
+
+/**
+ * Gives a side its keeper: a volunteer if there is one, otherwise whoever
+ * keeps best. The same order the balancer uses when it draws the teams, so a
+ * side that loses its keeper ends up with the one it would have been given.
+ */
+async function appointKeeper(matchId: string, teamId: string) {
+  const squad = await db
+    .select({
+      id: players.id,
+      position: players.position,
+      goalkeeping: players.goalkeeping,
+    })
+    .from(matchPlayers)
+    .innerJoin(players, eq(players.id, matchPlayers.playerId))
+    .where(
+      and(eq(matchPlayers.matchId, matchId), eq(matchPlayers.teamId, teamId)),
+    );
+
+  const [next] = [...squad].sort(
+    (left, right) =>
+      Number(right.position === "gk") - Number(left.position === "gk") ||
+      (right.goalkeeping ?? 0) - (left.goalkeeping ?? 0),
+  );
+
+  if (!next) return;
+
+  await db
+    .update(matchPlayers)
+    .set({ isKeeper: true })
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, next.id),
+      ),
+    );
+}
+
+/**
+ * Puts somebody in goal by hand.
+ *
+ * The app always names one, and it is right often enough, but it cannot know
+ * that somebody's knee hurts or that the person it picked keeps refusing. The
+ * gloves move within one side: whoever had them gives them up.
+ */
+export async function setKeeper(
+  matchId: string,
+  teamId: string,
+  playerId: string,
+): Promise<Match | null> {
+  const [entry] = await db
+    .select({ teamId: matchPlayers.teamId })
+    .from(matchPlayers)
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    );
+
+  // Not on that side, or not in this match at all.
+  if (!entry || entry.teamId !== teamId) return null;
+
+  await db
+    .update(matchPlayers)
+    .set({ isKeeper: false })
+    .where(
+      and(eq(matchPlayers.matchId, matchId), eq(matchPlayers.teamId, teamId)),
+    );
+
+  await db
+    .update(matchPlayers)
+    .set({ isKeeper: true })
     .where(
       and(
         eq(matchPlayers.matchId, matchId),

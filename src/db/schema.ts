@@ -94,6 +94,12 @@ export const matches = sqliteTable(
      * `playedAt + DEFAULT_MATCH_DURATION_MS`.
      */
     endsAt: integer("ends_at", { mode: "timestamp_ms" }),
+    /**
+     * Minutes a game runs before the sides change, agreed when the teams are
+     * drawn. Nullable because the column arrived after the rows did; readers
+     * fall back to `DEFAULT_GAME_MINUTES`.
+     */
+    gameMinutes: integer("game_minutes"),
     placeId: text("place_id").references(() => places.id, {
       onDelete: "set null",
     }),
