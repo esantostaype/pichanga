@@ -6,6 +6,9 @@ build
 # entorno (nunca commitear credenciales)
 .env
 .env*.local
+# Backups of it, which hold real credentials just as surely.
+.env*.local.*
+.env.*.bak
 
 # artefactos
 next-env.d.ts

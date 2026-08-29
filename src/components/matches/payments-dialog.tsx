@@ -40,6 +40,14 @@ import type { Match } from "@/types";
  * login, so ticking your own name would be an honour system rather than a
  * record.
  */
+/**
+ * The hairline between one name and the next: white at six per cent, the same
+ * rule the team sheets are ruled with. Never under the last one -- a line
+ * below the final row draws a floor the list does not have.
+ */
+const rule =
+  "[&>li:not(:last-child)]:border-b [&>li:not(:last-child)]:border-white/[0.06]";
+
 export function PaymentsDialog({
   open,
   onOpenChange,
@@ -152,9 +160,9 @@ export function PaymentsDialog({
         ) : null}
 
         {loading ? (
-          <ul className="-mx-2">
+          <ul className={cn("-mx-2", rule)}>
             {Array.from({ length: 5 }, (_, index) => (
-              <li key={index} className="flex items-center gap-3 px-2 py-2">
+              <li key={index} className="flex items-center gap-3 px-2 py-2.5">
                 <Skeleton className="size-9 shrink-0 rounded-full" />
                 <span className="flex min-w-0 flex-col">
                   <span className="flex h-5 items-center">
@@ -175,7 +183,12 @@ export function PaymentsDialog({
             description="Add players to the match and their shares appear here."
           />
         ) : (
-          <ul className="-mx-2 max-h-80 overflow-y-auto scrollbar-thin">
+          <ul
+            className={cn(
+              "-mx-2 max-h-80 overflow-y-auto scrollbar-thin",
+              rule,
+            )}
+          >
             {players.map((player) => {
               const hasPaid = paid.has(player.id);
               // The organizer pays the venue, so their share is settled by
@@ -185,7 +198,7 @@ export function PaymentsDialog({
               return (
                 <li
                   key={player.id}
-                  className="flex items-center gap-3 rounded-lg px-2 py-2"
+                  className="flex items-center gap-3 px-2 py-2.5"
                 >
                   <PlayerAvatar player={player} className="size-9 shrink-0" />
 
@@ -222,7 +235,9 @@ export function PaymentsDialog({
                       )}
                     >
                       <Icon
-                        icon={hasPaid ? PaymentSuccess01Icon : MoneyNotFound01Icon}
+                        icon={
+                          hasPaid ? PaymentSuccess01Icon : MoneyNotFound01Icon
+                        }
                         size={16}
                       />
                       {hasPaid ? "Paid" : "Pending"}

@@ -1,3 +1,5 @@
+import type { PositionId, SkillId } from "@/lib/constants";
+
 export type Player = {
   id: string;
   firstName: string;
@@ -5,6 +7,10 @@ export type Player = {
   area: string;
   photoUrl: string | null;
   photoPublicId: string | null;
+  /** Where they want to play, which is also how their strength is weighed. */
+  position: PositionId;
+  /** The six skills, 1 to 5, all of them 3 until somebody says otherwise. */
+  skills: Record<SkillId, number>;
   /** epoch ms, serializable across the server/client boundary */
   createdAt: number;
 };
@@ -17,6 +23,8 @@ export type Place = {
   mapsUrl: string | null;
   /** Rental price for one match, split across whoever plays. */
   price: number | null;
+  /** How many a side the pitch takes, null until somebody fills it in. */
+  format: number | null;
   lat: number | null;
   lng: number | null;
   createdAt: number;
@@ -40,6 +48,24 @@ export type MatchSummary = {
   createdAt: number;
 };
 
+/**
+ * One side drawn for a match.
+ *
+ * The keeper is called out because it is the one place on the pitch that has to
+ * be filled, and `borrowedKeeper` says whether the person in goal chose to be
+ * there or was the least bad option on the day.
+ */
+export type MatchTeam = {
+  id: string;
+  /** Draw order, and the band of the pitch they line up in. */
+  slot: number;
+  name: string;
+  accent: string;
+  playerIds: string[];
+  keeperId: string | null;
+  borrowedKeeper: boolean;
+};
+
 export type Match = {
   id: string;
   playedAt: number;
@@ -52,6 +78,35 @@ export type Match = {
   players: Player[];
   /** Ids of the players who already paid their share. */
   paidPlayerIds: string[];
+  /** Empty until somebody draws the sides, which is the usual state. */
+  teams: MatchTeam[];
+  /** A sandbox match, where the clock is not a rule. */
+  isDemo: boolean;
+};
+
+/** One game inside a match: two sides on, the rest waiting. */
+export type MatchGame = {
+  id: string;
+  slot: number;
+  homeTeamId: string;
+  awayTeamId: string;
+  startedAt: number;
+  /** Null while it is being played. */
+  endedAt: number | null;
+};
+
+export type MatchGoal = {
+  id: string;
+  gameId: string;
+  teamId: string;
+  playerId: string;
+  scoredAt: number;
+};
+
+/** Everything that happened on the night, which no other screen needs. */
+export type MatchLive = {
+  games: MatchGame[];
+  goals: MatchGoal[];
 };
 
 /** One photo or clip in a match gallery. */

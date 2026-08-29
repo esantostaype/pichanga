@@ -30,6 +30,10 @@ type PitchSceneProps = {
   onRemovePlayer?: (player: Player) => void;
   /** Passed only when this visitor may settle the rental. */
   onTogglePaid?: (player: Player, paid: boolean) => void;
+  /** Opens a player's card. Everyone gets this one. */
+  onViewPlayer?: (player: Player) => void;
+  /** Played out: the sides come off the pitch and the ledger comes back. */
+  over?: boolean;
 };
 
 /** The pitch fills 100% of the screen; everything else sits on top of it. */
@@ -39,16 +43,33 @@ export function PitchScene({
   bottomInset = 0,
   onRemovePlayer,
   onTogglePaid,
+  onViewPlayer,
+  over = false,
 }: PitchSceneProps) {
   const [ref, size] = useElementSize<HTMLDivElement>();
   const players = match?.players ?? [];
 
-  /**
-   * Always on. The rental is usually collected after the whistle, but plenty of
-   * people pay up front, so the ledger has to be open on every match -- past,
-   * present and still to come.
+  /*
+   * Once the sides are drawn the pitch is about the match, not the money: the
+   * paid marks and the organizer's crown come off. They are both still a tap
+   * away in the ledger, and neither of them means anything while a game is on.
    */
-  const showPayments = !!match;
+  const drawn = !over && (match?.teams.length ?? 0) > 1;
+
+  /*
+   * And once it has been played out the bands come off altogether. The sides
+   * are still on the row -- the season's table is built from them -- but this
+   * screen is back to being the notice it was before they were drawn: who
+   * played, and who has settled up.
+   */
+  const teams = over ? undefined : match?.teams;
+
+  /**
+   * Otherwise always on. The rental is usually collected after the whistle, but
+   * plenty of people pay up front, so the ledger has to be open on every match
+   * -- past, present and still to come.
+   */
+  const showPayments = !!match && !drawn;
 
   return (
     <div
@@ -61,12 +82,14 @@ export function PitchScene({
         <LineupList
           players={players}
           paidPlayerIds={showPayments ? match.paidPlayerIds : undefined}
-          organizerId={match?.organizerId}
+          organizerId={drawn ? null : match?.organizerId}
+          teams={teams}
           columns={size.width < ONE_COLUMN_BELOW ? 1 : 2}
           insetTop={hudInset}
           insetBottom={bottomInset}
           onRemovePlayer={onRemovePlayer}
           onTogglePaid={onTogglePaid}
+          onViewPlayer={onViewPlayer}
         />
       ) : players.length > 0 ? (
         <LineupLayer
@@ -74,9 +97,11 @@ export function PitchScene({
           width={size.width}
           height={size.height}
           insetY={hudInset}
-          organizerId={match?.organizerId}
+          organizerId={drawn ? null : match?.organizerId}
+          teams={teams}
           paidPlayerIds={showPayments ? match.paidPlayerIds : undefined}
           onTogglePaid={onTogglePaid}
+          onViewPlayer={onViewPlayer}
           onRemovePlayer={onRemovePlayer}
         />
       ) : (

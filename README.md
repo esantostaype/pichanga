@@ -40,6 +40,9 @@ npm run dev
 | `npm run dev` | Development server |
 | `npm run build` / `start` | Production build and start |
 | `npm run lint` | ESLint |
+| `npm test` | Vitest, once |
+| `npm run db:migrate` | Applies pending migrations (use this, not push) |
+| `npm run test:watch` | Vitest, watching |
 | `npm run db:generate` | Generates migration SQL from the schema |
 | `npm run db:push` | Applies the schema to Turso |
 | `npm run db:studio` | Drizzle data browser |
@@ -158,6 +161,14 @@ the previous one is still settling up, the ball beats the bookkeeping. The next
 occurrence of a weekly fixture is still created the moment the previous one
 ends, so it is in the Matches drawer the whole time -- it just does not own the
 screen yet.
+
+**The last whistle puts the match back to being a notice.** Finishing the
+night sets `ends_at` to now and returns to the match's own screen: the sides
+come off the pitch, the paid marks and the organizer's crown come back, and
+neither the draw button nor the way into match night is offered again -- there
+is nothing left to draw sides for. The teams themselves are kept on the row,
+because the season's table is built from them; they are just not what that
+match is about any more.
 
 ## The rental ledger
 
@@ -285,9 +296,28 @@ for that second however fast the page arrives.
 keeps `isPending` true until the new page is ready to paint, so the wipe never
 clears on a half-built screen.
 
+**Every navigation gets it**, not the ones that remembered to ask. The
+provider catches clicks on internal links in the capture phase, before Next's
+own handler -- which then stands down, because the click has already been
+taken -- so a match card, the logo and a link nobody has written yet all play
+the same cut without knowing it exists. Back and forward are covered too: they
+cannot be held, since the browser has already moved by the time the event
+fires, so the cut closes over what is still on screen and opens when the new
+address arrives.
+
+**The browser's own arrows are left alone.** A traversal is instant -- the
+page it goes to has already been fetched -- so there is nothing to cover for.
+Playing the cut anyway meant watching two seconds of it over a screen that had
+already arrived, and holding the traversal behind the cut (the Navigation API
+does allow that) put a wait on the one control people press when they want out
+of somewhere. The cut is for the waits the app itself creates. Nothing keeps
+the screen covered either: if the page never arrives it opens after four
+seconds regardless.
+
 The match already on screen is **not a link** -- neither its row in the drawer
 nor the logo on the front page. Playing the whole transition to arrive exactly
-where you started is worse than a row that does nothing.
+where you started is worse than a row that does nothing, so a link to the
+address you are on is left alone.
 
 Links are still `next/link`, so the page itself is usually prefetched and
 waiting by the time the wipe has finished closing.
@@ -377,13 +407,16 @@ WhatsApp itself, which costs one tap.
 lineup. No ticks against the names and no line about what is owed -- it is a
 message about who is playing, and money in it starts a different conversation.
 
-*Payments* is the ledger: the same header, the same names, each with a
+*Payments* is the ledger: the same header plus the money -- what the pitch
+costs in full and what that comes to each -- then the same names, each with a
 ✅ or an ⏳, and the count of what is still pending. The maps link goes,
 because nobody chasing a debt needs directions to the pitch, and the tab
 carries the number of people still to pay.
 
 The two cards differ the same way: the fixture drops the paid marks from the
-rows and the settled-up line from the header, which makes it one line shorter.
+rows, and both money lines from the header, which makes it two lines shorter.
+What a match costs is a thing to settle among the people playing it, not part
+of telling them where to turn up.
 
 Switching tabs redraws the card, and the one already on screen stays there
 while it happens. Clearing it first put a spinner up for long enough to blink
@@ -530,6 +563,41 @@ whoever is reading it, and it should not be the one that looks different.
 Two things opt out with `no-underline`, because they are surfaces rather than
 text: the layer that makes a whole card clickable, and the logo.
 
+## Tabs
+
+One component, everywhere: the share sheet, the season, and the goals of a
+night. They take the width of their words rather than stretching across
+whatever they sit in -- stretched, two tabs read as a segmented control and
+five as a navigation bar.
+
+When they stop fitting, the tail collapses into a **+N** that opens the rest in
+a dropdown. Never a row that scrolls sideways: a tab you have to drag into view
+is a tab nobody knows is there. Two things make the collapse work, and both were
+learned by watching it not:
+
+- The wrapper is `w-full min-w-0`. Inside a grid or a flex row a box may grow
+  past its container to fit its content, and a row that can grow never has to
+  collapse -- it makes its parent scroll instead.
+- The probe that measures the natural widths is clipped and out of the flow. An
+  absolutely positioned box still counts towards an ancestor's scroll width,
+  which is where the sideways scrollbar was coming from.
+
+**The row never reorders itself.** Choosing from the dropdown used to pull that
+tab to the front, which moved the tabs somebody had just read while they were
+reading them. The trigger carries the state instead: it lights up while the
+selection is one of the ones it is holding, and the selection is marked inside
+it.
+
+The active tab is the app's green at fifteen percent, not the solid green: a tab
+is a place you are, not a button you press.
+
+## Scrollbars
+
+One bar, everywhere: thin, the border colour, no track. It used to be a class
+that drawers and tables opted into, which left the page itself with the
+system's -- a wide grey bar down the side of a black app. Anything that scrolls
+now gets the same one.
+
 ## Waiting
 
 Skeletons come from shadcn's `Skeleton` -- a div, a pulse and the muted token,
@@ -655,6 +723,342 @@ The currency comes from `NEXT_PUBLIC_CURRENCY` (default `PEN`). Like the time
 zone, the formatting locale is pinned rather than taken from the runtime: the
 server and the browser would otherwise disagree and the SSR markup would not
 match.
+
+## Skills, positions and teams
+
+Every player carries six skills -- pace, stamina, finishing, passing, defending
+and goalkeeping -- each 1 to 5, and a position they would rather play.
+
+**Six, and all of them start at 3.** Each skill is a value somebody has to set
+twenty times over; a seventh would be the one nobody fills in. Starting at
+average means an unrated player still balances into a team sensibly, and the
+organizer only has to touch the handful who are not average. They live in the
+player form and nowhere else -- a number rating a colleague does not belong on
+the pitch where everyone can read it.
+
+**The position is not a label, it is the weighting.** A player's strength is
+their six skills weighed by where they play, so a defender is never marked down
+for not finishing:
+
+| Position | What counts |
+| --- | --- |
+| Goalkeeper | goalkeeping 60%, the rest 40% |
+| Defender | defending 40%, stamina 25%, pace 20%, passing 15% |
+| Midfielder | passing 35%, stamina 30%, pace 20%, finishing 15% |
+| Forward | finishing 40%, pace 35%, passing 15%, stamina 10% |
+
+Each row sums to 1, so every player lands on the same 1-to-5 scale however they
+play.
+
+### The card
+
+Every player has one: photo, name, area, position, the six skills as bars and
+as a hexagon, and the overall in the corner. It opens from the view button in
+the Players drawer, and from their **name** on the pitch -- the plate under the
+token on a screen, the name in the list on a phone.
+
+The name and not the photo, deliberately: the photo already answers to a double
+click for the payment mark, and two gestures a fifth of a second apart on the
+same target is how somebody ends up marked as paid for trying to read about
+them.
+
+The overall is the same number the balancer uses, weighed by the position they
+picked, so the card explains the teams instead of sitting next to them. And the
+hexagon is there because six bars say the same numbers but the shape is what
+gets remembered: a forward and a defender with the same overall look nothing
+alike on it.
+
+### How many teams
+
+A place says how many a side it takes -- 5, 6, 7, 9 or 11 -- and that decides
+the shape of the day, because a side may never be bigger than what fits on the
+pitch. The turnout is divided by it and **rounded up**: fifteen on a
+seven-a-side pitch is three fives taking turns, not seven against eight with
+nowhere for the eighth to stand, and twenty is three teams of six or seven
+rather than two with six people watching.
+
+Never fewer than two, since there is no match otherwise, and never so many that
+a team would be down to one player -- which is the only case where a side can
+still come out bigger than the pitch, and by then the pitch was never the
+problem.
+
+### The balancer
+
+`planTeams` runs three passes, in an order where each one only makes sense
+once the last is settled:
+
+1. **Goal.** One keeper per team: volunteers first, best first. Where there are
+   not enough, the gloves go to the highest `goalkeeping` among everyone else,
+   with a nudge towards defenders, and that team is marked as having *borrowed*
+   a keeper. This runs first because it is the hardest constraint -- two
+   perfectly balanced teams where one has nobody in goal are not balanced, they
+   are unplayable. A keeper with nowhere to keep plays out, and is rated as a
+   defender, which is where they will end up.
+2. **The draft.** Everybody else in strength order, snaked across the teams, so
+   the first pick of one round is the last of the next.
+3. **The swaps.** Pairs traded between teams for as long as it keeps closing the
+   gap. The draft on its own leaves teams about one player apart; this closes
+   most of what is left. Keepers stay put, and a swap that changes nothing is
+   not taken -- otherwise the same squad would plan differently every time it
+   was asked.
+
+The seed only breaks ties, so a squad always plans the same way and "shuffle
+again" is a different seed rather than a different algorithm.
+
+**Mix the areas** is a second thing to aim at, offered as a switch when the
+teams are shuffled. Eight from Dev and four from Design is four Devs against
+four Devs however even the strengths look, and the point of playing on
+Wednesday is talking to somebody you do not sit next to. It is worth about a
+tenth of a point of strength -- enough to break a tie between two equally fair
+draws, never enough to make an unfair one win.
+
+There is a **Guest** area for the people who do not work here at all: somebody's
+friend, making up the numbers. It balances like any other.
+
+### Drawing them
+
+The button turns up in the HUD **two hours before kick-off** and not a minute
+earlier: until then the lineup is still moving, and teams drawn from half a
+squad are worth nothing. The window is enforced in the endpoint as well as in
+the button, because a button is a suggestion and this is the rule.
+
+**Anyone can draw them.** It happens with everybody standing around and
+somebody has to press it. **Shuffling again is the session's**, though: a squad
+that can re-roll until it likes the look of a team has not been given teams at
+all.
+
+Each side gets a name from a pool of fourteen -- Los 404, Kernel Panic, Cache
+Miss -- and a crest that is drawn rather than drawn by hand: a shield, the
+team's colour, and the short form of the name. Fourteen names and more to come
+would otherwise be fourteen pieces of artwork to keep in step with a list in a
+constants file; as a shape plus a colour plus two letters, a new name arrives
+with its crest already made.
+
+### On the pitch
+
+The pitch splits into a band per team, across its length when it is wide and
+down it when it is tall, and each band is laid out by the same code that lays
+out a whole squad. Inside a band the keeper goes first and the rest follow back
+to front, which is the order a team sheet is read in.
+
+Nothing about the animation is new, and that is the point: the tokens are the
+same nodes they always were, so the tween that carries a new player to their
+place carries everybody to their team. The sides sort themselves out in front
+of you rather than appearing already sorted.
+
+**A drawn pitch is about the match, not the money.** The paid marks and the
+organizer's crown come off the moment there are sides: both are still one tap
+away in the ledger, and neither means anything while a game is on.
+
+The ring around a photo switches from the area colour to the team colour once
+the sides exist -- during a match, which team somebody is on matters more than
+which floor they sit on. On a phone, where there is no room for bands side by
+side, the same list breaks into one section per team and the teams take turns
+down the screen instead of across it.
+
+It is the first thing here with tests, because it is the first thing here that
+is pure logic with no screen attached: fifteen cases in
+`src/lib/teams.test.ts` covering the counts, the keeper shortage, the spare
+keeper, everybody being placed exactly once, and the gap staying under a fifth
+of a point on a five-point scale -- plus six more in `formation.test.ts` for
+the bands: a slot per player, the split following the long axis, every token
+inside its own band, and both sides drawn at the same size however lopsided the
+teams are.
+
+## Match night
+
+Its own address -- `/match/sep-2-2026/live` -- and its own gestures, which is
+what lets a **double tap** mean "they scored" there while it still means "they
+paid" on the lineup. The two never share a page, so neither has to guess.
+
+**The first game waits for kick-off.** The teams can be drawn two hours early
+-- that is standing-around time -- but a game that started before the match did
+puts a clock on screen that means nothing. The sandbox is exempt, because it
+exists to be played with at four on a Tuesday afternoon.
+
+The header is **the same component**, not one that matches: `AppHeader` is
+rendered by the lineup and by match night, and the page brings the same provider
+with it so the logo, the details, the album, the share sheet and the menu are
+the ones people already know. Copying it would have left two headers a week
+later. The rendered markup on the two pages is identical apart from the id Radix
+generates for the menu.
+
+**Match day lives by the thumb.** Drawing the sides and going to the night both
+happen with a phone in one hand at the pitch, so they sit above the add button
+rather than in the corner with the browsing -- the same size as it, in a softer
+green, because adding a player is still what gets pressed most.
+
+**The board is the middle of the screen and nothing else.** No card, no border,
+no ground of its own: it is the thing being looked at, and a box around it would
+be a second thing to look at. A side sits either hand of it while there is room
+and both drop underneath when there is not, each built like a player's card --
+the team's colour bleeding down from the top -- because that is already what
+this app uses for "here is somebody", and a team is a group of somebodies.
+
+The goals and the table are icon buttons beside the score, and open as dialogs.
+They are worth reading between games and worth nothing during one, which is not
+a good enough reason to have them on screen all night.
+
+A side sits either hand of the board from **768 up** -- the same width the
+header changes shape at, so the page has one breakpoint rather than two -- and
+both drop underneath below it.
+
+Everything sits in the middle of the window while it fits, and grows past it
+when it does not -- `justify-center` stops mattering the moment the content is
+taller than the minimum, so nothing is ever pushed off the top.
+
+The page scrolls as a page: the pitch behind it is fixed and the header is
+pinned to the window, so a thumb anywhere moves the night. Getting there took
+two goes. `overflow-x: hidden` had quietly made the page its own scroll
+container -- hidden on one axis forces `auto` on the other -- so a wheel over
+the fixed pitch went to the document, which had nothing to scroll; `clip` does
+not do that. And the `body` itself was held still for the pitch screens, which
+meant no page could ever scroll. It is not any more: the pitch screens are
+`h-dvh` with their own `overflow-hidden`, so they stay still on their own.
+
+The board is the game being played: both crests, the score, and a clock counted
+from one timestamp. Only `startedAt` is stored, and every phone works the time
+out from it -- the only way six devices agree about how long is left.
+
+**A goal can only be taken back off the game being played.** One mistyped is
+noticed within the minute; one removed from a game that finished an hour ago
+rewrites a result the teams already played on, and the table with it. The
+endpoint refuses it, not just the button.
+
+**The last whistle** is a button in the corner: it blows the running game dead
+and moves the match's end to now, so the app stops offering another game and the
+fixture reads as played. The date, the lineup and the ledger are untouched -- it
+says "we are done", not "this never happened".
+
+**The way in is the Teams dialog**, not only the button on the pitch: the
+sides have just been drawn, so what happens next is somebody keeping score. It
+is there for everyone, admin or not -- whoever is holding the phone at the
+ground taps the goals.
+
+**Three shapes.** On a phone the night is one column, board first. From 480px
+the two sides sit next to each other with the board across the top: a tablet
+has room for them side by side but not for a board between them, which at that
+width leaves each side about a hundred pixels. From 768px the board moves into
+the middle where it belongs and each side is capped at 17rem, pushed towards
+it -- two sheets stretched across a wide screen put the names further from the
+score than they are from the edge.
+
+**Anybody can keep score.** It happens on a pitch with twenty people standing
+on it and whoever has their phone out does it, so there is no role behind any of
+it. What there is instead: every goal can be taken back off by anyone, the feed
+shows the minute and the game each one belongs to, and every goal records the
+browser that tapped it in -- not a person, nobody has an account, but enough to
+tell four goals from four phones apart from four off one.
+
+**GOAL goes up on every screen at the ground**, over the whole display: the
+word in `SPORTNEWS` tilted ten degrees, the scorer's name, and their area. A
+ball hitting a net was drawn here first, and it was the better drawing and the
+worse thing to look at -- the only two facts anybody wants in that second are
+*goal* and *who*, and they were the two arriving last.
+
+It is shown the moment the scorer is tapped rather than when the server answers:
+the tap and the shout are the same moment on a pitch, and the network is not
+invited to it. The broadcast of that same goal then reaches the same device, so
+each tap leaves **one echo owed** and the first broadcast for that player pays it
+off silently. Marking the goal's id would be tidier, except the broadcast beats
+the response that carries the id -- which is exactly how one goal got shouted
+twice. An echo that never arrives is forgotten after eight seconds, so a device
+with no realtime does not go on swallowing other people's goals.
+
+Two things for a phone in a coat pocket in the dark: the screen is kept awake
+while the page is open, and a goal that does not reach the server is kept and
+retried every five seconds, with a count of what is still unsent. The signal out
+there comes and goes; a goal that vanished because a request failed is the one
+thing this screen cannot do.
+
+The goals hang off a **wire down the middle**: the minute on the line, the
+scorer on the side their team was playing on, so who is scoring is a shape you
+read rather than a colour you decode. Newest at the top -- the last goal is the
+one being argued about.
+
+Between games the next pairing is worked out and offered, and which custom it
+follows depends on how many sides were drawn.
+
+**Three (or five, or six).** The loser comes off, whoever has waited longest
+comes on -- and **nobody plays more than two in a row**. A side that has just
+won twice goes off anyway and the side it beat stays to face the fresh legs.
+That is the rule almost every triangular is really played by, and the one that
+stops an evening turning into one team's exercise bike.
+
+**Four.** They pair off two and two, and then the results decide: the next game
+is the two winners, the one after it the two losers, and every round of two
+starts from the round before. Nobody sits out more than a game.
+
+**A draw is settled by the app.** On three sides it picks which of the two
+comes off; on four it costs the drawing pair nothing -- both are coming off
+anyway -- and only decides which of them faces the side that actually won.
+
+The pick is drawn from the id of the game just played rather than from a live
+coin toss: unpredictable to everyone standing there, and the same on every phone
+reading the fixture. `Math.random()` would have each device offering a different
+next game until somebody pressed one. Once a game has finished there is a table -- three for a win, one for
+a draw, ordered by points, then goal difference, then goals.
+
+## Stats
+
+Two ways of reading the same goals, in a drawer off the menu: **Players** and
+**Nights**. Nothing there can be edited -- it is what happened.
+
+A player's record follows the **games their side played**, not the matches they
+turned up to. On a triangular evening one team plays three games and another
+two, and a win is a win in the one you were on the pitch for. Turning up and
+never getting a side counts as a night and nothing else.
+
+Only finished games count. A game still running has no result, and calling it a
+draw until somebody blows the whistle is a lie that corrects itself minutes
+later.
+
+A night counts once somebody kept score, rather than once the clock passes it:
+going by the clock alone would count a fixture nobody turned up to, and would
+leave the sandbox -- whose kick-off is always half an hour ahead -- with no
+season at all.
+
+The top three stand on a **podium** above the table -- second, first, third,
+the way a podium is stood on rather than listed -- with a cup in gold, silver
+and bronze in the corner of each step. The steps are different heights and the
+faces different sizes, so each card is built from the bottom up with the name
+row and the figures under it at fixed heights: the three names line up, and so
+do the goals below them, whatever height the step is.
+
+Its skeleton is the same screen drawn empty -- three steps at their own
+heights, the column headings, and rows built from the widths the table itself
+uses -- so when the numbers land nothing moves except the ink.
+
+It is four queries for the whole season, not four per match. An office plays
+once a week, so this is a few hundred rows, and the arithmetic lives in
+`buildStats` where ten tests can reach it without a database.
+
+## The demo
+
+`/demo` is the whole app over rows nobody plays on: the same screen, the same
+provider, the same endpoints. Players can be added and deleted, an organizer
+picked, the teams drawn, the night played out at `/demo/live`, and the rental
+settled -- none of it touching a real fixture.
+
+It is a **world**, not a mock. Every listing reads with a `demo` flag and every
+write marks what it creates, so the sandbox never sees the office's rows and the
+office never sees the sandbox's. A mock would have tested the mock.
+
+The squad is seeded on the way in rather than by a script somebody has to
+remember to run, and **kick-off is always half an hour ahead**. That one detail
+is what opens every gate at once -- the teams can be drawn, the night can be
+played, the ledger is live -- without a single date being special-cased. Reset
+the demo from the menu when it gets messy.
+
+**And it rolls on.** Finish the sandbox match and the next one is waiting: the
+same squad, the same pitch, half an hour ahead again, with its own sides to
+draw and its own goals to score. The night just played stays where it is, with
+its teams and its table, so the season builds up week by week the way the real
+one does. The three-day grace window is skipped here -- the sandbox owes
+nobody a rental, and holding its one screen on a match that is over would leave
+nothing to try.
+
+Behind the session, and a 404 rather than a redirect for everyone else.
 
 ## The organizer
 

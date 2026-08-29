@@ -3,7 +3,6 @@
 import Link from "next/link";
 
 import { usePichanga } from "@/components/providers/pichanga-provider";
-import { useScene } from "./scene-transition";
 
 /**
  * The logo, and the way back to the current match.
@@ -14,7 +13,6 @@ import { useScene } from "./scene-transition";
  */
 export function Brand() {
   const { pinnedMatchId } = usePichanga();
-  const { go } = useScene();
 
   const mark = (
     // eslint-disable-next-line @next/next/no-img-element
@@ -29,11 +27,6 @@ export function Brand() {
     <Link
       href="/"
       aria-label="Pichanga, current match"
-      onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey) return;
-        event.preventDefault();
-        go("/");
-      }}
       className="flex shrink-0 cursor-pointer flex-col gap-1 rounded-lg no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
     >
       {mark}

@@ -27,15 +27,18 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
-import { AREAS } from "@/lib/constants";
+import { AREAS, POSITIONS, SKILLS, SKILL_DEFAULT } from "@/lib/constants";
 import { playerInputSchema } from "@/lib/validators";
 import type { Player } from "@/types";
 import { PhotoField } from "./photo-field";
+import { SkillField } from "./skill-field";
 
 const formSchema = playerInputSchema.pick({
   firstName: true,
   lastName: true,
   area: true,
+  position: true,
+  skills: true,
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -106,8 +109,20 @@ function PlayerForm({
           firstName: player.firstName,
           lastName: player.lastName,
           area: player.area as FormValues["area"],
+          position: player.position,
+          skills: player.skills as FormValues["skills"],
         }
-      : { firstName: "", lastName: "", area: "dev" },
+      : {
+          firstName: "",
+          lastName: "",
+          area: "dev",
+          position: "mid",
+          // Average until somebody says otherwise, so a new player balances
+          // into a team without anybody having to rate them first.
+          skills: Object.fromEntries(
+            SKILLS.map((skill) => [skill.id, SKILL_DEFAULT]),
+          ) as FormValues["skills"],
+        },
   });
 
   const { run, pending } = useAction(
@@ -205,6 +220,57 @@ function PlayerForm({
           )}
         />
       </Field>
+
+      <Field label="Position" error={errors.position?.message}>
+        <Controller
+          control={form.control}
+          name="position"
+          render={({ field }) => (
+            <Select
+              value={field.value}
+              onValueChange={field.onChange}
+              disabled={pending}
+            >
+              <SelectTrigger aria-invalid={!!errors.position}>
+                <SelectValue placeholder="Pick a position" />
+              </SelectTrigger>
+              <SelectContent>
+                {POSITIONS.map((position) => (
+                  <SelectItem key={position.id} value={position.id}>
+                    {position.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </Field>
+
+      {/*
+        The numbers behind the balancing. They are nobody's business but the
+        team sheet's, so they live here and never on the pitch.
+      */}
+      <div className="grid gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4">
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">
+          Skills
+        </p>
+
+        {SKILLS.map((skill) => (
+          <Controller
+            key={skill.id}
+            control={form.control}
+            name={`skills.${skill.id}`}
+            render={({ field }) => (
+              <SkillField
+                label={skill.label}
+                value={field.value}
+                onChange={field.onChange}
+                disabled={pending}
+              />
+            )}
+          />
+        ))}
+      </div>
 
       <DialogFooter>
         <Button

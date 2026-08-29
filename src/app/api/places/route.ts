@@ -6,8 +6,9 @@ import { placeInputSchema } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return route(async () => json(await listPlaces()));
+export async function GET(request: Request) {
+  const demo = new URL(request.url).searchParams.get("demo") === "1";
+  return route(async () => json(await listPlaces(demo)));
 }
 
 export async function POST(request: Request) {

@@ -6,9 +6,15 @@ import { playerInputSchema } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return route(async () => json(await listPlayers()));
+export async function GET(request: Request) {
+  return route(async () => json(await listPlayers(isDemo(request))));
 }
+
+/** `?demo=1` reads the sandbox instead of the real rows. */
+function isDemo(request: Request) {
+  return new URL(request.url).searchParams.get("demo") === "1";
+}
+
 
 export async function POST(request: Request) {
   return route(async () => {

@@ -97,7 +97,30 @@
 
   /* `--font-sofia` / `--font-sofia-condensed` are injected by next/font. */
   --font-sans: var(--font-sofia), ui-sans-serif, system-ui, sans-serif;
+  /*
+   * One breakpoint below Tailwind's smallest, at the width the pitch already
+   * changes shape at: under it a phone gets one column of anything, over it
+   * even a small tablet has room for two side by side.
+   */
+  --breakpoint-xs: 480px;
+
   --font-display: var(--font-sofia-condensed), var(--font-sofia), sans-serif;
+  /* The scoreboard face. One word uses it, and it is worth its own file. */
+  --font-scoreboard: "SportNews", var(--font-display);
+}
+
+/*
+ * Loaded here rather than through next/font: it is a single local file used by
+ * a single word, and `swap` is exactly right for it -- the shout goes up in the
+ * display face and settles into this one a moment later, which nobody sees
+ * because the overlay is animating anyway.
+ */
+@font-face {
+  font-family: "SportNews";
+  src: url("/fonts/SPORTNEWS-Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -157,20 +180,44 @@
     font-synthesis-weight: none;
   }
 
-  /* Scrollbar discreta para drawers y tablas */
+/*
+   * One scrollbar, everywhere.
+   *
+   * It used to be a class drawers and tables opted into, which left the page
+   * itself with the system's -- a wide grey bar against a black app. Anything
+   * that scrolls now gets the same thin dark one, and `.scrollbar-thin` stays
+   * as a name for the places that already ask for it by hand.
+   */
+  *,
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
   }
+
+  *::-webkit-scrollbar,
   .scrollbar-thin::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
+
+  *::-webkit-scrollbar-thumb,
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 999px;
   }
+
+  *::-webkit-scrollbar-thumb:hover,
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+  }
+
+  *::-webkit-scrollbar-track,
   .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* The corner where two bars meet, which otherwise stays system grey. */
+  *::-webkit-scrollbar-corner {
     background: transparent;
   }
 

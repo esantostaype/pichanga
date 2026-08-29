@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRef } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { usePichanga } from "@/components/providers/pichanga-provider";
@@ -17,8 +17,16 @@ import {
 } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
+import { PITCH_FORMATS } from "@/lib/constants";
 import { CURRENCY } from "@/lib/money";
 import type { Place } from "@/types";
 import { PlaceSearchField } from "./place-search-field";
@@ -29,6 +37,8 @@ const formSchema = z.object({
   mapsUrl: z
     .union([z.string().url("Must be a valid URL"), z.literal("")])
     .optional(),
+  // Same as the price: text, so an empty field means "nobody has said".
+  format: z.string().optional(),
   // Kept as text so an empty field means "no price" instead of zero.
   price: z
     .string()
@@ -111,6 +121,7 @@ function PlaceForm({
       address: place?.address ?? "",
       mapsUrl: place?.mapsUrl ?? "",
       price: place?.price != null ? String(place.price) : "",
+      format: place?.format != null ? String(place.format) : "",
     },
   });
 
@@ -121,6 +132,9 @@ function PlaceForm({
         address: values.address?.trim() || null,
         mapsUrl: values.mapsUrl?.trim() || null,
         price: values.price?.trim() ? Number(values.price) : null,
+        format: values.format
+          ? (Number(values.format) as (typeof PITCH_FORMATS)[number])
+          : null,
         googlePlaceId: meta.current.googlePlaceId,
         lat: meta.current.lat,
         lng: meta.current.lng,
@@ -193,6 +207,35 @@ function PlaceForm({
           disabled={pending}
           aria-invalid={!!errors.price}
           {...form.register("price")}
+        />
+      </Field>
+
+      <Field
+        label="Players a side"
+        error={errors.format?.message}
+        hint="Decides the size of the teams, and whether a big turnout plays a triangular."
+      >
+        <Controller
+          control={form.control}
+          name="format"
+          render={({ field }) => (
+            <Select
+              value={field.value || undefined}
+              onValueChange={field.onChange}
+              disabled={pending}
+            >
+              <SelectTrigger aria-invalid={!!errors.format}>
+                <SelectValue placeholder="Not set" />
+              </SelectTrigger>
+              <SelectContent>
+                {PITCH_FORMATS.map((format) => (
+                  <SelectItem key={format} value={String(format)}>
+                    {format} a side
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         />
       </Field>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
@@ -36,7 +36,14 @@ const BALL_AFTER_MS = 700;
  */
 const MIN_ON_SCREEN_MS = BALL_AFTER_MS + 1000;
 
-/* The last slab lands at `470 + SWEEP_MS`; the ball follows it in. */
+/**
+ * And never longer than this, whatever happens.
+ *
+ * The cut opens when React says the page is ready. If a navigation fails or
+ * is abandoned that never comes, and this is what stops the screen being
+ * covered for good.
+ */
+const MAX_ON_SCREEN_MS = 4000;
 
 /**
  * The cut between one screen and the next.
@@ -58,21 +65,28 @@ export function SceneTransitionProvider({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [navigating, startTransition] = useTransition();
   const [closed, setClosed] = useState(false);
   const shownAt = useRef(0);
+  const close = useCallback(() => {
+    // The clock starts on the first close and runs to the open, so a second
+    // close over an already-covered screen does not push the opening back.
+    if (!shownAt.current) shownAt.current = Date.now();
+    setClosed(true);
+  }, []);
 
   const go = useCallback(
     (href: string) => {
-      shownAt.current = Date.now();
-      setClosed(true);
+      close();
       startTransition(() => router.push(href));
     },
-    [router],
+    [close, router],
   );
 
+  /* Opens once the new screen is there, and not before its second is up. */
   useEffect(() => {
-    if (navigating || !shownAt.current) return;
+    if (!closed || navigating || !shownAt.current) return;
 
     const left = MIN_ON_SCREEN_MS - (Date.now() - shownAt.current);
     const timer = setTimeout(
@@ -84,7 +98,71 @@ export function SceneTransitionProvider({
     );
 
     return () => clearTimeout(timer);
-  }, [navigating]);
+    // `closed` belongs here: closing the cut is what has to start it opening.
+  }, [closed, navigating, pathname]);
+
+  /* Nothing keeps the screen covered: if no signal comes, it opens anyway. */
+  useEffect(() => {
+    if (!closed) return;
+
+    const bail = setTimeout(() => {
+      shownAt.current = 0;
+      setClosed(false);
+    }, MAX_ON_SCREEN_MS);
+
+    return () => clearTimeout(bail);
+  }, [closed]);
+
+  /*
+   * Every link in the app, without every link having to know about this.
+   *
+   * The alternative was a hook in each place that navigates, and the ones that
+   * were missed -- a match card, the way back -- were exactly the navigations
+   * that looked broken next to the ones that had it. Caught in the capture
+   * phase, before Next's own handler, which then stands down because the click
+   * has already been taken.
+   */
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      // A modified click is asking for a tab, a window or a download.
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+        return;
+      }
+
+      const target = event.target;
+      const anchor =
+        target instanceof Element
+          ? target.closest<HTMLAnchorElement>("a[href]")
+          : null;
+
+      if (!anchor || anchor.hasAttribute("download")) return;
+      if (anchor.target && anchor.target !== "_self") return;
+
+      const url = new URL(anchor.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      // A link to the page you are already on would play the whole cut to
+      // arrive back where you started.
+      if (url.pathname === window.location.pathname) return;
+
+      event.preventDefault();
+      go(url.pathname + url.search + url.hash);
+    };
+
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [go]);
+
+  /*
+   * Back and forward are the browser's, and they are left alone.
+   *
+   * A traversal is instant -- the page it goes to is already fetched -- so
+   * there is nothing to cover for, and covering it anyway meant watching a
+   * two-second cut play over a screen that had already arrived. Holding the
+   * traversal to fix that put a second's wait on the one control people press
+   * when they want out of somewhere. The cut is for the waits the app itself
+   * creates.
+   */
 
   const value = useMemo(() => ({ go, navigating }), [go, navigating]);
 

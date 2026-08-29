@@ -1,9 +1,25 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNotNull, lte, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lte,
+  sql,
+} from "drizzle-orm";
 import { cache } from "react";
 
-import { DEFAULT_MATCH_DURATION_MS, MATCH_GRACE_MS } from "@/lib/constants";
+import {
+  AREA_IDS,
+  DEFAULT_MATCH_DURATION_MS,
+  DEFAULT_PITCH_FORMAT,
+  MATCH_GRACE_MS,
+  TEAM_NAMES,
+} from "@/lib/constants";
 import { matchSlug } from "@/lib/date";
 import type {
   MatchInput,
@@ -13,6 +29,9 @@ import type {
 } from "@/lib/validators";
 import type {
   Match,
+  MatchGame,
+  MatchGoal,
+  MatchLive,
   MatchMedia,
   MatchSummary,
   Place,
@@ -20,8 +39,28 @@ import type {
   Recurrence,
 } from "@/types";
 import { db } from "./index";
-import { matchMedia, matchPlayers, matches, places, players } from "./schema";
-import type { MatchMediaRow, MatchRow, PlaceRow, PlayerRow } from "./schema";
+import { buildStats } from "@/lib/stats";
+import type { Stats } from "@/lib/stats";
+import { planTeams } from "@/lib/teams";
+import {
+  matchGames,
+  matchGoals,
+  matchMedia,
+  matchPlayers,
+  matchTeams,
+  matches,
+  places,
+  players,
+} from "./schema";
+import type {
+  MatchGameRow,
+  MatchGoalRow,
+  MatchMediaRow,
+  MatchRow,
+  MatchTeamRow,
+  PlaceRow,
+  PlayerRow,
+} from "./schema";
 
 /* -------------------------------------------------------------------------- */
 /*                                  mappers                                   */
@@ -34,6 +73,15 @@ const toPlayer = (row: PlayerRow): Player => ({
   area: row.area,
   photoUrl: row.photoUrl,
   photoPublicId: row.photoPublicId,
+  position: row.position as Player["position"],
+  skills: {
+    pace: row.pace,
+    stamina: row.stamina,
+    finishing: row.finishing,
+    passing: row.passing,
+    defending: row.defending,
+    goalkeeping: row.goalkeeping,
+  },
   createdAt: row.createdAt.getTime(),
 });
 
@@ -46,6 +94,7 @@ const toPlace = (row: PlaceRow | null): Place | null =>
         googlePlaceId: row.googlePlaceId,
         mapsUrl: row.mapsUrl,
         price: row.price,
+        format: row.format,
         lat: row.lat,
         lng: row.lng,
         createdAt: row.createdAt.getTime(),
@@ -70,7 +119,13 @@ const toMedia = (row: MatchMediaRow): MatchMedia => ({
 const toMatch = (
   row: MatchRow,
   place: PlaceRow | null,
-  lineup: Array<{ player: PlayerRow; paidAt: Date | null }>,
+  lineup: Array<{
+    player: PlayerRow;
+    paidAt: Date | null;
+    teamId: string | null;
+    isKeeper: boolean;
+  }>,
+  teams: MatchTeamRow[] = [],
 ): Match => ({
   id: row.id,
   playedAt: row.playedAt.getTime(),
@@ -80,6 +135,7 @@ const toMatch = (
   recurrence: (row.recurrence as Recurrence | null) ?? null,
   seriesId: row.seriesId,
   createdAt: row.createdAt.getTime(),
+  isDemo: row.isDemo,
   players: lineup.map((entry) => toPlayer(entry.player)),
   /**
    * The organizer is always in here. They pay the venue, so their share is
@@ -91,6 +147,22 @@ const toMatch = (
       (entry) => entry.paidAt !== null || entry.player.id === row.organizerId,
     )
     .map((entry) => entry.player.id),
+  teams: teams.map((team) => {
+    const squad = lineup.filter((entry) => entry.teamId === team.id);
+    const keeper = squad.find((entry) => entry.isKeeper) ?? null;
+
+    return {
+      id: team.id,
+      slot: team.slot,
+      name: team.name,
+      accent: team.accent,
+      playerIds: squad.map((entry) => entry.player.id),
+      keeperId: keeper?.player.id ?? null,
+      // Derived rather than stored: whether the keeper volunteered is a fact
+      // about their profile, and it changes the day they change their mind.
+      borrowedKeeper: !!keeper && keeper.player.position !== "gk",
+    };
+  }),
 });
 
 /**
@@ -121,8 +193,20 @@ const withinGrace = (at: number) =>
 /*                                   places                                   */
 /* -------------------------------------------------------------------------- */
 
-export async function listPlaces(): Promise<Place[]> {
-  const rows = await db.select().from(places).orderBy(asc(places.name));
+/**
+ * The venues.
+ *
+ * `demo` picks which world to read: the sandbox rows or the real ones, never
+ * both. Every listing takes the same flag, which is what lets `/demo` run the
+ * whole app -- adding, deleting, drawing teams, keeping score -- against rows
+ * nobody plays on.
+ */
+export async function listPlaces(demo = false): Promise<Place[]> {
+  const rows = await db
+    .select()
+    .from(places)
+    .where(eq(places.isDemo, demo))
+    .orderBy(asc(places.name));
   return rows.map((row) => toPlace(row)!);
 }
 
@@ -135,8 +219,10 @@ export async function createPlace(input: PlaceInput): Promise<Place> {
       googlePlaceId: input.googlePlaceId ?? null,
       mapsUrl: input.mapsUrl ?? null,
       price: input.price ?? null,
+      format: input.format ?? null,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
+      isDemo: input.isDemo ?? false,
     })
     .returning();
 
@@ -155,6 +241,7 @@ export async function updatePlace(
       googlePlaceId: input.googlePlaceId ?? null,
       mapsUrl: input.mapsUrl ?? null,
       price: input.price ?? null,
+      format: input.format ?? null,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
     })
@@ -173,10 +260,11 @@ export async function deletePlace(id: string): Promise<boolean> {
 /*                                   players                                  */
 /* -------------------------------------------------------------------------- */
 
-export async function listPlayers(): Promise<Player[]> {
+export async function listPlayers(demo = false): Promise<Player[]> {
   const rows = await db
     .select()
     .from(players)
+    .where(eq(players.isDemo, demo))
     .orderBy(asc(players.firstName), asc(players.lastName));
 
   return rows.map(toPlayer);
@@ -187,16 +275,22 @@ export async function getPlayer(id: string): Promise<Player | null> {
   return row ? toPlayer(row) : null;
 }
 
+/** The columns a player form fills in, spread into an insert or an update. */
+const playerValues = (input: PlayerInput) => ({
+  firstName: input.firstName,
+  lastName: input.lastName,
+  area: input.area,
+  photoUrl: input.photoUrl ?? null,
+  photoPublicId: input.photoPublicId ?? null,
+  position: input.position,
+  isDemo: input.isDemo ?? false,
+  ...input.skills,
+});
+
 export async function createPlayer(input: PlayerInput): Promise<Player> {
   const [row] = await db
     .insert(players)
-    .values({
-      firstName: input.firstName,
-      lastName: input.lastName,
-      area: input.area,
-      photoUrl: input.photoUrl ?? null,
-      photoPublicId: input.photoPublicId ?? null,
-    })
+    .values(playerValues(input))
     .returning();
 
   return toPlayer(row);
@@ -208,13 +302,7 @@ export async function updatePlayer(
 ): Promise<Player | null> {
   const [row] = await db
     .update(players)
-    .set({
-      firstName: input.firstName,
-      lastName: input.lastName,
-      area: input.area,
-      photoUrl: input.photoUrl ?? null,
-      photoPublicId: input.photoPublicId ?? null,
-    })
+    .set(playerValues(input))
     .where(eq(players.id, id))
     .returning();
 
@@ -296,6 +384,9 @@ async function _materializeRecurringMatches(): Promise<void> {
           organizerId: source.organizerId,
           recurrence: source.recurrence,
           seriesId: source.seriesId,
+          // Whichever world it belongs to: a sandbox fixture that rolled
+          // forward into the real one would put demo rows on the front page.
+          isDemo: source.isDemo,
         })
         .returning();
 
@@ -325,7 +416,7 @@ async function _materializeRecurringMatches(): Promise<void> {
 /*                                   matches                                  */
 /* -------------------------------------------------------------------------- */
 
-export async function listMatches(): Promise<MatchSummary[]> {
+export async function listMatches(demo = false): Promise<MatchSummary[]> {
   await materializeRecurringMatches();
 
   const rows = await db
@@ -339,6 +430,7 @@ export async function listMatches(): Promise<MatchSummary[]> {
     .from(matches)
     .leftJoin(places, eq(places.id, matches.placeId))
     .leftJoin(matchPlayers, eq(matchPlayers.matchId, matches.id))
+    .where(eq(matches.isDemo, demo))
     .groupBy(matches.id)
     .orderBy(desc(matches.playedAt));
 
@@ -362,11 +454,32 @@ async function loadLineup(matchId: string) {
       player: players,
       slot: matchPlayers.slot,
       paidAt: matchPlayers.paidAt,
+      teamId: matchPlayers.teamId,
+      isKeeper: matchPlayers.isKeeper,
     })
     .from(matchPlayers)
     .innerJoin(players, eq(players.id, matchPlayers.playerId))
     .where(eq(matchPlayers.matchId, matchId))
     .orderBy(asc(matchPlayers.slot), asc(matchPlayers.createdAt));
+}
+
+async function loadTeams(matchId: string) {
+  return db
+    .select()
+    .from(matchTeams)
+    .where(eq(matchTeams.matchId, matchId))
+    .orderBy(asc(matchTeams.slot));
+}
+
+/** Everything a `Match` needs, from the row the caller already has. */
+async function hydrate(row: MatchRow): Promise<Match> {
+  const [place, lineup, teams] = await Promise.all([
+    loadPlace(row.placeId),
+    loadLineup(row.id),
+    loadTeams(row.id),
+  ]);
+
+  return toMatch(row, place, lineup, teams);
 }
 
 async function loadPlace(placeId: string | null) {
@@ -389,6 +502,9 @@ export async function getMatchBySlug(slug: string): Promise<Match | null> {
   const rows = await db
     .select({ id: matches.id, playedAt: matches.playedAt })
     .from(matches)
+    // The sandbox has its own address; a demo date must never answer for a
+    // real one just because they fall on the same day.
+    .where(eq(matches.isDemo, false))
     .orderBy(asc(matches.playedAt));
 
   const found = rows.find((row) => matchSlug(row.playedAt.getTime()) === slug);
@@ -399,7 +515,7 @@ export async function getMatch(id: string): Promise<Match | null> {
   const [row] = await db.select().from(matches).where(eq(matches.id, id));
   if (!row) return null;
 
-  return toMatch(row, await loadPlace(row.placeId), await loadLineup(id));
+  return hydrate(row);
 }
 
 /**
@@ -415,26 +531,34 @@ export async function getMatch(id: string): Promise<Match | null> {
  * A live match jumps the queue on purpose: if the next fixture kicks off while
  * the previous one is still settling up, the ball beats the bookkeeping.
  */
-export async function getNextMatch(): Promise<Match | null> {
+export async function getNextMatch(demo = false): Promise<Match | null> {
   await materializeRecurringMatches();
 
   const now = Date.now();
+  const world = eq(matches.isDemo, demo);
 
   const live = await db
     .select()
     .from(matches)
-    .where(and(lte(matches.playedAt, new Date(now)), stillRunning(now)))
+    .where(and(world, lte(matches.playedAt, new Date(now)), stillRunning(now)))
     .orderBy(asc(matches.playedAt))
     .limit(1);
 
-  const settling = live.length
-    ? []
-    : await db
-        .select()
-        .from(matches)
-        .where(withinGrace(now))
-        .orderBy(desc(matches.playedAt))
-        .limit(1);
+  /*
+   * The grace window is for real money: the rental gets collected after the
+   * whistle, so a finished match holds the screen for three days. The sandbox
+   * owes nobody anything, and holding it there would leave the one screen it
+   * has showing a match that is over.
+   */
+  const settling =
+    live.length || demo
+      ? []
+      : await db
+          .select()
+          .from(matches)
+          .where(and(world, withinGrace(now)))
+          .orderBy(desc(matches.playedAt))
+          .limit(1);
 
   const upcoming =
     live.length || settling.length
@@ -442,7 +566,7 @@ export async function getNextMatch(): Promise<Match | null> {
       : await db
           .select()
           .from(matches)
-          .where(stillRunning(now))
+          .where(and(world, stillRunning(now)))
           .orderBy(asc(matches.playedAt))
           .limit(1);
 
@@ -450,11 +574,18 @@ export async function getNextMatch(): Promise<Match | null> {
     live[0] ??
     settling[0] ??
     upcoming[0] ??
-    (await db.select().from(matches).orderBy(desc(matches.playedAt)).limit(1))[0];
+    (
+      await db
+        .select()
+        .from(matches)
+        .where(world)
+        .orderBy(desc(matches.playedAt))
+        .limit(1)
+    )[0];
 
   if (!row) return null;
 
-  return toMatch(row, await loadPlace(row.placeId), await loadLineup(row.id));
+  return hydrate(row);
 }
 
 export type PaidResult =
@@ -474,7 +605,10 @@ export async function setPlayerPaid(
   playerId: string,
   paid: boolean,
 ): Promise<PaidResult> {
-  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId));
   if (!match) return { ok: false, reason: "missing" };
 
   if (match.organizerId === playerId) {
@@ -485,7 +619,9 @@ export async function setPlayerPaid(
     if (!paid) return { ok: false, reason: "organizer" };
 
     const settled = await getMatch(matchId);
-    return settled ? { ok: true, match: settled } : { ok: false, reason: "missing" };
+    return settled
+      ? { ok: true, match: settled }
+      : { ok: false, reason: "missing" };
   }
 
   const updated = await db
@@ -523,7 +659,10 @@ export async function addMatchMedia(
   matchId: string,
   input: MediaInput,
 ): Promise<MatchMedia | null> {
-  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId));
   if (!match) return null;
 
   const [row] = await db
@@ -616,6 +755,7 @@ export async function createMatch(input: MatchInput): Promise<Match> {
       recurrence: input.recurrence ?? null,
       // A recurring fixture opens its own series; occurrences inherit the id.
       seriesId: input.recurrence ? crypto.randomUUID() : null,
+      isDemo: input.isDemo ?? false,
     })
     .returning();
 
@@ -631,7 +771,7 @@ export async function createMatch(input: MatchInput): Promise<Match> {
     );
   }
 
-  return toMatch(row, await loadPlace(row.placeId), await loadLineup(row.id));
+  return hydrate(row);
 }
 
 export async function updateMatch(
@@ -676,7 +816,7 @@ export async function updateMatch(
     );
   }
 
-  return toMatch(row, await loadPlace(row.placeId), await loadLineup(id));
+  return hydrate(row);
 }
 
 export async function deleteMatch(id: string): Promise<boolean> {
@@ -693,7 +833,10 @@ export async function addPlayersToMatch(
   matchId: string,
   playerIds: string[],
 ): Promise<Match | null> {
-  const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId));
   if (!match) return null;
 
   const existing = await db
@@ -715,11 +858,567 @@ export async function addPlayersToMatch(
     );
   }
 
-  return toMatch(
-    match,
-    await loadPlace(match.placeId),
-    await loadLineup(matchId),
+  return hydrate(match);
+}
+
+/**
+ * Draws the sides for a match and writes them down.
+ *
+ * The plan is made here rather than in the browser because this is where the
+ * skills live, and because the draw has to be the same for everybody looking at
+ * it: whoever presses the button first is who the teams belong to.
+ *
+ * Re-drawing replaces what was there. The names come from the pool in the same
+ * order as the seed, so shuffling again gives new sides *and* new names -- last
+ * week's Kernel Panic has nothing to do with this week's.
+ */
+export async function drawTeams(
+  matchId: string,
+  seed: number,
+  mixAreas = false,
+): Promise<Match | null> {
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId));
+  if (!match) return null;
+
+  const lineup = await loadLineup(matchId);
+  if (lineup.length < 4) return hydrate(match);
+
+  const place = await loadPlace(match.placeId);
+  const teamSize = place?.format ?? DEFAULT_PITCH_FORMAT;
+
+  const plan = planTeams(
+    lineup.map((entry) => toPlayer(entry.player)),
+    { teamSize, seed, mixAreas },
   );
+
+  const names = pickNames(plan.teams.length, seed);
+
+  await releaseTeams(matchId);
+
+  const rows = await db
+    .insert(matchTeams)
+    .values(
+      plan.teams.map((team, index) => ({
+        matchId,
+        slot: team.index,
+        name: names[index].name,
+        accent: names[index].accent,
+      })),
+    )
+    .returning();
+
+  const bySlot = new Map(rows.map((row) => [row.slot, row.id]));
+
+  for (const team of plan.teams) {
+    const teamId = bySlot.get(team.index);
+    if (!teamId) continue;
+
+    for (const player of team.players) {
+      await db
+        .update(matchPlayers)
+        .set({ teamId, isKeeper: player.id === team.keeperId })
+        .where(
+          and(
+            eq(matchPlayers.matchId, matchId),
+            eq(matchPlayers.playerId, player.id),
+          ),
+        );
+    }
+  }
+
+  return hydrate(match);
+}
+
+/** Undoes the draw, back to one squad and no sides. */
+export async function clearTeams(matchId: string): Promise<Match | null> {
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId));
+  if (!match) return null;
+
+  await releaseTeams(matchId);
+
+  return hydrate(match);
+}
+
+/**
+ * Lets the lineup go of its teams, then deletes them.
+ *
+ * In that order, and never the other way round: a row still pointing at a team
+ * is a foreign key waiting to refuse the delete.
+ */
+async function releaseTeams(matchId: string) {
+  await db
+    .update(matchPlayers)
+    .set({ teamId: null, isKeeper: false })
+    .where(eq(matchPlayers.matchId, matchId));
+
+  await db.delete(matchTeams).where(eq(matchTeams.matchId, matchId));
+}
+
+/** Distinct names from the pool, walked from a point the seed decides. */
+function pickNames(count: number, seed: number) {
+  const start = Math.abs(Math.trunc(seed)) % TEAM_NAMES.length;
+  const step = 1 + (Math.abs(Math.trunc(seed / TEAM_NAMES.length)) % 3);
+
+  const picked: Array<(typeof TEAM_NAMES)[number]> = [];
+  const used = new Set<number>();
+
+  for (let index = 0; picked.length < count; index += 1) {
+    // Walking in steps rather than one by one keeps the pairs from always
+    // being neighbours in the list. The guard is for a step that lands on the
+    // same name twice; the pool is far bigger than any turnout.
+    const at = (start + index * step) % TEAM_NAMES.length;
+    if (used.has(at)) continue;
+
+    used.add(at);
+    picked.push(TEAM_NAMES[at]);
+
+    if (used.size === TEAM_NAMES.length) break;
+  }
+
+  return picked;
+}
+
+/* -------------------------------- the season ----------------------------- */
+
+/**
+ * Every night that has been played, in one go.
+ *
+ * Four queries for the whole season rather than four per match: an office plays
+ * once a week, so this is a few hundred rows, and the arithmetic happens in
+ * `buildStats` where it can be tested without a database.
+ */
+export async function getStats(demo = false): Promise<Stats> {
+  const all = await db
+    .select({ id: matches.id, playedAt: matches.playedAt })
+    .from(matches)
+    .where(eq(matches.isDemo, demo))
+    .orderBy(desc(matches.playedAt));
+
+  if (all.length === 0) return { players: [], matches: [] };
+
+  const withGames = new Set(
+    (
+      await db
+        .select({ matchId: matchGames.matchId })
+        .from(matchGames)
+        .where(
+          inArray(
+            matchGames.matchId,
+            all.map((row) => row.id),
+          ),
+        )
+    ).map((row) => row.matchId),
+  );
+
+  const now = Date.now();
+  const played = all.filter(
+    (row) => row.playedAt.getTime() <= now || withGames.has(row.id),
+  );
+
+  if (played.length === 0) return { players: [], matches: [] };
+
+  const ids = played.map((row) => row.id);
+
+  const [lineup, teams, games, goals] = await Promise.all([
+    db
+      .select({
+        matchId: matchPlayers.matchId,
+        playerId: matchPlayers.playerId,
+        teamId: matchPlayers.teamId,
+      })
+      .from(matchPlayers)
+      .where(inArray(matchPlayers.matchId, ids)),
+    db.select().from(matchTeams).where(inArray(matchTeams.matchId, ids)),
+    db.select().from(matchGames).where(inArray(matchGames.matchId, ids)),
+    db.select().from(matchGoals).where(inArray(matchGoals.matchId, ids)),
+  ]);
+
+  const group = <T extends { matchId: string }>(rows: T[]) => {
+    const by = new Map<string, T[]>();
+    for (const row of rows) {
+      by.set(row.matchId, [...(by.get(row.matchId) ?? []), row]);
+    }
+    return by;
+  };
+
+  const lineupBy = group(lineup);
+  const teamsBy = group(teams);
+  const gamesBy = group(games);
+  const goalsBy = group(goals);
+
+  return buildStats({
+    matches: played.map((match) => ({
+      id: match.id,
+      playedAt: match.playedAt.getTime(),
+      lineup: (lineupBy.get(match.id) ?? []).map((row) => ({
+        playerId: row.playerId,
+        teamId: row.teamId,
+      })),
+      teams: (teamsBy.get(match.id) ?? [])
+        .sort((left, right) => left.slot - right.slot)
+        .map((row) => ({
+          id: row.id,
+          slot: row.slot,
+          name: row.name,
+          accent: row.accent,
+          playerIds: (lineupBy.get(match.id) ?? [])
+            .filter((entry) => entry.teamId === row.id)
+            .map((entry) => entry.playerId),
+          keeperId: null,
+          borrowedKeeper: false,
+        })),
+      games: (gamesBy.get(match.id) ?? []).map(toGame),
+      goals: (goalsBy.get(match.id) ?? []).map(toGoal),
+    })),
+  });
+}
+
+/* -------------------------------- the demo ------------------------------- */
+
+const DEMO_NAMES: Array<[string, string, string]> = [
+  ["Maximo", "Guzman", "gk"],
+  ["Erick", "Santos", "def"],
+  ["Joaquin", "Angeles", "def"],
+  ["Adrian", "Zavaleta", "mid"],
+  ["Victor", "Amaya", "mid"],
+  ["Alfredo", "Saira", "fwd"],
+  ["Cristian", "Maldonado", "gk"],
+  ["Emilio", "Cardenas", "def"],
+  ["Diego", "Villalobos", "def"],
+  ["Luis", "Bermudez", "mid"],
+  ["Marco", "Ferreyra", "mid"],
+  ["Sergio", "Palacios", "fwd"],
+  ["Bruno", "Carranza", "gk"],
+  ["Ivan", "Rojas", "def"],
+  ["Pablo", "Quiroz", "mid"],
+  ["Hugo", "Lazo", "fwd"],
+  ["Ruben", "Tapia", "def"],
+  ["Tomas", "Escobar", "mid"],
+];
+
+/**
+ * Makes sure the sandbox exists, and hands back its match.
+ *
+ * Seeded on the first visit, and rolled on after that: once the sandbox match
+ * has been played out, the next one is put half an hour ahead with the same
+ * squad. It is always a match about to start, which is what keeps every gate
+ * in the app open at once, and every night that has been played stays in the
+ * history with its own teams, goals and table.
+ */
+export async function ensureDemo(): Promise<Match> {
+  const [existing] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.isDemo, true))
+    .orderBy(desc(matches.playedAt))
+    .limit(1);
+
+  if (existing && endOf(existing) > Date.now()) return hydrate(existing);
+
+  /*
+   * The last one has been played out. Rather than reseed -- which would take
+   * the night's goals and its table with it -- the sandbox does what a real
+   * week does: the finished match stays where it is, and the same squad gets a
+   * new one to draw sides for. Its teams and its goals are its own.
+   */
+  if (existing) {
+    const lineup = await db
+      .select({ playerId: matchPlayers.playerId, slot: matchPlayers.slot })
+      .from(matchPlayers)
+      .where(eq(matchPlayers.matchId, existing.id))
+      .orderBy(asc(matchPlayers.slot));
+
+    return demoMatch(
+      existing.placeId,
+      existing.organizerId,
+      lineup.map((entry) => entry.playerId),
+    );
+  }
+
+  const [place] = await db
+    .insert(places)
+    .values({
+      name: "Demo pitch",
+      address: "Wherever you like",
+      price: 210,
+      format: 7,
+      isDemo: true,
+    })
+    .returning();
+
+  const squad = await db
+    .insert(players)
+    .values(
+      DEMO_NAMES.map(([firstName, lastName, position], index) => ({
+        firstName,
+        lastName,
+        area: AREA_IDS[index % AREA_IDS.length],
+        // Faces, through this app's own proxy so the share card can draw them.
+        // Every fourth one goes without, which is what the real squad looks
+        // like and what exercises the initials fallback.
+        photoUrl: index % 4 === 3 ? null : `/api/demo/avatar/men-${index}`,
+        position,
+        // Spread across the range, so the balancer has something to balance.
+        pace: 1 + ((index * 7) % 5),
+        stamina: 1 + ((index * 3) % 5),
+        finishing: 1 + ((index * 11) % 5),
+        passing: 1 + ((index * 5) % 5),
+        defending: 1 + ((index * 13) % 5),
+        goalkeeping: position === "gk" ? 5 : 1 + (index % 3),
+        isDemo: true,
+      })),
+    )
+    .returning();
+
+  return demoMatch(
+    place.id,
+    squad[0].id,
+    squad.map((player) => player.id),
+  );
+}
+
+/**
+ * One sandbox match, kicking off in half an hour.
+ *
+ * That half hour is what opens every gate at once: the sides can be drawn (two
+ * hours before), the night can be played and the rental can be settled, with
+ * nothing special-cased for the demo.
+ */
+async function demoMatch(
+  placeId: string | null,
+  organizerId: string | null,
+  playerIds: string[],
+): Promise<Match> {
+  const playedAt = new Date(Date.now() + 30 * 60 * 1000);
+
+  const [match] = await db
+    .insert(matches)
+    .values({
+      playedAt,
+      endsAt: new Date(playedAt.getTime() + DEFAULT_MATCH_DURATION_MS),
+      placeId,
+      organizerId,
+      isDemo: true,
+    })
+    .returning();
+
+  if (playerIds.length) {
+    await db.insert(matchPlayers).values(
+      playerIds.map((playerId, index) => ({
+        matchId: match.id,
+        playerId,
+        slot: index,
+      })),
+    );
+  }
+
+  return hydrate(match);
+}
+
+/** Wipes the sandbox and builds a fresh one. */
+export async function resetDemo(): Promise<Match> {
+  // The match takes its teams, games, goals and lineup with it.
+  await db.delete(matches).where(eq(matches.isDemo, true));
+  await db.delete(players).where(eq(players.isDemo, true));
+  await db.delete(places).where(eq(places.isDemo, true));
+
+  return ensureDemo();
+}
+
+/* ------------------------------- the night ------------------------------ */
+
+const toGame = (row: MatchGameRow): MatchGame => ({
+  id: row.id,
+  slot: row.slot,
+  homeTeamId: row.homeTeamId,
+  awayTeamId: row.awayTeamId,
+  startedAt: row.startedAt.getTime(),
+  endedAt: row.endedAt?.getTime() ?? null,
+});
+
+const toGoal = (row: MatchGoalRow): MatchGoal => ({
+  id: row.id,
+  gameId: row.gameId,
+  teamId: row.teamId,
+  playerId: row.playerId,
+  scoredAt: row.scoredAt.getTime(),
+});
+
+/** Everything that happened on the night. No other screen asks for it. */
+export async function getMatchLive(matchId: string): Promise<MatchLive> {
+  const [games, goals] = await Promise.all([
+    db
+      .select()
+      .from(matchGames)
+      .where(eq(matchGames.matchId, matchId))
+      .orderBy(asc(matchGames.slot)),
+    db
+      .select()
+      .from(matchGoals)
+      .where(eq(matchGoals.matchId, matchId))
+      .orderBy(asc(matchGoals.scoredAt)),
+  ]);
+
+  return { games: games.map(toGame), goals: goals.map(toGoal) };
+}
+
+/**
+ * Starts a game between two sides.
+ *
+ * Whatever was running is whistled off first: two games at once is not a state
+ * a pitch can be in, and letting the second one start is friendlier than
+ * refusing it because somebody forgot to press stop.
+ */
+export async function startGame(
+  matchId: string,
+  homeTeamId: string,
+  awayTeamId: string,
+): Promise<MatchLive> {
+  const now = new Date();
+
+  await db
+    .update(matchGames)
+    .set({ endedAt: now })
+    .where(and(eq(matchGames.matchId, matchId), isNull(matchGames.endedAt)));
+
+  const played = await db
+    .select({ slot: matchGames.slot })
+    .from(matchGames)
+    .where(eq(matchGames.matchId, matchId));
+
+  const slot = played.reduce((top, row) => Math.max(top, row.slot + 1), 0);
+
+  await db
+    .insert(matchGames)
+    .values({ matchId, slot, homeTeamId, awayTeamId, startedAt: now });
+
+  return getMatchLive(matchId);
+}
+
+/** The final whistle for one game. Already ended is left alone. */
+export async function endGame(
+  matchId: string,
+  gameId: string,
+): Promise<MatchLive> {
+  await db
+    .update(matchGames)
+    .set({ endedAt: new Date() })
+    .where(
+      and(
+        eq(matchGames.matchId, matchId),
+        eq(matchGames.id, gameId),
+        isNull(matchGames.endedAt),
+      ),
+    );
+
+  return getMatchLive(matchId);
+}
+
+/**
+ * Writes a goal down.
+ *
+ * The side is read from the lineup rather than sent by the caller: the scorer
+ * is the only thing anybody taps, and a goal credited to a team the player is
+ * not on is a bug nobody would spot until the table looked wrong.
+ */
+export async function addGoal(
+  matchId: string,
+  gameId: string,
+  playerId: string,
+  recordedBy: string | null,
+): Promise<MatchLive | null> {
+  const [entry] = await db
+    .select({ teamId: matchPlayers.teamId })
+    .from(matchPlayers)
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    );
+
+  if (!entry?.teamId) return null;
+
+  await db.insert(matchGoals).values({
+    matchId,
+    gameId,
+    teamId: entry.teamId,
+    playerId,
+    scoredAt: new Date(),
+    recordedBy,
+  });
+
+  return getMatchLive(matchId);
+}
+
+/**
+ * Ends the night.
+ *
+ * The running game is whistled off and the match's end is moved to now, which
+ * is what stops the screen offering another one. The date and the lineup are
+ * untouched: this says "we are done", not "this never happened".
+ */
+export async function finishMatch(matchId: string): Promise<Match | null> {
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId));
+  if (!match) return null;
+
+  const now = new Date();
+
+  await db
+    .update(matchGames)
+    .set({ endedAt: now })
+    .where(and(eq(matchGames.matchId, matchId), isNull(matchGames.endedAt)));
+
+  await db.update(matches).set({ endsAt: now }).where(eq(matches.id, matchId));
+
+  const [updated] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId));
+
+  return hydrate(updated);
+}
+
+/** Takes one back off the board. Anybody can, because anybody can add one. */
+export async function removeGoal(
+  matchId: string,
+  goalId: string,
+): Promise<MatchLive | null> {
+  const [goal] = await db
+    .select({ gameId: matchGoals.gameId })
+    .from(matchGoals)
+    .where(and(eq(matchGoals.matchId, matchId), eq(matchGoals.id, goalId)));
+
+  if (!goal) return getMatchLive(matchId);
+
+  const [game] = await db
+    .select({ endedAt: matchGames.endedAt })
+    .from(matchGames)
+    .where(eq(matchGames.id, goal.gameId));
+
+  /*
+   * Only the game being played can be corrected.
+   *
+   * A mistyped goal is noticed within the minute; one taken off a game that
+   * finished an hour ago rewrites a result the teams already played on, and
+   * the table with it.
+   */
+  if (game?.endedAt) return null;
+
+  await db
+    .delete(matchGoals)
+    .where(and(eq(matchGoals.matchId, matchId), eq(matchGoals.id, goalId)));
+
+  return getMatchLive(matchId);
 }
 
 export async function removePlayerFromMatch(

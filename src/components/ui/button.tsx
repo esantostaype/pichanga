@@ -18,6 +18,9 @@ const buttonVariants = cva(
         outline:
           "border border-border bg-transparent hover:bg-accent hover:text-accent-foreground",
         ghost: "hover:bg-accent hover:text-accent-foreground",
+        /* The app's green with the volume down: for the actions that sit beside
+           the one green button and must not compete with it. */
+        soft: "bg-primary/15 text-primary border border-primary/25 hover:bg-primary/25 backdrop-blur-md",
         destructive:
           "bg-destructive/15 text-destructive border border-destructive/30 hover:bg-destructive/25",
         link: "text-primary underline-offset-4 hover:underline",

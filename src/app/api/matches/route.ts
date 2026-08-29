@@ -11,8 +11,9 @@ import { matchInputSchema } from "@/lib/validators";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  return route(async () => json(await listMatches()));
+export async function GET(request: Request) {
+  const demo = new URL(request.url).searchParams.get("demo") === "1";
+  return route(async () => json(await listMatches(demo)));
 }
 
 export async function POST(request: Request) {

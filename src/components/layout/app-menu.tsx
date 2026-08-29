@@ -5,7 +5,9 @@ import {
   Location01Icon,
   Login03Icon,
   Logout03Icon,
+  ChartLineData01Icon,
   Menu02Icon,
+  RefreshIcon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 
@@ -21,8 +23,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { useAction } from "@/hooks/use-action";
+import { api } from "@/lib/api-client";
 
-export type PanelName = "matches" | "players" | "places";
+export type PanelName = "matches" | "players" | "places" | "stats";
 
 const PANELS: Array<{
   name: PanelName;
@@ -48,6 +51,12 @@ const PANELS: Array<{
     hint: "Pitches you play at",
     icon: Location01Icon,
   },
+  {
+    name: "stats",
+    label: "Stats",
+    hint: "Goals, games and records",
+    icon: ChartLineData01Icon,
+  },
 ];
 
 export function AppMenu({
@@ -57,9 +66,22 @@ export function AppMenu({
   onSelect: (panel: PanelName) => void;
   onSignIn: () => void;
 }) {
-  const { isAdmin, authEnabled, logout } = usePichanga();
+  const { isAdmin, authEnabled, demo, logout } = usePichanga();
 
   const signOut = useAction(async () => logout(), { success: "Signed out" });
+
+  /*
+   * Only on the sandbox, and it reaches nothing else: the rows it deletes are
+   * the ones marked as the demo's. The page reloads afterwards because every
+   * panel on screen is holding a copy of what just stopped existing.
+   */
+  const reset = useAction(
+    async () => {
+      await api.resetDemo();
+      window.location.reload();
+    },
+    { success: "Demo rebuilt" },
+  );
 
   return (
     <DropdownMenu>
@@ -95,6 +117,24 @@ export function AppMenu({
         ))}
 
         <DropdownMenuSeparator />
+
+        {demo ? (
+          <DropdownMenuItem
+            disabled={reset.pending}
+            onSelect={(event) => {
+              event.preventDefault();
+              void reset.run();
+            }}
+          >
+            <Icon icon={RefreshIcon} size={17} className="text-primary" />
+            <span className="flex flex-col">
+              <span className="font-medium">Reset the demo</span>
+              <span className="text-xs text-muted-foreground">
+                Fresh squad, fresh match
+              </span>
+            </span>
+          </DropdownMenuItem>
+        ) : null}
 
         {isAdmin ? (
           <DropdownMenuItem onSelect={() => void signOut.run()}>

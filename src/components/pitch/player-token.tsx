@@ -32,12 +32,20 @@ type PlayerTokenProps = {
   /** Marks the match organizer, who wears the crown. */
   isOrganizer?: boolean;
   /**
+   * The colour of the side they were drawn into. Given, it replaces the area
+   * colour around the photo: once the teams exist, which team somebody is on
+   * matters more than which floor they sit on.
+   */
+  accent?: string;
+  /**
    * Whether this player has settled their share of the rental. Undefined hides
    * the mark entirely, which is what an upcoming match wants.
    */
   isPaid?: boolean;
   /** Given only to whoever may settle the rental; the mark is read-only without it. */
   onTogglePaid?: (player: Player, paid: boolean) => void;
+  /** Opens their card. The name plate is what carries it. */
+  onView?: (player: Player) => void;
   onRemove?: (player: Player) => void;
 };
 
@@ -51,11 +59,13 @@ function PlayerTokenBase({
   size,
   plateWidth,
   isOrganizer,
+  accent,
   isPaid,
   onTogglePaid,
+  onView,
   onRemove,
 }: PlayerTokenProps) {
-  const color = areaColor(player.area);
+  const color = accent ?? areaColor(player.area);
   // Low floors so a very large squad shrinks the labels instead of spilling
   // them outside the plate.
   const nameSize = clamp(size * 0.21, 6.5, 18);
@@ -180,8 +190,9 @@ function PlayerTokenBase({
         ) : null}
       </div>
 
-      <div
-        className="relative w-full rounded-md border border-white/10 bg-black/55 px-2 py-3 text-center backdrop-blur-sm"
+      <Plate
+        onView={onView ? () => onView(player) : undefined}
+        label={`View ${player.firstName}'s card`}
         style={{ marginTop: -size * 0.1 }}
       >
         <p
@@ -197,8 +208,52 @@ function PlayerTokenBase({
         >
           {getArea(player.area).label}
         </p>
-      </div>
+      </Plate>
     </div>
+  );
+}
+
+/**
+ * The name plate: a button when there is a card to open, a plain box when
+ * there is not. Same shape either way, so the pitch does not change when a
+ * screen happens not to pass the handler.
+ */
+function Plate({
+  onView,
+  label,
+  style,
+  children,
+}: {
+  onView?: () => void;
+  label: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const className =
+    "relative w-full rounded-md border border-white/10 bg-black/55 px-2 py-3 text-center backdrop-blur-sm";
+
+  if (!onView) {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onView}
+      aria-label={label}
+      title={label}
+      style={style}
+      className={cn(
+        className,
+        "cursor-pointer transition-colors hover:border-white/25 hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

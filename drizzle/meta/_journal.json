@@ -71,6 +71,34 @@
       "when": 1787843964040,
       "tag": "0009_sudden_abomination",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1787961808183,
+      "tag": "0010_modern_daredevil",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1787962571572,
+      "tag": "0011_charming_namor",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1787964675059,
+      "tag": "0012_needy_bromley",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1787966175659,
+      "tag": "0013_lively_zaran",
+      "breakpoints": true
     }
   ]
 }

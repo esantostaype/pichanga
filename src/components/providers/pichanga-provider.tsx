@@ -35,6 +35,15 @@ type PichangaState = {
   pinnedMatchId: string | null;
   /** Which match the front page shows, so links can point at "/" for it. */
   homeMatchId: string | null;
+  /**
+   * The sandbox.
+   *
+   * Set on `/demo` and nowhere else. Every read asks for the demo rows and
+   * every write marks what it creates as one, so the same components run the
+   * same code against a world of their own -- which is the only way a demo is
+   * worth having.
+   */
+  demo: boolean;
 };
 
 type PichangaContextValue = PichangaState & {
@@ -52,6 +61,16 @@ type PichangaContextValue = PichangaState & {
   deleteMatches: (ids: string[]) => Promise<void>;
   addPlayersToNextMatch: (playerIds: string[]) => Promise<void>;
   removePlayerFromNextMatch: (playerId: string) => Promise<void>;
+  /**
+   * Draws the sides for the match on screen, or draws them again.
+   *
+   * The seed comes from here rather than from the server so that "shuffle
+   * again" is a new draw every time, while the same seed always lands on the
+   * same teams.
+   */
+  drawTeams: (seed: number, mixAreas?: boolean) => Promise<void>;
+  /** Puts the drawn sides away, back to one squad. */
+  clearTeams: () => Promise<void>;
   /** Admin only: ticks a player off the rental ledger. */
   /** Defaults to the match on screen; any other one is named outright. */
   setPlayerPaid: (
@@ -84,19 +103,21 @@ export function PichangaProvider({
     [],
   );
 
+  const demo = state.demo;
+
   const refreshPlayers = useCallback(
-    async () => patch({ players: await api.players.list() }),
-    [patch],
+    async () => patch({ players: await api.players.list(demo) }),
+    [patch, demo],
   );
 
   const refreshPlaces = useCallback(
-    async () => patch({ places: await api.places.list() }),
-    [patch],
+    async () => patch({ places: await api.places.list(demo) }),
+    [patch, demo],
   );
 
   const refreshMatches = useCallback(
-    async () => patch({ matches: await api.matches.list() }),
-    [patch],
+    async () => patch({ matches: await api.matches.list(demo) }),
+    [patch, demo],
   );
 
   const refreshNextMatch = useCallback(
@@ -104,9 +125,9 @@ export function PichangaProvider({
       patch({
         nextMatch: state.pinnedMatchId
           ? await api.matches.get(state.pinnedMatchId)
-          : await api.matches.next(),
+          : await api.matches.next(demo),
       }),
-    [patch, state.pinnedMatchId],
+    [patch, state.pinnedMatchId, demo],
   );
 
   // Changes coming from other screens.
@@ -212,12 +233,13 @@ export function PichangaProvider({
       },
 
       createPlayer: async (input) => {
-        const player = await api.players.create(input);
+        const player = await api.players.create({ ...input, isDemo: demo });
         await refreshPlayers();
         return player;
       },
 
       updatePlayer: async (id, input) => {
+        input = { ...input, isDemo: demo };
         const player = await api.players.update(id, input);
         await Promise.all([refreshPlayers(), refreshNextMatch()]);
         return player;
@@ -237,12 +259,13 @@ export function PichangaProvider({
       },
 
       createPlace: async (input) => {
-        const place = await api.places.create(input);
+        const place = await api.places.create({ ...input, isDemo: demo });
         await refreshPlaces();
         return place;
       },
 
       updatePlace: async (id, input) => {
+        input = { ...input, isDemo: demo };
         const place = await api.places.update(id, input);
         await Promise.all([
           refreshPlaces(),
@@ -265,7 +288,7 @@ export function PichangaProvider({
       },
 
       createMatch: async (input) => {
-        const match = await api.matches.create(input);
+        const match = await api.matches.create({ ...input, isDemo: demo });
         await Promise.all([refreshMatches(), refreshNextMatch()]);
         return match;
       },
@@ -282,6 +305,18 @@ export function PichangaProvider({
         } finally {
           await Promise.all([refreshMatches(), refreshNextMatch()]);
         }
+      },
+
+      drawTeams: async (seed, mixAreas = false) => {
+        if (!state.nextMatch) throw new Error("There is no active match");
+        syncNextMatch(
+          await api.matches.drawTeams(state.nextMatch.id, seed, mixAreas),
+        );
+      },
+
+      clearTeams: async () => {
+        if (!state.nextMatch) throw new Error("There is no active match");
+        syncNextMatch(await api.matches.clearTeams(state.nextMatch.id));
       },
 
       addPlayersToNextMatch: async (playerIds) => {
@@ -344,6 +379,7 @@ export function PichangaProvider({
   }, [
     state,
     mediaVersion,
+    demo,
     patch,
     refreshPlayers,
     refreshPlaces,

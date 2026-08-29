@@ -34,7 +34,7 @@ import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
-import { DEFAULT_MATCH_DURATION_MS } from "@/lib/constants";
+import { SUGGESTED_MATCH_LENGTH_MS } from "@/lib/constants";
 import { suggestedMatchDate, toDateInput, toTimeInput } from "@/lib/date";
 import { toEpoch } from "@/lib/validators";
 import type { MatchSummary } from "@/types";
@@ -115,7 +115,7 @@ function MatchForm({
   const [placeFormOpen, setPlaceFormOpen] = useState(false);
 
   const base = match?.playedAt ?? suggestedMatchDate();
-  const baseEnd = match?.endsAt ?? base + DEFAULT_MATCH_DURATION_MS;
+  const baseEnd = match?.endsAt ?? base + SUGGESTED_MATCH_LENGTH_MS;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -211,19 +211,23 @@ function MatchForm({
                   value={field.value}
                   onChange={(next) => {
                     field.onChange(next);
-                    // Drag the end along so it never lands before the start.
+
+                    /*
+                     * The end follows the start, always: move the kick-off an
+                     * hour later and the whistle goes with it. Only correcting
+                     * it when it fell behind meant a match moved from 8 to 9
+                     * kept a 9 o'clock finish, which is a match with no time in
+                     * it. Editing the end by hand still sticks -- until the
+                     * start moves again, which is when the assumption is worth
+                     * making a second time.
+                     */
                     const start = toEpoch(form.getValues("date"), next);
-                    const end = toEpoch(
-                      form.getValues("date"),
-                      form.getValues("endTime"),
+
+                    form.setValue(
+                      "endTime",
+                      toTimeInput(start + SUGGESTED_MATCH_LENGTH_MS),
+                      { shouldValidate: true },
                     );
-                    if (end <= start) {
-                      form.setValue(
-                        "endTime",
-                        toTimeInput(start + DEFAULT_MATCH_DURATION_MS),
-                        { shouldValidate: true },
-                      );
-                    }
                   }}
                   disabled={pending}
                   invalid={!!errors.time}

@@ -2,9 +2,9 @@
 
 import { useGSAP } from "@gsap/react";
 import {
-  Album02Icon,
   PlusSignIcon,
-  Share08Icon,
+  StopWatchIcon,
+  UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 import gsap from "gsap";
 import { useCallback, useRef, useState } from "react";
@@ -14,23 +14,30 @@ import { GalleryDialog } from "@/components/matches/gallery-dialog";
 import { MatchesDrawer } from "@/components/matches/matches-drawer";
 import { PaymentsDialog } from "@/components/matches/payments-dialog";
 import { ShareDialog } from "@/components/matches/share-dialog";
+import { TeamsDialog, newSeed } from "@/components/matches/teams-dialog";
 import { PitchScene } from "@/components/pitch/pitch-scene";
 import { PlacesDrawer } from "@/components/places/places-drawer";
+import { PlayerCardDialog } from "@/components/players/player-card-dialog";
 import { PlayersDrawer } from "@/components/players/players-drawer";
+import { StatsDrawer } from "@/components/stats/stats-drawer";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Icon } from "@/components/ui/icon";
+import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { useElementSize } from "@/hooks/use-element-size";
+import { useNow } from "@/hooks/use-now";
 import { useVisitorHeartbeat } from "@/hooks/use-presence";
+import { TEAMS_OPEN_MS } from "@/lib/constants";
+import { matchSlug } from "@/lib/date";
 import { EASE } from "@/lib/ease";
 import type { Player } from "@/types";
-import { AppMenu, type PanelName } from "./app-menu";
-import { Brand } from "./brand";
+import { AppHeader } from "./app-header";
+import { type PanelName } from "./app-menu";
+import { useScene } from "./scene-transition";
 import { LiveVisitors } from "./live-visitors";
 import { LoginDialog } from "./login-dialog";
-import { MatchHudCard } from "./match-hud-card";
 
 /**
  * What the floating add button occupies at the bottom right: its own height,
@@ -49,6 +56,8 @@ export function AppShell() {
     isSuperAdmin,
     removePlayerFromNextMatch,
     setPlayerPaid,
+    drawTeams,
+    demo,
   } = usePichanga();
 
   // Everyone counts, so this runs for guests too. It reports nothing but an
@@ -56,6 +65,32 @@ export function AppShell() {
   useVisitorHeartbeat();
 
   const [panel, setPanel] = useState<PanelName | null>(null);
+  const [teamsDialogOpen, setTeamsDialogOpen] = useState(false);
+  /** Whose card is open, from a tap on their name anywhere on the pitch. */
+  const [viewing, setViewing] = useState<Player | null>(null);
+
+  // The button turns up two hours before kick-off, so the shell needs a clock.
+  const now = useNow(60_000);
+  const { go } = useScene();
+
+  /*
+   * Played out. The night is closed, so there is nothing to draw sides for and
+   * nothing left to keep score of: the screen goes back to the notice it was,
+   * and the two match-day buttons go with it.
+   */
+  const over = !!nextMatch && now !== null && now >= nextMatch.endsAt;
+
+  const hasTeams = !over && (nextMatch?.teams.length ?? 0) > 0;
+  const teamsOpen =
+    !over &&
+    !!nextMatch &&
+    nextMatch.players.length >= 4 &&
+    (hasTeams || (now !== null && now >= nextMatch.playedAt - TEAMS_OPEN_MS));
+
+  const draw = useAction(async () => drawTeams(newSeed()), {
+    success: "Teams drawn",
+    onSuccess: () => setTeamsDialogOpen(true),
+  });
   const [addOpen, setAddOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   const [paymentsOpen, setPaymentsOpen] = useState(false);
@@ -108,6 +143,7 @@ export function AppShell() {
     <main className="relative h-dvh w-full overflow-hidden">
       <PitchScene
         match={nextMatch}
+        over={over}
         // The band is reserved on both edges, so it also has to clear the
         // floating button sitting at the bottom right.
         hudInset={Math.max(hudSize.height, FAB_CLEARANCE) + HUD_GAP}
@@ -115,6 +151,7 @@ export function AppShell() {
         // clear rather than mirroring the whole HUD.
         bottomInset={FAB_CLEARANCE + HUD_GAP}
         onRemovePlayer={setPendingRemoval}
+        onViewPlayer={setViewing}
         // The mark stays read-only for everyone else: the server refuses it
         // anyway, and a button that always fails is worse than no button.
         onTogglePaid={
@@ -124,89 +161,74 @@ export function AppShell() {
         }
       />
 
-      {/*
-        Overlaid HUD: the pitch fills 100% of the screen.
-
-        On a phone it is one card -- controls on top, details under them -- so
-        the lineup scrolling underneath never passes behind a bare logo. From md
-        up it goes back to two floating pieces, the logo carrying the details
-        beside it and the buttons off to the right.
-      */}
-      <div
-        ref={setHud}
-        className="pointer-events-none absolute inset-x-0 top-0 p-2 md:p-4"
-      >
-        <div className="pointer-events-auto flex flex-col gap-2.5 rounded-2xl border border-white/10 bg-black/55 px-3 py-2.5 backdrop-blur-md md:flex-row md:items-start md:justify-between md:gap-3 md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
-          {/* `md:contents` hands the two halves back to the row above. */}
-          <div className="flex items-center justify-between gap-3 md:contents">
-            <div className="flex min-w-0 items-center gap-2 rounded-2xl md:gap-4 md:border md:border-white/10 md:bg-black/55 md:px-4 md:py-3 md:backdrop-blur-md">
-              <Brand />
-              <span
-                aria-hidden
-                className="hidden h-11 w-px shrink-0 bg-white/10 md:block"
-              />
-              <div className="hidden min-w-0 md:block">
-                <MatchHudCard
-                  match={nextMatch}
-                  onOpenPayments={() => setPaymentsOpen(true)}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* The lineup as a picture, or as a message. */}
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label="Share the lineup"
-                className="bg-black/55 backdrop-blur-md"
-                disabled={!nextMatch}
-                onClick={() => setShareOpen(true)}
-              >
-                <Icon icon={Share08Icon} size={20} />
-              </Button>
-
-              {/* The album of the match on the pitch. Everyone can add to it. */}
-              <Button
-                variant="secondary"
-                size="icon"
-                aria-label="Match gallery"
-                className="bg-black/55 backdrop-blur-md"
-                disabled={!nextMatch}
-                onClick={() => setGalleryOpen(true)}
-              >
-                <Icon icon={Album02Icon} size={20} />
-              </Button>
-
-              <AppMenu onSelect={setPanel} onSignIn={() => setLoginOpen(true)} />
-            </div>
-          </div>
-
-          {nextMatch ? (
-            <div className="min-w-0 border-t border-white/10 pt-2.5 md:hidden">
-              <MatchHudCard
-                match={nextMatch}
-                onOpenPayments={() => setPaymentsOpen(true)}
-              />
-            </div>
-          ) : null}
-        </div>
-      </div>
+      {/* The same header the whole app wears, measured so the pitch clears it. */}
+      <AppHeader
+        match={nextMatch}
+        hudRef={setHud}
+        onOpenPayments={() => setPaymentsOpen(true)}
+        onShare={() => setShareOpen(true)}
+        onGallery={() => setGalleryOpen(true)}
+        onSelectPanel={setPanel}
+        onSignIn={() => setLoginOpen(true)}
+      />
 
       {/* Adding players is the one thing everyone does, so it gets the thumb. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex items-end gap-3 p-4">
         {/* Stays out of the way: no background, no pointer events, no chrome. */}
         {isSuperAdmin ? <LiveVisitors /> : null}
 
-        <Button
-          size="icon-lg"
-          className="pointer-events-auto ml-auto"
-          aria-label="Add players to the match"
-          disabled={!nextMatch}
-          onClick={() => setAddOpen(true)}
-        >
-          <Icon icon={PlusSignIcon} size={22} strokeWidth={2.2} />
-        </Button>
+        {/*
+          Match day lives by the thumb, not in the corner with the browsing.
+          Drawing the sides and keeping score both happen with a phone in one
+          hand at the ground, so they stack above the button that is already
+          there -- softer than it, because it is still the one you press most.
+        */}
+        <div className="pointer-events-auto ml-auto flex flex-col items-end gap-3">
+          {teamsOpen ? (
+            <Button
+              variant="soft"
+              size="icon-lg"
+              aria-label={hasTeams ? "Teams" : "Draw the teams"}
+              disabled={draw.pending}
+              onClick={() => {
+                if (hasTeams) setTeamsDialogOpen(true);
+                else void draw.run();
+              }}
+            >
+              {draw.pending ? (
+                <Spinner />
+              ) : (
+                <Icon icon={UserGroupIcon} size={22} />
+              )}
+            </Button>
+          ) : null}
+
+          {hasTeams && nextMatch ? (
+            <Button
+              variant="soft"
+              size="icon-lg"
+              aria-label="Match night"
+              onClick={() =>
+                go(
+                  demo
+                    ? "/demo/live"
+                    : `/match/${matchSlug(nextMatch.playedAt)}/live`,
+                )
+              }
+            >
+              <Icon icon={StopWatchIcon} size={22} />
+            </Button>
+          ) : null}
+
+          <Button
+            size="icon-lg"
+            aria-label="Add players to the match"
+            disabled={!nextMatch}
+            onClick={() => setAddOpen(true)}
+          >
+            <Icon icon={PlusSignIcon} size={22} strokeWidth={2.2} />
+          </Button>
+        </div>
       </div>
 
       <MatchesDrawer
@@ -224,9 +246,27 @@ export function AppShell() {
         onOpenChange={(open) => setPanel(open ? "places" : null)}
       />
 
+      <StatsDrawer
+        open={panel === "stats"}
+        onOpenChange={(open) => setPanel(open ? "stats" : null)}
+      />
+
       <AddPlayersDialog open={addOpen} onOpenChange={setAddOpen} />
 
       <LoginDialog open={loginOpen} onOpenChange={setLoginOpen} />
+
+      <PlayerCardDialog
+        open={!!viewing}
+        onOpenChange={(next) => !next && setViewing(null)}
+        player={viewing}
+        isOrganizer={!!viewing && viewing.id === nextMatch?.organizerId}
+      />
+
+      <TeamsDialog
+        open={teamsDialogOpen}
+        onOpenChange={setTeamsDialogOpen}
+        match={nextMatch}
+      />
 
       <PaymentsDialog
         open={paymentsOpen}

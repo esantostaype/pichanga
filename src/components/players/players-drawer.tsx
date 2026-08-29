@@ -6,6 +6,7 @@ import {
   Search01Icon,
   UserAdd01Icon,
   UserGroupIcon,
+  ViewIcon,
 } from "@hugeicons/core-free-icons";
 import { useMemo, useState } from "react";
 
@@ -40,6 +41,7 @@ import { normalize } from "@/lib/utils";
 import type { Player } from "@/types";
 import { AreaBadge } from "./area-badge";
 import { PlayerAvatar } from "./player-avatar";
+import { PlayerCardDialog } from "./player-card-dialog";
 import { PlayerFormDialog } from "./player-form-dialog";
 
 export function PlayersDrawer({
@@ -54,6 +56,8 @@ export function PlayersDrawer({
   const [query, setQuery] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Player | null>(null);
+  /** Whose card is open. Reading a profile is not editing one. */
+  const [viewing, setViewing] = useState<Player | null>(null);
   /** Ids queued for deletion: one row or a whole selection, same path. */
   const [pendingDelete, setPendingDelete] = useState<string[]>([]);
 
@@ -208,6 +212,14 @@ export function PlayersDrawer({
                             <Button
                               variant="ghost"
                               size="icon-sm"
+                              aria-label={`View ${player.firstName}`}
+                              onClick={() => setViewing(player)}
+                            >
+                              <Icon icon={ViewIcon} size={15} />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
                               aria-label={`Edit ${player.firstName}`}
                               onClick={() => openEdit(player)}
                             >
@@ -233,6 +245,12 @@ export function PlayersDrawer({
           </SheetBody>
         </SheetContent>
       </Sheet>
+
+      <PlayerCardDialog
+        open={!!viewing}
+        onOpenChange={(next) => !next && setViewing(null)}
+        player={viewing}
+      />
 
       <PlayerFormDialog
         open={formOpen}

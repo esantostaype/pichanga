@@ -24,6 +24,21 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
   { method: "DELETE", pattern: /^\/api\/matches\/[^/]+\/players\/[^/]+\/?$/ },
   // "This tab is open." Anyone visiting is counted, so anyone may say it.
   { method: "POST", pattern: /^\/api\/presence\/?$/ },
+  // Drawing the sides, which is the same kind of act as adding a player: it
+  // happens two hours before kick-off with everybody standing around, and the
+  // endpoint checks that window itself. Clearing them is not here -- undoing
+  // somebody's teams is a bigger thing than making them.
+  { method: "POST", pattern: /^\/api\/matches\/[^/]+\/teams\/?$/ },
+  // Match night: starting a game, blowing the whistle on it, and putting the
+  // goals up. All of it happens on a pitch with everybody standing around, and
+  // whoever has their phone out does it -- including taking a goal back off,
+  // because the same finger that mistyped it should be able to fix it.
+  { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/games\/?$/ },
+  { method: "PATCH", pattern: /^\/api\/matches\/[^/]+\/live\/games\/[^/]+\/?$/ },
+  { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/goals\/?$/ },
+  { method: "DELETE", pattern: /^\/api\/matches\/[^/]+\/live\/goals\/[^/]+\/?$/ },
+  // The last whistle: the same hands that keep score end the night.
+  { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/finish\/?$/ },
   // The match gallery: anyone may add a photo or a clip. Deleting one is not
   // here, so it falls through to the session.
   { method: "POST", pattern: /^\/api\/upload\/ticket\/?$/ },

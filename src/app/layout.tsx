@@ -77,7 +77,14 @@ export default function RootLayout({
       lang="en"
       className={cn("dark", sofiaSans.variable, sofiaCondensed.variable)}
     >
-      <body className="overflow-hidden bg-background text-foreground antialiased">
+      {/*
+        The body scrolls when a page is taller than the window, and the pitch
+        screens keep themselves still: they are `h-dvh` with their own
+        `overflow-hidden`, so there is never anything to scroll there. Locking
+        it here instead meant match night -- a page that grows -- could not
+        scroll at all, whatever it did to itself.
+      */}
+      <body className="bg-background text-foreground antialiased">
         <SceneTransitionProvider>
           <TooltipProvider delayDuration={250}>{children}</TooltipProvider>
         </SceneTransitionProvider>

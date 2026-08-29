@@ -4,6 +4,7 @@ import { json, route } from "@/lib/http";
 export const dynamic = "force-dynamic";
 
 /** Match that owns the main screen: the closest one to be played. */
-export async function GET() {
-  return route(async () => json(await getNextMatch()));
+export async function GET(request: Request) {
+  const demo = new URL(request.url).searchParams.get("demo") === "1";
+  return route(async () => json(await getNextMatch(demo)));
 }

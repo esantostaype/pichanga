@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Icon, type IconSvgElement } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
+import { Tabs } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -30,7 +31,6 @@ import {
   renderMatchCard,
   type ShareScope,
 } from "@/lib/share-card";
-import { cn } from "@/lib/utils";
 import type { Match } from "@/types";
 
 /**
@@ -63,9 +63,7 @@ export function ShareDialog({
    * hand.
    */
   const [scope, setScope] = useState<ShareScope>("match");
-  const owing = match
-    ? match.players.length - match.paidPlayerIds.length
-    : 0;
+  const owing = match ? match.players.length - match.paidPlayerIds.length : 0;
 
   /*
    * Switching tabs redraws the card, which takes a couple of hundred
@@ -168,21 +166,18 @@ export function ShareDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div
-          role="tablist"
-          className="grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-background/60 p-1"
-        >
-          <Tab
-            selected={scope === "match"}
-            onSelect={() => setScope("match")}
-            label="Match"
-          />
-          <Tab
-            selected={scope === "payments"}
-            onSelect={() => setScope("payments")}
-            label={`Payments${owing > 0 ? ` (${owing})` : ""}`}
-          />
-        </div>
+        <Tabs
+          ariaLabel="What to share"
+          value={scope}
+          onChange={(next) => setScope(next as ShareScope)}
+          items={[
+            { value: "match", label: "Match" },
+            {
+              value: "payments",
+              label: "Payments",
+            },
+          ]}
+        />
 
         {/* No frame around it: the card has its own edge and its own ground. */}
         <div className="max-h-[52vh] overflow-y-auto rounded-xl scrollbar-thin">
@@ -219,7 +214,9 @@ export function ShareDialog({
           <Action
             // A phone opens the app; a desktop already has WhatsApp Web in
             // another tab and only needs the message to paste into it.
-            label={onPhone ? "Send with WhatsApp" : "Copy the text for WhatsApp"}
+            label={
+              onPhone ? "Send with WhatsApp" : "Copy the text for WhatsApp"
+            }
             icon={WhatsappIcon}
             disabled={!match}
             onClick={() => {
@@ -231,36 +228,6 @@ export function ShareDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
-
-/** One half of the switch between the two messages. */
-function Tab({
-  selected,
-  onSelect,
-  label,
-}: {
-  selected: boolean;
-  onSelect: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={selected}
-      onClick={onSelect}
-      className={cn(
-        "cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors",
-        selected
-          // The lime is the only thing in the dialog nothing else wears, and a
-          // pill the colour of the card it sits on read as no pill at all.
-          ? "bg-primary font-semibold text-primary-foreground"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}
-    </button>
   );
 }
 

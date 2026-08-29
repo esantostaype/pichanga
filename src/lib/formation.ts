@@ -236,3 +236,107 @@ export function buildFormation(
 
   return { orientation, rows, lanes, slots, tokenSize, plateWidth };
 }
+
+export type TeamBand = {
+  /** Origin of the band inside the container, in px. */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Slots already offset into container space. */
+  slots: FormationSlot[];
+};
+
+export type TeamFormation = {
+  orientation: Orientation;
+  bands: TeamBand[];
+  tokenSize: number;
+  plateWidth: number;
+};
+
+/**
+ * One formation per team, side by side.
+ *
+ * The pitch is cut into bands -- across the length when it is wide, down it
+ * when it is tall -- and each team is laid out inside its own band by the same
+ * code that lays out a whole squad. Splitting along the long axis is what makes
+ * it read as teams facing each other rather than as one lineup with gaps in it.
+ *
+ * Token size is the smallest of the bands rather than each band's own: teams
+ * are being compared to each other, and a side whose players are drawn bigger
+ * than the next one's looks like it means something.
+ */
+export function buildTeamFormation(
+  counts: number[],
+  containerWidth: number,
+  containerHeight: number,
+  insetY = 0,
+  /** Room kept at the top of every band for its crest and name. */
+  headerPx = 0,
+): TeamFormation {
+  const orientation: Orientation =
+    containerWidth >= containerHeight ? "landscape" : "portrait";
+
+  if (
+    counts.length === 0 ||
+    containerWidth <= 0 ||
+    containerHeight <= 0 ||
+    counts.every((count) => count <= 0)
+  ) {
+    return { orientation, bands: [], tokenSize: MIN_TOKEN, plateWidth: 0 };
+  }
+
+  const landscape = orientation === "landscape";
+  const bandWidth = landscape ? containerWidth / counts.length : containerWidth;
+  const bandHeight = landscape
+    ? containerHeight
+    : containerHeight / counts.length;
+
+  const bands = counts.map((count, index) => {
+    const x = landscape ? index * bandWidth : 0;
+    const y = landscape ? 0 : index * bandHeight;
+
+    /*
+     * Side by side, every band shares the same screen edges, so they all keep
+     * the same clearance. Stacked, only the top band is under the HUD -- the
+     * ones below it have a band above them instead.
+     */
+    const bandInset =
+      (landscape ? insetY : index === 0 ? insetY : 0) + headerPx;
+
+    const inner = buildFormation(count, bandWidth, bandHeight, bandInset);
+
+    return {
+      x,
+      y,
+      width: bandWidth,
+      height: bandHeight,
+      slots: inner.slots.map((slot) => ({
+        ...slot,
+        x: slot.x + x,
+        y: slot.y + y,
+      })),
+      tokenSize: inner.tokenSize,
+      plateWidth: inner.plateWidth,
+    };
+  });
+
+  const sized = bands.filter((band) => band.slots.length > 0);
+
+  return {
+    orientation,
+    bands: bands.map(({ x, y, width, height, slots }) => ({
+      x,
+      y,
+      width,
+      height,
+      slots,
+    })),
+    tokenSize: sized.length
+      ? Math.min(...sized.map((band) => band.tokenSize))
+      : MIN_TOKEN,
+    plateWidth: sized.length
+      ? Math.min(...sized.map((band) => band.plateWidth))
+      : 0,
+  };
+}
