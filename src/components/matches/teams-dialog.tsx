@@ -9,7 +9,7 @@ import {
   UserStar01Icon,
 } from "@hugeicons/core-free-icons";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useScene } from "@/components/layout/scene-transition";
 import { usePichanga } from "@/components/providers/pichanga-provider";
@@ -27,6 +27,7 @@ import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { useAction } from "@/hooks/use-action";
+import { useRealtime } from "@/hooks/use-realtime";
 import { api } from "@/lib/api-client";
 import { GAME_MINUTES_CHOICES, INDEFINITE_GAME } from "@/lib/constants";
 import { matchSlug } from "@/lib/date";
@@ -57,28 +58,42 @@ export function TeamsDialog({
     usePichanga();
 
   /*
-   * Whether a game is being played right now, which is the one thing that
-   * stops the gloves moving. Read when the dialog opens rather than carried
-   * around: this is the only screen that asks, and the answer is one row.
+   * How far the night has got, which is what decides half of this dialog: a
+   * game being played stops the gloves moving, and a game having been played
+   * at all settles the sides.
+   *
+   * Read when it opens and again whenever the night changes, because the
+   * kick-off usually happens on somebody else's phone -- and a screen still
+   * offering to shuffle the sides two minutes after the first whistle is a
+   * screen lying about what it can do.
    */
   const [playing, setPlaying] = useState(false);
+  const [started, setStarted] = useState(false);
 
-  useEffect(() => {
-    if (!open || !match) return;
+  const matchId = match?.id ?? null;
 
-    let cancelled = false;
+  const readNight = useCallback(() => {
+    if (!matchId) return;
 
     void api.matches
-      .live(match.id)
+      .live(matchId)
       .then((live) => {
-        if (!cancelled) setPlaying(!!currentGame(live.games));
+        setPlaying(!!currentGame(live.games));
+        setStarted(live.games.length > 0);
       })
       .catch(() => undefined);
+  }, [matchId]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [open, match]);
+  useEffect(() => {
+    if (open) readNight();
+  }, [open, readNight]);
+
+  useRealtime({
+    "live:changed": (payload) => {
+      if ((payload as { matchId?: string })?.matchId !== matchId) return;
+      readNight();
+    },
+  });
 
   const { go } = useScene();
 
@@ -146,7 +161,9 @@ export function TeamsDialog({
           <DialogDescription>
             {teams.length === 0
               ? "Nobody has drawn the sides yet."
-              : `${teams.length} sides, drawn from the skills on each profile.`}
+              : started
+                ? `${teams.length} sides. The night has started, so they stand as they are.`
+                : `${teams.length} sides, drawn from the skills on each profile.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -257,67 +274,75 @@ export function TeamsDialog({
           })}
         </div>
 
-        {/*
-          Agreed here, before anybody kicks off, because this is the moment
-          everyone is standing together looking at the same screen. It is not
-          behind the session: the length of a game is settled out loud at the
-          ground, and the phone that types it in is whichever one is out.
-        */}
-        <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 md:flex-row md:items-center md:gap-4">
-          <span className="flex min-w-0 flex-1 flex-col">
-            <span className="text-sm font-medium">Minutes per game</span>
-            <span className="text-xs text-muted-foreground">
-              How long a game runs before the sides change. The clock on match
-              night turns amber near it and red at it.
-              {teams.length === 2
-                ? " Two sides can also play with no clock at all, for as long as the pitch is rented."
-                : ""}
-            </span>
-          </span>
+        {started ? null : (
+          <>
+            {/*
+              Agreed here, before anybody kicks off, because this is the moment
+              everyone is standing together looking at the same screen. It is not
+              behind the session: the length of a game is settled out loud at the
+              ground, and the phone that types it in is whichever one is out.
 
-          <span className="-mx-1 flex flex-wrap items-center gap-1">
-            {choices.map((minutes) => {
-              const picked = minutes === (match?.gameMinutes ?? -1);
-              const forever = minutes === INDEFINITE_GAME;
+              It goes once a game has been played: those are in the table at
+              the length they were played to, and moving it afterwards only
+              changes what the clock calls late.
+            */}
+            <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 md:flex-row md:items-center md:gap-4">
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-sm font-medium">Minutes per game</span>
+                <span className="text-xs text-muted-foreground">
+                  How long a game runs before the sides change. The clock on
+                  match night turns amber near it and red at it.
+                  {teams.length === 2
+                    ? " Two sides can also play with no clock at all, for as long as the pitch is rented."
+                    : ""}
+                </span>
+              </span>
 
-              return (
-                <button
-                  key={minutes}
-                  type="button"
-                  disabled={length.pending}
-                  aria-pressed={picked}
-                  aria-label={
-                    forever
-                      ? "No clock, one game all match"
-                      : `${minutes} minutes`
-                  }
-                  title={
-                    forever
-                      ? "One game, for as long as the pitch is rented"
-                      : `${minutes} minutes`
-                  }
-                  onClick={() => void length.run(minutes)}
-                  className={cn(
-                    // A fixed square, so every one of them is the same
-                    // circle whether it says 5 or 20.
-                    "grid size-9 shrink-0 cursor-pointer place-items-center rounded-full font-display text-sm tabular-nums transition-colors disabled:cursor-default",
-                    picked
-                      ? "bg-primary/15 font-semibold text-primary"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {forever ? (
-                    <Icon icon={InfinityCircleIcon} size={18} />
-                  ) : (
-                    minutes
-                  )}
-                </button>
-              );
-            })}
-          </span>
-        </div>
+              <span className="-mx-1 flex flex-wrap items-center gap-1">
+                {choices.map((minutes) => {
+                  const picked = minutes === (match?.gameMinutes ?? -1);
+                  const forever = minutes === INDEFINITE_GAME;
 
-        {isAdmin ? (
+                  return (
+                    <button
+                      key={minutes}
+                      type="button"
+                      disabled={length.pending}
+                      aria-pressed={picked}
+                      aria-label={
+                        forever
+                          ? "No clock, one game all match"
+                          : `${minutes} minutes`
+                      }
+                      title={
+                        forever
+                          ? "One game, for as long as the pitch is rented"
+                          : `${minutes} minutes`
+                      }
+                      onClick={() => void length.run(minutes)}
+                      className={cn(
+                        // A fixed square, so every one of them is the same
+                        // circle whether it says 5 or 20.
+                        "grid size-9 shrink-0 cursor-pointer place-items-center rounded-full font-display text-sm tabular-nums transition-colors disabled:cursor-default",
+                        picked
+                          ? "bg-primary/15 font-semibold text-primary"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {forever ? (
+                        <Icon icon={InfinityCircleIcon} size={18} />
+                      ) : (
+                        minutes
+                      )}
+                    </button>
+                  );
+                })}
+              </span>
+            </div>
+          </>
+        )}
+
+        {isAdmin && !started ? (
           <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
             <Switch
               checked={mixAreas}
@@ -337,27 +362,12 @@ export function TeamsDialog({
         {match ? (
           <DialogFooter className="justify-between">
             {/*
-              Where this dialog leads. The sides are drawn, so the next thing
-              that happens is somebody keeping score -- and it is not an
-              admin's button: whoever is holding the phone taps the goals.
+              The undoing on the left and the way forward on the right, which
+              is the order they happen in. Both of the left pair disappear once
+              a game has been played: redrawing the sides then is not a redraw
+              but a delete -- the games and the goals hang off the team rows.
             */}
-            <Button
-              variant="soft"
-              disabled={busy}
-              onClick={() => {
-                onOpenChange(false);
-                go(
-                  demo
-                    ? "/demo/live"
-                    : `/match/${matchSlug(match.playedAt)}/live`,
-                );
-              }}
-            >
-              <Icon icon={StopWatchIcon} size={16} />
-              Match night
-            </Button>
-
-            {isAdmin ? (
+            {isAdmin && !started ? (
               <span className="flex items-center gap-2">
                 <Button
                   variant="ghost"
@@ -371,7 +381,11 @@ export function TeamsDialog({
                   )}
                   Put away
                 </Button>
-                <Button disabled={busy} onClick={() => void shuffle.run()}>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => void shuffle.run()}
+                >
                   {shuffle.pending ? (
                     <Spinner />
                   ) : (
@@ -380,7 +394,30 @@ export function TeamsDialog({
                   Shuffle again
                 </Button>
               </span>
-            ) : null}
+            ) : (
+              <span />
+            )}
+
+            {/*
+              Where this dialog leads, and the one thing on it worth pressing:
+              the sides are drawn, so the next thing that happens is somebody
+              keeping score. Not an admin's button -- whoever is holding the
+              phone taps the goals.
+            */}
+            <Button
+              disabled={busy}
+              onClick={() => {
+                onOpenChange(false);
+                go(
+                  demo
+                    ? "/demo/live"
+                    : `/match/${matchSlug(match.playedAt)}/live`,
+                );
+              }}
+            >
+              <Icon icon={StopWatchIcon} size={16} />
+              Match night
+            </Button>
           </DialogFooter>
         ) : null}
       </DialogContent>

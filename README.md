@@ -1019,6 +1019,19 @@ other fourteen. If they keep and that side was making do with somebody who does
 not, the gloves are theirs, which is the whole reason a keeper turning up late
 is good news.
 
+**And the sides even themselves up.** Four against six is not a game, and it
+is what a lineup turns into when two people from the same team drop out an hour
+before kick-off. Players are moved one at a time from the fullest side to the
+emptiest until no two are more than one apart, and whoever moves is whoever
+leaves the two closest in strength -- evening the numbers should not hand one
+of them the game. A keeper never moves.
+
+The sides themselves are left alone: only shirts change. Drawing them again
+would be the tidier arithmetic and the worse idea, because the games and the
+goals hang off the team rows and cascade with them. A goal keeps the side that
+scored it either way -- it is stamped on the goal, not worked out from where
+the scorer happens to be standing now.
+
 **And nobody is left with an empty net.** Taking the keeper off the lineup
 hands the gloves to the next best on that side -- a volunteer first, then
 whoever keeps best, the same order the draw uses.
@@ -1066,8 +1079,27 @@ says "we are done", not "this never happened".
 
 **The way in is the Teams dialog**, not only the button on the pitch: the
 sides have just been drawn, so what happens next is somebody keeping score. It
-is there for everyone, admin or not -- whoever is holding the phone at the
-ground taps the goals.
+is the one button on that dialog worth pressing, so it is the primary one and
+it sits on the right, with the undoing -- put away, shuffle again -- on the
+left, which is the order they happen in. It is there for everyone, admin or
+not: whoever is holding the phone at the ground taps the goals.
+
+The game length goes with them: the games already in the table were played to
+the length they were played to, and moving it afterwards only changes what the
+clock calls late. What stays on the dialog once the night is under way is the
+way into it and the gloves.
+
+The dialog hears the night start rather than finding out when somebody
+reopens it: it reads the games when it opens and again on every `live:changed`,
+because the kick-off usually happens on somebody else's phone, and a screen
+still offering to shuffle the sides two minutes after the first whistle is a
+screen lying about what it can do.
+
+**And once a game has been played, the sides stand.** Drawing them again then
+is not a redraw but a delete: the games and the goals hang off the team rows
+and cascade with them, so a shuffle after kick-off would take the night's table
+with it. Both buttons come off the dialog and both endpoints answer 409, which
+is the half that matters -- a button is a suggestion and this is the rule.
 
 **Three shapes.** On a phone the night is one column, board first. From 480px
 the two sides sit next to each other with the board across the top: a tablet
@@ -1091,6 +1123,21 @@ was the better drawing and the worse thing to look at -- the only two facts
 anybody wants in that second are *goal* and *who*, and they were the two
 arriving last. The photo is there for the same reason: six people look up at
 once and a name takes a moment to read, while a face does not.
+
+**And it makes a noise.** `public/audio/gol.mp3` plays with the shout, off one
+element for the whole page rather than one per goal -- two clips a second and a
+half apart is noise rather than a celebration, so the second rewinds the first.
+A browser will not play audio until somebody has touched the page, which is the
+right rule: the phone keeping score has been touched, and the one that has not
+still gets the shout on screen with the `play()` rejection swallowed.
+
+**Muting is per device.** The switch under the board says *Sound on* or
+*Muted*, and the choice lives in that browser's own storage -- somebody at
+their desk with the tab open is exactly the person who wants it off, and their
+choice should not silence the phone at the ground. It is read with
+`useSyncExternalStore` rather than mirrored into state in an effect: one render
+of the wrong icon is one render too many, and this app's lint rules refuse the
+effect anyway.
 
 **It leaves the way it came in.** The name goes back down and the word shrinks
 and turns back to where it started, over the same times and with the same ease,

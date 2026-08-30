@@ -1,4 +1,4 @@
-import { clearTeams, drawTeams, getMatch } from "@/db/queries";
+import { clearTeams, drawTeams, getMatch, getMatchLive } from "@/db/queries";
 import { REALTIME, TEAMS_OPEN_MS } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -32,6 +32,16 @@ export async function POST(request: Request, { params }: Context) {
       return fail("There are not enough players for two sides", 422);
     }
 
+    /*
+     * Once a game has been played the sides are what they are. Drawing them
+     * again is not a redraw, it is a delete: the games and the goals hang off
+     * the team rows and go with them, and the night's table with them.
+     */
+    const live = await getMatchLive(id);
+    if (live.games.length > 0) {
+      return fail("The night has started; the sides stand", 409);
+    }
+
     const match = await drawTeams(id, seed, mixAreas ?? false);
     if (!match) return fail("Match not found", 404);
 
@@ -45,6 +55,13 @@ export async function POST(request: Request, { params }: Context) {
 export async function DELETE(_request: Request, { params }: Context) {
   return route(async () => {
     const { id } = await params;
+
+    // Same as a redraw, and for the same reason: the night hangs off these
+    // rows. Putting the sides away after a game would take it with them.
+    const live = await getMatchLive(id);
+    if (live.games.length > 0) {
+      return fail("The night has started; the sides stand", 409);
+    }
 
     const match = await clearTeams(id);
     if (!match) return fail("Match not found", 404);

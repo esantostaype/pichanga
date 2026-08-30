@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { pickNames, planTeams, strengthOf, teamCountFor } from "./teams";
+import {
+  balanceMoves,
+  pickNames,
+  planTeams,
+  strengthOf,
+  teamCountFor,
+} from "./teams";
 import type { PositionId, SkillId } from "./constants";
 import type { Player } from "@/types";
 
@@ -343,5 +349,76 @@ describe("pickNames", () => {
       const again = later.find((one) => one.name === team.name);
       expect(again?.accent).toBe(team.accent);
     }
+  });
+});
+
+describe("balanceMoves", () => {
+  const side = (id: string, count: number, from = 0) => ({
+    id,
+    players: Array.from({ length: count }, (_, index) => ({
+      id: `${id}-${index}`,
+      strength: 2 + ((from + index) % 3),
+      isKeeper: index === 0,
+    })),
+  });
+
+  it("leaves level sides alone", () => {
+    expect(balanceMoves([side("a", 5), side("b", 5)])).toEqual([]);
+    // One apart is level enough: somebody has to be the odd number.
+    expect(balanceMoves([side("a", 6), side("b", 5)])).toEqual([]);
+  });
+
+  it("turns four against six into five each", () => {
+    const moves = balanceMoves([side("a", 6), side("b", 4)]);
+
+    expect(moves).toHaveLength(1);
+    expect(moves[0].from).toBe("a");
+    expect(moves[0].to).toBe("b");
+  });
+
+  it("keeps going until nothing is more than one apart", () => {
+    const sides = [side("a", 8), side("b", 3), side("c", 4)];
+    const moves = balanceMoves(sides);
+
+    const sizes = new Map(sides.map((one) => [one.id, one.players.length]));
+    for (const move of moves) {
+      sizes.set(move.from, sizes.get(move.from)! - 1);
+      sizes.set(move.to, sizes.get(move.to)! + 1);
+    }
+
+    const counts = [...sizes.values()];
+    expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1);
+  });
+
+  it("never moves a keeper", () => {
+    const sides = [side("a", 7), side("b", 3)];
+    const keepers = new Set(
+      sides.flatMap((one) =>
+        one.players.filter((p) => p.isKeeper).map((p) => p.id),
+      ),
+    );
+
+    for (const move of balanceMoves(sides)) {
+      expect(keepers.has(move.playerId)).toBe(false);
+    }
+  });
+
+  it("comes back even when a side is nothing but its keeper", () => {
+    // The guard this covers: nobody may move, so there is no move to make and
+    // no way to make the numbers work. It has to return, not spin.
+    const stuck = [
+      { id: "a", players: [{ id: "gk", strength: 3, isKeeper: true }] },
+      { id: "b", players: [] },
+      {
+        id: "c",
+        players: Array.from({ length: 6 }, (_, index) => ({
+          id: `c-${index}`,
+          strength: 3,
+          isKeeper: index === 0,
+        })),
+      },
+    ];
+
+    expect(Array.isArray(balanceMoves(stuck))).toBe(true);
   });
 });

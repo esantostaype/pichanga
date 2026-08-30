@@ -411,3 +411,76 @@ export function pickNames(count: number, seed: number) {
     };
   });
 }
+
+/** One side, as far as evening them up is concerned. */
+export type SideCount = {
+  id: string;
+  players: Array<{ id: string; strength: number; isKeeper: boolean }>;
+};
+
+/** Somebody changing shirts. */
+export type Transfer = { playerId: string; from: string; to: string };
+
+/**
+ * Evens the sides up after somebody drops out.
+ *
+ * Four against six is not a game, and it is what a lineup turns into when two
+ * people leave the same team an hour before kick-off. Rather than draw the
+ * whole thing again -- which after the first whistle would take the night's
+ * games and goals with it, since they hang off the team rows -- players are
+ * moved one at a time from the fullest side to the emptiest until no two are
+ * more than one apart.
+ *
+ * Who moves is whoever leaves the two sides closest in strength, so evening
+ * the numbers does not hand one of them the game. A keeper never moves: they
+ * are the one place on the pitch that has to be filled, and the side they
+ * would leave has already been given them.
+ */
+export function balanceMoves(sides: SideCount[]): Transfer[] {
+  if (sides.length < 2) return [];
+
+  const squads = new Map(sides.map((side) => [side.id, [...side.players]]));
+  const moves: Transfer[] = [];
+
+  const worth = (squad: SideCount["players"]) =>
+    squad.reduce((total, one) => total + one.strength, 0);
+
+  // Bounded rather than `while (true)`: a side with nobody who may move would
+  // otherwise be a loop with no way out, and a loop with no way out on a
+  // server is a request that never answers.
+  for (let guard = 0; guard < sides.length * 12; guard += 1) {
+    const ordered = [...squads.entries()].sort(
+      ([, left], [, right]) =>
+        right.length - left.length || worth(right) - worth(left),
+    );
+
+    const [fullestId, fullest] = ordered[0];
+    const [emptiestId, emptiest] = ordered[ordered.length - 1];
+
+    if (fullest.length - emptiest.length <= 1) break;
+
+    const movable = fullest.filter((one) => !one.isKeeper);
+    if (!movable.length) break;
+
+    const here = worth(fullest);
+    const there = worth(emptiest);
+
+    /* The gap the two sides are left with, if this one goes. */
+    const after = (player: { strength: number }) =>
+      Math.abs(here - player.strength - (there + player.strength));
+
+    const leaving = movable.reduce((best, one) =>
+      after(one) < after(best) ? one : best,
+    );
+
+    squads.set(
+      fullestId,
+      fullest.filter((one) => one.id !== leaving.id),
+    );
+    squads.set(emptiestId, [...emptiest, leaving]);
+
+    moves.push({ playerId: leaving.id, from: fullestId, to: emptiestId });
+  }
+
+  return moves;
+}

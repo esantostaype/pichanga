@@ -41,7 +41,7 @@ import type {
 import { db } from "./index";
 import { buildStats } from "@/lib/stats";
 import type { Stats } from "@/lib/stats";
-import { pickNames, planTeams, strengthOf } from "@/lib/teams";
+import { balanceMoves, pickNames, planTeams, strengthOf } from "@/lib/teams";
 import {
   matchGames,
   matchGoals,
@@ -1531,7 +1531,55 @@ export async function removePlayerFromMatch(
     await appointKeeper(matchId, leaving.teamId);
   }
 
+  // And four against six is not a game.
+  await balanceSides(matchId);
+
   return getMatch(matchId);
+}
+
+/**
+ * Evens the sides up after the lineup changes.
+ *
+ * Players change shirts; the sides themselves are left alone. Drawing them
+ * again would be the tidier arithmetic and the worse idea: the games and the
+ * goals hang off the team rows and cascade with them, so a redraw after the
+ * first whistle takes the night with it. A goal keeps the side that scored it
+ * either way -- it is stamped on the goal, not worked out from where the
+ * scorer happens to be standing now.
+ */
+async function balanceSides(matchId: string) {
+  const teams = await loadTeams(matchId);
+  if (teams.length < 2) return;
+
+  const lineup = await loadLineup(matchId);
+
+  const moves = balanceMoves(
+    teams.map((team) => ({
+      id: team.id,
+      players: lineup
+        .filter((entry) => entry.teamId === team.id)
+        .map((entry) => ({
+          id: entry.player.id,
+          strength: strengthOf(
+            toPlayer(entry.player),
+            entry.isKeeper ? "gk" : undefined,
+          ),
+          isKeeper: entry.isKeeper,
+        })),
+    })),
+  );
+
+  for (const move of moves) {
+    await db
+      .update(matchPlayers)
+      .set({ teamId: move.to })
+      .where(
+        and(
+          eq(matchPlayers.matchId, matchId),
+          eq(matchPlayers.playerId, move.playerId),
+        ),
+      );
+  }
 }
 
 /**

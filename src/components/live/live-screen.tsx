@@ -9,6 +9,8 @@ import {
   FootballIcon,
   PlayIcon,
   StopIcon,
+  VolumeHighIcon,
+  VolumeOffIcon,
 } from "@hugeicons/core-free-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -45,6 +47,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useElementSize } from "@/hooks/use-element-size";
 import { useNow } from "@/hooks/use-now";
+import { useGoalSound } from "@/hooks/use-goal-sound";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { api } from "@/lib/api-client";
@@ -151,6 +154,7 @@ export function LiveScreen({
 
   const now = useNow(1_000);
   const { go } = useScene();
+  const sound = useGoalSound();
   useWakeLock();
 
   /*
@@ -196,6 +200,8 @@ export function LiveScreen({
     if (!scorer) return;
 
     const team = teams.find((one) => one.playerIds.includes(playerId));
+
+    sound.play();
 
     setShout({
       key: (shoutCount.current += 1),
@@ -515,6 +521,8 @@ export function LiveScreen({
                 setGoalsGame(null);
                 setGoalsOpen(true);
               }}
+              soundOn={sound.enabled}
+              onToggleSound={() => sound.setEnabled(!sound.enabled)}
               onTable={() => setTableOpen(true)}
               goals={live.goals.length}
               hasTable={live.games.some((one) => one.endedAt !== null)}
@@ -777,6 +785,8 @@ function Board({
   onFullTime,
   onGoals,
   onTable,
+  soundOn,
+  onToggleSound,
 }: {
   match: Match;
   backHref: string;
@@ -795,6 +805,9 @@ function Board({
   onFullTime: () => void;
   onGoals: () => void;
   onTable: () => void;
+  /** This device's own choice, kept in its own storage. */
+  soundOn: boolean;
+  onToggleSound: () => void;
 }) {
   /*
    * How far through the agreed length this game is -- and never, if the two
@@ -918,6 +931,39 @@ function Board({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">Table</TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/*
+        The sound, and the way to stop it. Somebody is always at their desk
+        with the tab open, and a goal at full volume is how that person stops
+        keeping the tab open.
+      */}
+      <div className="mt-3 flex items-center justify-center">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={soundOn}
+              aria-label={soundOn ? "Goal sound on" : "Goal sound off"}
+              onClick={onToggleSound}
+              className={cn(
+                "inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 font-display text-[0.6875rem] uppercase tracking-[0.18em] transition-colors",
+                soundOn
+                  ? "text-primary hover:bg-primary/10"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Icon icon={soundOn ? VolumeHighIcon : VolumeOffIcon} size={15} />
+              {soundOn ? "Sound on" : "Muted"}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            {soundOn
+              ? "The goal shout plays out loud"
+              : "The goal shout is silent on this device"}
+          </TooltipContent>
         </Tooltip>
       </div>
 
