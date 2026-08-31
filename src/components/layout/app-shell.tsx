@@ -309,14 +309,10 @@ export function AppShell() {
         onOpenChange={setCardOpen}
         player={viewing}
         isOrganizer={!!viewing && viewing.id === nextMatch?.organizerId}
-        onEdit={
-          isAdmin
-            ? (player) => {
-                setCardOpen(false);
-                setEditing(player);
-              }
-            : undefined
-        }
+        onEdit={(player) => {
+          setCardOpen(false);
+          setEditing(player);
+        }}
       />
 
       <PlayerFormDialog
