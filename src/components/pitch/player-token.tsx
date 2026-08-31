@@ -124,10 +124,8 @@ function PlayerTokenBase({
         <PlayerAvatar
           player={player}
           className="size-full shadow-[0_10px_30px_-8px_rgba(0,0,0,0.9)]"
-          style={{
-            outline: `${Math.max(1.5, size * 0.03)}px solid ${color}`,
-            outlineOffset: `-${Math.max(1.5, size * 0.03)}px`,
-          }}
+          imageClassName="origin-center transition-transform duration-500 ease-pichanga group-hover/token:scale-112 group-hover/token:rotate-3"
+          ring={{ color, width: Math.max(1.5, size * 0.03) }}
         />
 
         {onView ? (
@@ -257,7 +255,7 @@ function PlayerTokenBase({
         ) : null}
       </div>
 
-      <div className="relative w-full" style={{ marginTop: -size * 0.1 }}>
+      <div className="relative w-full" style={{ marginTop: size * 0.1 }}>
         {onMakeKeeper && !isKeeper ? (
           /*
             Half off the corner of the plate, the way the remove button sits on
@@ -297,7 +295,7 @@ function PlayerTokenBase({
           label={fill(t.pitch.viewCard, { name: player.firstName })}
         >
           <p
-            className="truncate font-display uppercase leading-none tracking-widest text-foreground"
+            className="truncate leading-none text-foreground"
             style={{ fontSize: nameSize }}
             title={`${player.firstName} ${player.lastName}`}
           >
@@ -307,7 +305,7 @@ function PlayerTokenBase({
             className="mt-1 truncate font-display uppercase leading-none tracking-widest text-foreground"
             style={{ fontSize: areaSize, color }}
           >
-            {areaLabel(t, player.area)}
+            {areaLabel(player.area)}
           </p>
         </Plate>
       </div>
@@ -331,8 +329,7 @@ function Plate({
   style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
-  const className =
-    "relative w-full rounded-md border border-white/10 bg-black/55 px-2 py-3 text-center backdrop-blur-sm";
+  const className = "relative w-full text-center";
 
   if (!onView) {
     return (
@@ -351,7 +348,7 @@ function Plate({
       style={style}
       className={cn(
         className,
-        "cursor-pointer transition-colors hover:border-white/25 hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
+        "cursor-pointer transition-colors hover:border-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60",
       )}
     >
       {children}

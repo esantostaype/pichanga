@@ -17,7 +17,10 @@ export type PitchGeometry = {
   orientation: Orientation;
   width: number;
   height: number;
+  /** Always a hairline: the markings are a drawing, not a feature. */
   strokeWidth: number;
+  /** The penalty and centre spots, which are filled and keep their size. */
+  spotRadius: number;
   /** Playing rectangle (touchlines). */
   field: { x: number; y: number; width: number; height: number };
   halfway: { x1: number; y1: number; x2: number; y2: number };
@@ -130,7 +133,12 @@ export function buildPitchGeometry(
     rect(0, cw - penaltyWidth / 2, penaltyDepth, penaltyWidth),
     rect(L - penaltyDepth, cw - penaltyWidth / 2, penaltyDepth, penaltyWidth),
     rect(0, cw - goalAreaWidth / 2, goalAreaDepth, goalAreaWidth),
-    rect(L - goalAreaDepth, cw - goalAreaWidth / 2, goalAreaDepth, goalAreaWidth),
+    rect(
+      L - goalAreaDepth,
+      cw - goalAreaWidth / 2,
+      goalAreaDepth,
+      goalAreaWidth,
+    ),
   ];
 
   const goals = [
@@ -144,7 +152,9 @@ export function buildPitchGeometry(
   if (Math.abs(cosLimit) < 1) {
     const theta = Math.acos(cosLimit);
     arcs.push(arc(penaltySpot, cw, circleR, -theta, theta));
-    arcs.push(arc(L - penaltySpot, cw, circleR, Math.PI - theta, Math.PI + theta));
+    arcs.push(
+      arc(L - penaltySpot, cw, circleR, Math.PI - theta, Math.PI + theta),
+    );
   }
 
   const HALF_PI = Math.PI / 2;
@@ -165,7 +175,15 @@ export function buildPitchGeometry(
     orientation,
     width: containerWidth,
     height: containerHeight,
-    strokeWidth: clamp(Math.min(containerWidth, containerHeight) * 0.0028, 1, 3),
+    strokeWidth: 1,
+    // The spots used to be sized off the stroke; now that the stroke no
+    // longer grows, they carry the old scale themselves so they do not turn
+    // into specks on a television.
+    spotRadius: clamp(
+      Math.min(containerWidth, containerHeight) * 0.0045,
+      1.6,
+      4.8,
+    ),
     field: { x: originX, y: originY, width: fieldW, height: fieldH },
     halfway: { x1: halfwayA.x, y1: halfwayA.y, x2: halfwayB.x, y2: halfwayB.y },
     centerCircle: { cx: center.x, cy: center.y, r: circleR },

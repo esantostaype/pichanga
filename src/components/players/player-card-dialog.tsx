@@ -64,7 +64,7 @@ export function PlayerCardDialog({
           {player.firstName} {player.lastName}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          {positionLabel(t, player.position)} · {areaLabel(t, player.area)} ·{" "}
+          {positionLabel(t, player.position)} · {areaLabel(player.area)} ·{" "}
           {fill(t.players.overall, { value: overall.toFixed(1) })}
         </DialogDescription>
 
@@ -108,7 +108,7 @@ export function PlayerCardDialog({
                 className="mt-2 font-display text-xs uppercase tracking-[0.2em]"
                 style={{ color }}
               >
-                {areaLabel(t, player.area)}
+                {areaLabel(player.area)}
               </p>
             </div>
 

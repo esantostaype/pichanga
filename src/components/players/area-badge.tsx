@@ -1,6 +1,5 @@
 "use client";
 
-import { useLocale } from "@/components/providers/locale-provider";
 import { Badge } from "@/components/ui/badge";
 import { areaLabel } from "@/i18n/dictionaries";
 import { getArea } from "@/lib/constants";
@@ -13,7 +12,6 @@ export function AreaBadge({
   area: string;
   className?: string;
 }) {
-  const { t } = useLocale();
   const { color } = getArea(area);
 
   return (
@@ -26,7 +24,7 @@ export function AreaBadge({
         className="size-1.5 rounded-full"
         style={{ backgroundColor: color }}
       />
-      {areaLabel(t, area)}
+      {areaLabel(area)}
     </Badge>
   );
 }

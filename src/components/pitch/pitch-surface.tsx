@@ -107,7 +107,7 @@ export function PitchSurface({ width, height }: PitchSurfaceProps) {
             <circle
               key={`spot-${index}`}
               {...spot}
-              r={geometry.strokeWidth * 1.6}
+              r={geometry.spotRadius}
               fill="var(--pitch-line)"
               stroke="none"
             />

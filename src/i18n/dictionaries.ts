@@ -1,3 +1,5 @@
+import { getArea } from "@/lib/constants";
+
 import type { Locale } from "./locale";
 
 /**
@@ -124,24 +126,6 @@ export const en = {
     enterPassword: "Enter the password",
     wrongPassword: "Wrong password",
     needSignIn: "You need to sign in to do that",
-  },
-
-  areas: {
-    data: "Data",
-    dev: "Dev",
-    it: "IT",
-    marketing: "Marketing",
-    sales: "Sales",
-    product: "Product",
-    design: "Design",
-    finance: "Finance",
-    hr: "HR",
-    legal: "Legal",
-    operations: "Operations",
-    support: "Support",
-    management: "Management",
-    guest: "Guest",
-    other: "Other",
   },
 
   skills: {
@@ -355,6 +339,10 @@ export const en = {
     copiedText: "Text copied",
     copiedImage: "Image copied",
     cardPitch: "{total} the pitch, {each} each",
+    cardTotalLine: "{money} the pitch",
+    cardEachLine: "{money} each",
+    cardPaidLine: "{count} paid",
+    cardPendingLine: "{count} pending{money}",
     cardOnPitch: "{count} on the pitch",
     cardAllPaid: "Everybody has paid",
     cardOwing: "{paid} paid, {owing} pending{money}",
@@ -772,24 +760,6 @@ export const es: Dictionary = {
     needSignIn: "Tienes que iniciar sesión para hacer eso",
   },
 
-  areas: {
-    data: "Datos",
-    dev: "Dev",
-    it: "IT",
-    marketing: "Marketing",
-    sales: "Ventas",
-    product: "Producto",
-    design: "Diseño",
-    finance: "Finanzas",
-    hr: "RR. HH.",
-    legal: "Legal",
-    operations: "Operaciones",
-    support: "Soporte",
-    management: "Gerencia",
-    guest: "Invitado",
-    other: "Otro",
-  },
-
   skills: {
     pace: "Velocidad",
     stamina: "Resistencia",
@@ -1002,6 +972,10 @@ export const es: Dictionary = {
     copiedText: "Texto copiado",
     copiedImage: "Imagen copiada",
     cardPitch: "{total} la cancha, {each} cada uno",
+    cardTotalLine: "{money} la cancha",
+    cardEachLine: "{money} cada uno",
+    cardPaidLine: "{count} pagaron",
+    cardPendingLine: "{count} pendientes{money}",
     cardOnPitch: "{count} en la cancha",
     cardAllPaid: "Ya pagaron todos",
     cardOwing: "{paid} pagaron, {owing} pendientes{money}",
@@ -1324,14 +1298,16 @@ export function fill(
 }
 
 /**
- * The name of an area, in the reader's language.
+ * The name of an area. The one thing on screen that never changes language.
  *
- * Areas are free text on a player row -- somebody can type a floor this app
- * has never heard of -- so an unknown one falls back to the id it was saved
- * under rather than to an empty space where a word should be.
+ * These are the company's own departments -- what is on the org chart and what
+ * people call them out loud -- so translating them would be renaming somebody's
+ * team. They live in `AREAS` and nowhere else, which also means an area the app
+ * has never heard of falls back to the id it was saved under rather than to an
+ * empty space where a word should be.
  */
-export function areaLabel(t: Dictionary, id: string): string {
-  return (t.areas as Record<string, string>)[id] ?? id;
+export function areaLabel(id: string): string {
+  return getArea(id).label;
 }
 
 /** And for the six numbers on a profile. */

@@ -59,6 +59,10 @@ export function ShareDialog({
   /* What the drawn card and the message say around the numbers. */
   const cardWords: ShareWords = {
     cardPitch: t.share.cardPitch,
+    cardTotalLine: t.share.cardTotalLine,
+    cardEachLine: t.share.cardEachLine,
+    cardPaidLine: t.share.cardPaidLine,
+    cardPendingLine: t.share.cardPendingLine,
     cardOnPitch: t.share.cardOnPitch,
     cardAllPaid: t.share.cardAllPaid,
     cardOwing: t.share.cardOwing,

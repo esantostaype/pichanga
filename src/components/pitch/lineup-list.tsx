@@ -151,15 +151,13 @@ function Row({
   const ring = accent ?? area;
 
   return (
-    <li className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-black/60 px-2.5 py-2 backdrop-blur-sm">
+    <li className="group/token flex items-center gap-2.5 rounded-xl border border-white/10 bg-black/60 px-2.5 py-2 backdrop-blur-sm">
       <span className="relative shrink-0">
         <PlayerAvatar
           player={player}
           className="size-10"
-          style={{
-            outline: `2px solid ${ring}`,
-            outlineOffset: "-2px",
-          }}
+          imageClassName="origin-center transition-transform duration-500 ease-pichanga group-hover/token:scale-112 group-hover/token:rotate-3"
+          ring={{ color: ring, width: 2 }}
         />
 
         {/* The photo opens the card too. The name beside it is the keyboard's. */}
@@ -198,7 +196,7 @@ function Row({
           className="truncate font-display text-xs uppercase leading-tight tracking-widest"
           style={{ color: area }}
         >
-          {areaLabel(t, player.area)}
+          {areaLabel(player.area)}
         </span>
       </button>
 

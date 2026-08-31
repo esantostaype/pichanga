@@ -101,6 +101,10 @@ export type ShareScope = "match" | "payments";
 /** The handful of words the card and the message put around the numbers. */
 export type ShareWords = {
   cardPitch: string;
+  cardTotalLine: string;
+  cardEachLine: string;
+  cardPaidLine: string;
+  cardPendingLine: string;
   cardOnPitch: string;
   cardAllPaid: string;
   cardOwing: string;
@@ -109,6 +113,10 @@ export type ShareWords = {
 
 const DEFAULT_WORDS: ShareWords = {
   cardPitch: "{total} the pitch, {each} each",
+  cardTotalLine: "{money} the pitch",
+  cardEachLine: "{money} each",
+  cardPaidLine: "{count} paid",
+  cardPendingLine: "{count} pending{money}",
   cardOnPitch: "{count} on the pitch",
   cardAllPaid: "Everybody has paid",
   cardOwing: "{paid} paid, {owing} pending{money}",
@@ -205,7 +213,9 @@ export async function renderMatchCard(
       // The whole rental first: it is the number the venue is owed, and every
       // share below is a slice of it.
       ctx.fillStyle = INK;
-      const totalLabel = `${formatMoney(total)} the pitch`;
+      const totalLabel = fillWords(words.cardTotalLine, {
+        money: formatMoney(total),
+      });
       ctx.fillText(totalLabel, PAD, y + 24);
 
       let at = PAD + ctx.measureText(totalLabel).width;
@@ -214,7 +224,11 @@ export async function renderMatchCard(
       at += ctx.measureText("   ·   ").width;
 
       ctx.fillStyle = LIME;
-      ctx.fillText(`${formatMoney(share)} each`, at, y + 24);
+      ctx.fillText(
+        fillWords(words.cardEachLine, { money: formatMoney(share) }),
+        at,
+        y + 24,
+      );
     }
 
     y += 44;
@@ -226,7 +240,7 @@ export async function renderMatchCard(
     ctx.font = `500 25px "Sofia Sans", sans-serif`;
 
     ctx.fillStyle = PAID;
-    const paidLabel = `${paid.size} paid`;
+    const paidLabel = fillWords(words.cardPaidLine, { count: paid.size });
     ctx.fillText(paidLabel, PAD, y + 22);
 
     if (owing > 0) {
@@ -235,7 +249,10 @@ export async function renderMatchCard(
       ctx.fillText("   ·   ", at, y + 22);
       ctx.fillStyle = OWING;
       ctx.fillText(
-        `${owing} pending${share === null ? "" : ` (${formatMoney(share * owing)})`}`,
+        fillWords(words.cardPendingLine, {
+          count: owing,
+          money: share === null ? "" : ` (${formatMoney(share * owing)})`,
+        }),
         at + ctx.measureText("   ·   ").width,
         y + 22,
       );

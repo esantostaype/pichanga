@@ -1126,7 +1126,7 @@ function TeamSheet({
                       {player.firstName} {player.lastName}
                     </span>
                     <span className="block truncate font-display text-[0.8125rem] uppercase leading-tight tracking-widest text-muted-foreground">
-                      {areaLabel(t, player.area)}
+                      {areaLabel(player.area)}
                     </span>
                   </span>
 

@@ -46,10 +46,10 @@ export function PlayerPicker({
 
     return players.filter((player) =>
       normalize(
-        `${player.firstName} ${player.lastName} ${areaLabel(t, player.area)}`,
+        `${player.firstName} ${player.lastName} ${areaLabel(player.area)}`,
       ).includes(needle),
     );
-  }, [players, query, t]);
+  }, [players, query]);
 
   return (
     <div className={cn("flex min-h-0 flex-col gap-3", className)}>
