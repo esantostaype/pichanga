@@ -23,7 +23,13 @@ gsap.registerPlugin(useGSAP, ScrollTrigger, ScrollSmoother);
  * stay put -- the wordmark and the language switch -- are rendered outside the
  * wrapper on purpose.
  *
- * Anybody who has asked for less motion gets the browser's own scrolling.
+ * On a phone nobody gets it. `ScrollSmoother` moves the page itself and
+ * `normalizeScroll` takes the touch events off the browser to do it, and iOS
+ * does not give those up cleanly: the address bar stops collapsing, momentum
+ * fights the tween and the page ends up feeling stuck. The native scroll on a
+ * phone is already the good one.
+ *
+ * Anybody who has asked for less motion gets the browser's own scrolling too.
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
   const wrapper = useRef<HTMLDivElement>(null);
@@ -33,6 +39,12 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
     () => {
       const quiet = window.matchMedia("(prefers-reduced-motion: reduce)");
       if (quiet.matches) return;
+
+      // A mouse, a real hover, and a window wide enough to be a desktop.
+      const desktop = window.matchMedia(
+        "(min-width: 1024px) and (hover: hover) and (pointer: fine)",
+      );
+      if (!desktop.matches) return;
 
       const smoother = ScrollSmoother.create({
         wrapper: wrapper.current,
