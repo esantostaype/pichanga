@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { SceneTransitionProvider } from "@/components/layout/scene-transition";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { getDictionary, getLocale } from "@/i18n/server";
-import { SITE } from "@/lib/site";
+import { SITE, THEME } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 
@@ -56,9 +56,61 @@ const metadata: Metadata = {
   applicationName: SITE.name,
   alternates: { canonical: "/" },
 
+  /*
+   * The SVG first and on its own line: anything that understands one prefers
+   * it, and it is the only mark that stays sharp at every size and follows the
+   * tab's own light or dark. The PNGs underneath are for what cannot -- older
+   * Android, the Windows tile, the .ico that a pinned shortcut still reaches
+   * for -- and they all live in the folder the generator wrote.
+   */
   icons: {
-    icon: [{ url: "/images/favicon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/images/favicon.svg", type: "image/svg+xml" },
+      { url: "/images/favicon/favicon.ico", sizes: "any" },
+      {
+        url: "/images/favicon/favicon-16x16.png",
+        type: "image/png",
+        sizes: "16x16",
+      },
+      {
+        url: "/images/favicon/favicon-32x32.png",
+        type: "image/png",
+        sizes: "32x32",
+      },
+      {
+        url: "/images/favicon/favicon-96x96.png",
+        type: "image/png",
+        sizes: "96x96",
+      },
+      {
+        url: "/images/favicon/android-icon-192x192.png",
+        type: "image/png",
+        sizes: "192x192",
+      },
+    ],
     shortcut: [{ url: "/images/favicon.svg", type: "image/svg+xml" }],
+    // Home-screen icons on iOS, which picks the closest size to its device.
+    apple: [
+      { url: "/images/favicon/apple-icon-57x57.png", sizes: "57x57" },
+      { url: "/images/favicon/apple-icon-60x60.png", sizes: "60x60" },
+      { url: "/images/favicon/apple-icon-72x72.png", sizes: "72x72" },
+      { url: "/images/favicon/apple-icon-76x76.png", sizes: "76x76" },
+      { url: "/images/favicon/apple-icon-114x114.png", sizes: "114x114" },
+      { url: "/images/favicon/apple-icon-120x120.png", sizes: "120x120" },
+      { url: "/images/favicon/apple-icon-144x144.png", sizes: "144x144" },
+      { url: "/images/favicon/apple-icon-152x152.png", sizes: "152x152" },
+      { url: "/images/favicon/apple-icon-180x180.png", sizes: "180x180" },
+    ],
+  },
+
+  /*
+   * The Windows tile. The generator suggested white for it and for the theme
+   * colour; both stay the app's own black, because a white plate behind a dark
+   * mark is the one place the icon would look broken.
+   */
+  other: {
+    "msapplication-TileColor": THEME,
+    "msapplication-TileImage": "/images/favicon/ms-icon-144x144.png",
   },
 
   openGraph: {
@@ -88,7 +140,7 @@ const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#08090a",
+  themeColor: THEME,
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

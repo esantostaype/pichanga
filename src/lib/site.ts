@@ -12,6 +12,13 @@ function resolveSiteUrl() {
   return "http://localhost:3000";
 }
 
+/**
+ * The colour the browser paints around the app -- the address bar on
+ * Android, the tile on Windows, the splash while the manifest loads. It is
+ * the page's own background, so the chrome and the app meet without a seam.
+ */
+export const THEME = "#08090a";
+
 export const SITE = {
   url: resolveSiteUrl(),
   name: "Pichangapp",
