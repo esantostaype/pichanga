@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import { useLocale } from "@/components/providers/locale-provider";
+import { fill } from "@/i18n/dictionaries";
 
 export type TabItem = {
   value: string;
@@ -47,6 +49,7 @@ export function Tabs({
   className?: string;
   ariaLabel?: string;
 }) {
+  const { t: words } = useLocale();
   const wrap = useRef<HTMLDivElement>(null);
   const probe = useRef<HTMLDivElement>(null);
 
@@ -160,7 +163,7 @@ export function Tabs({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                aria-label={`${hidden.length} more`}
+                aria-label={fill(words.common.more, { count: hidden.length })}
                 className={cn(
                   triggerClass,
                   "cursor-pointer transition-colors hover:text-foreground",

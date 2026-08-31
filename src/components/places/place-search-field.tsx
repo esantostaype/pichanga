@@ -3,6 +3,7 @@
 import { Search01Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useRef, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
@@ -23,6 +24,7 @@ export function PlaceSearchField({
   onPicked: (place: PlaceInput) => void;
   disabled?: boolean;
 }) {
+  const { t } = useLocale();
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -38,13 +40,11 @@ export function PlaceSearchField({
   useEffect(() => {
     let cancelled = false;
 
-    api.places
-      .search("", session.current)
-      .catch((error: unknown) => {
-        if (!cancelled && /not configured/i.test(String(error))) {
-          setAvailable(false);
-        }
-      });
+    api.places.search("", session.current).catch((error: unknown) => {
+      if (!cancelled && /not configured/i.test(String(error))) {
+        setAvailable(false);
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -100,7 +100,11 @@ export function PlaceSearchField({
     <div className="space-y-2">
       <div className="relative">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-          {loading ? <Spinner size={15} /> : <Icon icon={Search01Icon} size={16} />}
+          {loading ? (
+            <Spinner size={15} />
+          ) : (
+            <Icon icon={Search01Icon} size={16} />
+          )}
         </span>
         <Input
           value={query}
@@ -109,7 +113,7 @@ export function PlaceSearchField({
             setQuery(event.target.value);
             if (event.target.value.trim().length < 3) setSuggestions([]);
           }}
-          placeholder="Search on Google Maps..."
+          placeholder={t.places.searchMaps}
           className="pl-9"
         />
       </div>

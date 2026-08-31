@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { usePichanga } from "@/components/providers/pichanga-provider";
+import { fill } from "@/i18n/dictionaries";
 import { api } from "@/lib/api-client";
 import { GALLERY } from "@/lib/constants";
 import type { MatchMedia } from "@/types";
@@ -43,6 +45,7 @@ type CloudinaryUpload = {
  * few megabytes.
  */
 export function useMatchMedia(matchId: string | null, open: boolean) {
+  const { t } = useLocale();
   const { mediaVersion } = usePichanga();
 
   const [items, setItems] = useState<MatchMedia[]>([]);
@@ -82,12 +85,16 @@ export function useMatchMedia(matchId: string | null, open: boolean) {
       try {
         for (const file of files) {
           const kind = kindOf(file);
-          if (!kind) throw new Error(`${file.name}: unsupported format`);
+          if (!kind) {
+            throw new Error(fill(t.gallery.fileBadFormat, { name: file.name }));
+          }
 
           const limit =
             kind === "video" ? GALLERY.maxVideoBytes : GALLERY.maxImageBytes;
           if (file.size > limit) {
-            throw new Error(`${file.name} is over the ${mb(limit)} MB limit`);
+            throw new Error(
+              fill(t.gallery.fileTooBig, { name: file.name, mb: mb(limit) }),
+            );
           }
 
           const form = new FormData();
@@ -102,11 +109,15 @@ export function useMatchMedia(matchId: string | null, open: boolean) {
             { method: "POST", body: form },
           );
 
-          if (!response.ok) throw new Error(`${file.name} could not be uploaded`);
+          if (!response.ok) {
+            throw new Error(fill(t.gallery.fileFailed, { name: file.name }));
+          }
 
           const uploaded = (await response.json()) as CloudinaryUpload;
           if (!uploaded.public_id || !uploaded.secure_url) {
-            throw new Error(`${file.name} came back incomplete`);
+            throw new Error(
+              fill(t.gallery.fileIncomplete, { name: file.name }),
+            );
           }
 
           const isVideo = uploaded.resource_type === "video";
@@ -127,7 +138,7 @@ export function useMatchMedia(matchId: string | null, open: boolean) {
         setUploading(0);
       }
     },
-    [matchId],
+    [matchId, t],
   );
 
   /**
@@ -149,12 +160,15 @@ export function useMatchMedia(matchId: string | null, open: boolean) {
       if (failed > 0) {
         throw new Error(
           failed === results.length
-            ? "Those files could not be deleted"
-            : `${failed} of ${results.length} files could not be deleted`,
+            ? "gallery.filesNotDeleted"
+            : fill(t.gallery.filesPartlyDeleted, {
+                failed,
+                total: results.length,
+              }),
         );
       }
     },
-    [matchId],
+    [matchId, t],
   );
 
   return { items, loading, uploading, upload, remove };

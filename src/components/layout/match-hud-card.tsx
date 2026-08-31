@@ -7,13 +7,20 @@ import {
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { LiveBadge } from "@/components/matches/live-badge";
 import { AppLink } from "@/components/ui/app-link";
 import { Icon } from "@/components/ui/icon";
 import { useNow } from "@/hooks/use-now";
+import { fill } from "@/i18n/dictionaries";
 import { formatMoney, perPlayer } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { formatLongDate, formatTimeRange, isLive, relativeLabel } from "@/lib/date";
+import {
+  formatLongDate,
+  formatTimeRange,
+  isLive,
+  relativeLabel,
+} from "@/lib/date";
 import type { Match } from "@/types";
 
 /**
@@ -31,17 +38,16 @@ export function MatchHudCard({
   /** Opens the rental ledger. The money pill becomes the button for it. */
   onOpenPayments?: () => void;
 }) {
+  const { t, locale } = useLocale();
   const now = useNow();
 
   if (!match) {
     return (
       <div className="min-w-0">
         <p className="font-display text-base uppercase leading-tight tracking-[0.04em] sm:text-lg">
-          No match
+          {t.hud.noMatch}
         </p>
-        <p className="text-xs text-muted-foreground">
-          Create a date from the menu
-        </p>
+        <p className="text-xs text-muted-foreground">{t.hud.noMatchLine}</p>
       </div>
     );
   }
@@ -67,7 +73,7 @@ export function MatchHudCard({
             : "items-center truncate text-lg sm:text-xl",
         )}
       >
-        {formatLongDate(match.playedAt)}
+        {formatLongDate(match.playedAt, locale)}
 
         {live ? (
           <LiveBadge />
@@ -80,11 +86,13 @@ export function MatchHudCard({
                 : "bg-emerald-400/15 text-emerald-300",
             )}
           >
-            {owing > 0 ? `${owing} to pay` : "All paid"}
+            {owing > 0 ? fill(t.hud.toPay, { count: owing }) : t.hud.allPaid}
           </span>
         ) : (
           <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-            <span>{relativeLabel(match.playedAt)}</span>
+            <span>
+              {relativeLabel(match.playedAt, undefined, locale, t.common)}
+            </span>
           </span>
         )}
 
@@ -104,13 +112,18 @@ export function MatchHudCard({
                 : "cursor-default",
               stacked ? "" : "ml-auto",
             )}
-            title={`${formatMoney(match.place!.price!)} split across ${match.players.length} ${match.players.length === 1 ? "player" : "players"}`}
+            title={fill(t.hud.splitTitle, {
+              money: formatMoney(match.place!.price!),
+              count: match.players.length,
+              players:
+                match.players.length === 1 ? t.common.player : t.common.players,
+            })}
           >
             <span className="text-sm tabular-nums text-foreground">
               {formatMoney(share)}
             </span>
             <span className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
-              each
+              {t.common.each}
             </span>
             <span className="text-[0.6rem] tabular-nums text-muted-foreground">
               {match.paidPlayerIds.length}/{match.players.length}
@@ -153,16 +166,19 @@ export function MatchHudCard({
         ) : null}
 
         {match.recurrence === "weekly" ? (
-          <span className="flex items-center gap-1.5" title="Repeats weekly">
+          <span
+            className="flex items-center gap-1.5"
+            title={t.hud.repeatsWeekly}
+          >
             <Icon icon={RepeatIcon} size={13} />
-            Weekly
+            {t.hud.weekly}
           </span>
         ) : null}
 
         <span className="flex items-center gap-1.5">
           <Icon icon={UserGroupIcon} size={13} />
           {match.players.length}{" "}
-          {match.players.length === 1 ? "player" : "players"}
+          {match.players.length === 1 ? t.common.player : t.common.players}
         </span>
       </div>
     </div>

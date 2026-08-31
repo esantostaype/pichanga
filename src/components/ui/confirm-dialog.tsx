@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,6 +17,7 @@ type ConfirmDialogProps = {
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  /** Defaults to the word for deleting, which is what it usually is. */
   confirmLabel?: string;
   pending?: boolean;
   onConfirm: () => void;
@@ -27,10 +29,12 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
-  confirmLabel = "Delete",
+  confirmLabel,
   pending,
   onConfirm,
 }: ConfirmDialogProps) {
+  const { t } = useLocale();
+
   return (
     <Dialog open={open} onOpenChange={pending ? undefined : onOpenChange}>
       <DialogContent className="max-w-sm">
@@ -47,11 +51,11 @@ export function ConfirmDialog({
             disabled={pending}
             onClick={() => onOpenChange(false)}
           >
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button variant="destructive" disabled={pending} onClick={onConfirm}>
             {pending ? <Spinner /> : null}
-            {confirmLabel}
+            {confirmLabel ?? t.common.delete}
           </Button>
         </DialogFooter>
       </DialogContent>

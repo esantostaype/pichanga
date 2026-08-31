@@ -10,6 +10,7 @@ import {
   listPlaces,
   listPlayers,
 } from "@/db/queries";
+import { getDictionary } from "@/i18n/server";
 import { getRole, isAuthConfigured } from "@/lib/session";
 import type { Match, MatchSummary, Place, Player } from "@/types";
 import { AppShell } from "./app-shell";
@@ -91,7 +92,12 @@ export async function loadScreenState(
     };
   } catch (error) {
     console.error("[screen] could not load the initial state", error);
-    return { error: error instanceof Error ? error.message : "Unknown error" };
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : (await getDictionary()).common.unknownError,
+    };
   }
 }
 

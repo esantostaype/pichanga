@@ -3,6 +3,7 @@
 import { Album02Icon, Share08Icon } from "@hugeicons/core-free-icons";
 import type { Ref } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
@@ -50,6 +51,7 @@ export function AppHeader({
   onSelectPanel: (panel: PanelName) => void;
   onSignIn: () => void;
 }) {
+  const { t } = useLocale();
   return (
     <div
       ref={hudRef}
@@ -77,7 +79,7 @@ export function AppHeader({
             <Button
               variant="secondary"
               size="icon"
-              aria-label="Share the lineup"
+              aria-label={t.header.share}
               className="bg-black/55 backdrop-blur-md"
               disabled={!match}
               onClick={onShare}
@@ -89,7 +91,7 @@ export function AppHeader({
             <Button
               variant="secondary"
               size="icon"
-              aria-label="Match gallery"
+              aria-label={t.header.gallery}
               className="bg-black/55 backdrop-blur-md"
               disabled={!match}
               onClick={onGallery}

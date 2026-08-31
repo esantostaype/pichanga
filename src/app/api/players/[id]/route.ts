@@ -1,4 +1,5 @@
 import { deletePlayer, getPlayer, updatePlayer } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { deletePlayerPhoto } from "@/lib/cloudinary";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
@@ -15,10 +16,10 @@ export async function PATCH(request: Request, { params }: Context) {
     const input = await readJson(request, playerInputSchema);
 
     const previous = await getPlayer(id);
-    if (!previous) return fail("Player not found", 404);
+    if (!previous) return fail((await messages()).playerNotFound, 404);
 
     const player = await updatePlayer(id, input);
-    if (!player) return fail("Player not found", 404);
+    if (!player) return fail((await messages()).playerNotFound, 404);
 
     // The previous photo is now unreferenced: clean it up in Cloudinary.
     if (
@@ -41,7 +42,7 @@ export async function DELETE(_request: Request, { params }: Context) {
     const { id } = await params;
     const player = await deletePlayer(id);
 
-    if (!player) return fail("Player not found", 404);
+    if (!player) return fail((await messages()).playerNotFound, 404);
 
     await deletePlayerPhoto(player.photoPublicId);
     await broadcast(REALTIME.events.playersChanged, { id });

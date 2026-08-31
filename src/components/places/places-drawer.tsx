@@ -9,6 +9,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { BulkBar } from "@/components/ui/bulk-bar";
 import { AppLink } from "@/components/ui/app-link";
@@ -33,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { fill } from "@/i18n/dictionaries";
 import { useAction } from "@/hooks/use-action";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { formatMoney } from "@/lib/money";
@@ -46,6 +48,7 @@ export function PlacesDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLocale();
   const { places, isAdmin, deletePlaces } = usePichanga();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -56,7 +59,7 @@ export function PlacesDrawer({
   const selection = useRowSelection(places);
 
   const remove = useAction(async (ids: string[]) => deletePlaces(ids), {
-    success: "Places deleted",
+    success: t.places.deletedMany,
     onSuccess: () => {
       setPendingDelete([]);
       selection.clear();
@@ -65,12 +68,10 @@ export function PlacesDrawer({
 
   const deleteLabel = (() => {
     if (pendingDelete.length !== 1) {
-      return `${pendingDelete.length} venues will be removed. Matches played there are kept, just without a venue.`;
+      return t.places.deleteManyLine;
     }
     const one = places.find((place) => place.id === pendingDelete[0]);
-    return one
-      ? `${one.name} will be removed. Matches played there are kept, just without a venue.`
-      : undefined;
+    return one ? t.places.deleteOneLine : undefined;
   })();
 
   const openCreate = () => {
@@ -83,9 +84,13 @@ export function PlacesDrawer({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Places</SheetTitle>
+            <SheetTitle>{t.places.title}</SheetTitle>
             <SheetDescription>
-              {places.length} venue{places.length === 1 ? "" : "s"} saved.
+              {fill(t.places.savedCount, {
+                count: places.length,
+                places:
+                  places.length === 1 ? t.common.place : t.common.placesPlural,
+              })}
             </SheetDescription>
           </SheetHeader>
 
@@ -94,24 +99,22 @@ export function PlacesDrawer({
             {isAdmin ? (
               <Button size="sm" onClick={openCreate} className="self-start">
                 <Icon icon={PlusSignIcon} size={16} />
-                New place
+                {t.places.newPlace}
               </Button>
             ) : null}
 
             {places.length === 0 ? (
               <EmptyState
                 icon={Location01Icon}
-                title="No places yet"
+                title={t.places.emptyTitle}
                 description={
-                  isAdmin
-                    ? "Save the pitches you usually play at."
-                    : "Signing in is needed to save a pitch."
+                  isAdmin ? t.places.emptyLineAdmin : t.places.emptyLineGuest
                 }
                 action={
                   isAdmin ? (
                     <Button size="sm" onClick={openCreate}>
                       <Icon icon={PlusSignIcon} size={16} />
-                      New place
+                      {t.places.newPlace}
                     </Button>
                   ) : null
                 }
@@ -121,7 +124,11 @@ export function PlacesDrawer({
                 {isAdmin ? (
                   <BulkBar
                     count={selection.count}
-                    noun="place"
+                    noun={
+                      selection.count === 1
+                        ? t.common.place
+                        : t.common.placesPlural
+                    }
                     disabled={remove.pending}
                     onClear={selection.clear}
                     onDelete={() => setPendingDelete(selection.selected)}
@@ -129,105 +136,119 @@ export function PlacesDrawer({
                 ) : null}
 
                 <Table>
-                <TableHeader>
-                  <TableRow>
-                    {isAdmin ? (
-                      <TableHead className="w-px">
-                        <Checkbox
-                          checked={selection.headerState}
-                          onCheckedChange={selection.toggleAll}
-                          aria-label="Select every place"
-                        />
-                      </TableHead>
-                    ) : null}
-                    <TableHead className="w-px whitespace-nowrap">
-                      Place
-                    </TableHead>
-                    <TableHead className="w-full">Address</TableHead>
-                    <TableHead className="w-px whitespace-nowrap text-right">
-                      Price
-                    </TableHead>
-                    {isAdmin ? (
-                      <TableHead className="w-px text-right">Actions</TableHead>
-                    ) : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {places.map((place) => (
-                    <TableRow
-                      key={place.id}
-                      data-state={
-                        selection.isSelected(place.id) ? "selected" : undefined
-                      }
-                    >
+                  <TableHeader>
+                    <TableRow>
                       {isAdmin ? (
-                        <TableCell className="align-top">
+                        <TableHead className="w-px">
                           <Checkbox
-                            className="mt-1"
-                            checked={selection.isSelected(place.id)}
-                            onCheckedChange={() => selection.toggle(place.id)}
-                            aria-label={`Select ${place.name}`}
+                            checked={selection.headerState}
+                            onCheckedChange={selection.toggleAll}
+                            aria-label={t.places.selectAll}
                           />
-                        </TableCell>
+                        </TableHead>
                       ) : null}
-
-                      <TableCell className="align-top whitespace-nowrap font-medium">
-                        {place.mapsUrl ? (
-                          <AppLink
-                            href={place.mapsUrl}
-                            external
-                            trailingIcon={LinkSquare02Icon}
-                            iconSize={13}
-                            className="gap-1.5"
-                          >
-                            {place.name}
-                          </AppLink>
-                        ) : (
-                          place.name
-                        )}
-                      </TableCell>
-
-                      <TableCell className="align-top text-muted-foreground">
-                        {place.address ?? <span className="opacity-50">-</span>}
-                      </TableCell>
-
-                      <TableCell className="align-top whitespace-nowrap text-right tabular-nums text-muted-foreground">
-                        {place.price != null ? (
-                          formatMoney(place.price)
-                        ) : (
-                          <span className="opacity-50">-</span>
-                        )}
-                      </TableCell>
-
+                      <TableHead className="w-px whitespace-nowrap">
+                        {t.places.name}
+                      </TableHead>
+                      <TableHead className="w-full">
+                        {t.places.address}
+                      </TableHead>
+                      <TableHead className="w-px whitespace-nowrap text-right">
+                        {t.places.price}
+                      </TableHead>
                       {isAdmin ? (
-                        <TableCell className="align-top">
-                          <div className="-mt-1.5 flex justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Edit ${place.name}`}
-                              onClick={() => {
-                                setEditing(place);
-                                setFormOpen(true);
-                              }}
-                            >
-                              <Icon icon={PencilEdit02Icon} size={15} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`Delete ${place.name}`}
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={() => setPendingDelete([place.id])}
-                            >
-                              <Icon icon={Delete02Icon} size={15} />
-                            </Button>
-                          </div>
-                        </TableCell>
+                        <TableHead className="w-px text-right">
+                          {t.common.actions}
+                        </TableHead>
                       ) : null}
                     </TableRow>
-                  ))}
-                </TableBody>
+                  </TableHeader>
+                  <TableBody>
+                    {places.map((place) => (
+                      <TableRow
+                        key={place.id}
+                        data-state={
+                          selection.isSelected(place.id)
+                            ? "selected"
+                            : undefined
+                        }
+                      >
+                        {isAdmin ? (
+                          <TableCell className="align-top">
+                            <Checkbox
+                              className="mt-1"
+                              checked={selection.isSelected(place.id)}
+                              onCheckedChange={() => selection.toggle(place.id)}
+                              aria-label={fill(t.places.selectName, {
+                                name: place.name,
+                              })}
+                            />
+                          </TableCell>
+                        ) : null}
+
+                        <TableCell className="align-top whitespace-nowrap font-medium">
+                          {place.mapsUrl ? (
+                            <AppLink
+                              href={place.mapsUrl}
+                              external
+                              trailingIcon={LinkSquare02Icon}
+                              iconSize={13}
+                              className="gap-1.5"
+                            >
+                              {place.name}
+                            </AppLink>
+                          ) : (
+                            place.name
+                          )}
+                        </TableCell>
+
+                        <TableCell className="align-top text-muted-foreground">
+                          {place.address ?? (
+                            <span className="opacity-50">-</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="align-top whitespace-nowrap text-right tabular-nums text-muted-foreground">
+                          {place.price != null ? (
+                            formatMoney(place.price)
+                          ) : (
+                            <span className="opacity-50">-</span>
+                          )}
+                        </TableCell>
+
+                        {isAdmin ? (
+                          <TableCell className="align-top">
+                            <div className="-mt-1.5 flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={fill(t.places.editName, {
+                                  name: place.name,
+                                })}
+                                onClick={() => {
+                                  setEditing(place);
+                                  setFormOpen(true);
+                                }}
+                              >
+                                <Icon icon={PencilEdit02Icon} size={15} />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={fill(t.places.deleteName, {
+                                  name: place.name,
+                                })}
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={() => setPendingDelete([place.id])}
+                              >
+                                <Icon icon={Delete02Icon} size={15} />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        ) : null}
+                      </TableRow>
+                    ))}
+                  </TableBody>
                 </Table>
               </>
             )}
@@ -246,8 +267,8 @@ export function PlacesDrawer({
         onOpenChange={(next) => !next && setPendingDelete([])}
         title={
           pendingDelete.length > 1
-            ? `Delete ${pendingDelete.length} places`
-            : "Delete place"
+            ? fill(t.places.deleteMany, { count: pendingDelete.length })
+            : t.places.deleteOne
         }
         description={deleteLabel}
         pending={remove.pending}

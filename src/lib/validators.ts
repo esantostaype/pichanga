@@ -35,19 +35,15 @@ const skillShape = {
 
 const skillsSchema = z.object(skillShape);
 
-const name = z
-  .string()
-  .trim()
-  .min(2, "At least 2 characters")
-  .max(40, "At most 40 characters");
+const name = z.string().trim().min(2, "form.tooShort").max(40, "form.tooLong");
 
 export const playerInputSchema = z.object({
   firstName: name,
   lastName: name,
-  area: z.enum(AREA_IDS, { message: "Pick an area" }),
+  area: z.enum(AREA_IDS, { message: "players.pickArea" }),
   photoUrl: z.string().url().nullable().optional(),
   photoPublicId: z.string().nullable().optional(),
-  position: z.enum(POSITION_IDS, { message: "Pick a position" }),
+  position: z.enum(POSITION_IDS, { message: "players.pickPosition" }),
   skills: skillsSchema,
   /** Sandbox row, written by the demo screen and seen only there. */
   isDemo: z.boolean().optional(),
@@ -56,13 +52,13 @@ export const playerInputSchema = z.object({
 export type PlayerInput = z.infer<typeof playerInputSchema>;
 
 export const placeInputSchema = z.object({
-  name: z.string().trim().min(2, "At least 2 characters").max(80),
+  name: z.string().trim().min(2, "places.nameTooShort").max(80),
   address: z.string().trim().max(200).nullable().optional(),
   googlePlaceId: z.string().trim().max(200).nullable().optional(),
-  mapsUrl: z.string().url("Must be a valid URL").nullable().optional(),
+  mapsUrl: z.string().url("places.badUrl").nullable().optional(),
   price: z
     .number()
-    .nonnegative("Cannot be negative")
+    .nonnegative("places.negative")
     .max(1_000_000)
     .nullable()
     .optional(),
@@ -87,8 +83,8 @@ export type PlaceInput = z.infer<typeof placeInputSchema>;
 
 export const matchInputSchema = z
   .object({
-    playedAt: z.coerce.number().int().positive("Pick a valid date"),
-    endsAt: z.coerce.number().int().positive("Pick a valid end time"),
+    playedAt: z.coerce.number().int().positive("matches.pickDate"),
+    endsAt: z.coerce.number().int().positive("matches.pickEnd"),
     placeId: z.string().min(1).nullable().optional(),
     organizerId: z.string().min(1).nullable().optional(),
     /** `null` for a one-off fixture. */
@@ -99,14 +95,14 @@ export const matchInputSchema = z
     isDemo: z.boolean().optional(),
   })
   .refine((input) => input.endsAt > input.playedAt, {
-    message: "The end time must be after the start",
+    message: "matches.afterStart",
     path: ["endsAt"],
   });
 
 export type MatchInput = z.infer<typeof matchInputSchema>;
 
 export const lineupInputSchema = z.object({
-  playerIds: z.array(z.string().min(1)).min(1, "Pick at least one player"),
+  playerIds: z.array(z.string().min(1)).min(1, "form.pickOnePlayer"),
 });
 
 export const paymentInputSchema = z.object({ paid: z.boolean() });
@@ -144,13 +140,13 @@ export const gameLengthInputSchema = z.object({
     .min(0)
     .max(45)
     .refine((minutes) => minutes === 0 || minutes >= 3, {
-      message: "A game is either three minutes or more, or has no clock",
+      message: "form.gameLength",
     }),
 });
 
 /** Who goes in goal for one side. */
 export const keeperInputSchema = z.object({
-  playerId: z.string().min(1, "Pick a player"),
+  playerId: z.string().min(1, "form.pickPlayer"),
 });
 
 export const teamDrawInputSchema = z.object({
@@ -171,14 +167,14 @@ export const teamDrawInputSchema = z.object({
  */
 const cloudinaryUrl = z
   .string()
-  .url("Must be a valid URL")
+  .url("places.badUrl")
   .refine((value) => {
     try {
       return new URL(value).host === "res.cloudinary.com";
     } catch {
       return false;
     }
-  }, "Must be a Cloudinary URL");
+  }, "places.badUrl");
 
 export const mediaInputSchema = z.object({
   publicId: z.string().trim().min(1).max(300),

@@ -1,4 +1,5 @@
 import { addMatchMedia, listMatchMedia } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { galleryFolder } from "@/lib/cloudinary";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
@@ -26,11 +27,11 @@ export async function POST(request: Request, { params }: Context) {
     // The url is already pinned to Cloudinary by the schema; this pins it to
     // *our* folder, so the endpoint cannot be used to file someone else's file.
     if (!input.publicId.startsWith(`${galleryFolder()}/`)) {
-      return fail("That file does not belong to this gallery", 422);
+      return fail((await messages()).fileNotHere, 422);
     }
 
     const media = await addMatchMedia(id, input);
-    if (!media) return fail("Match not found", 404);
+    if (!media) return fail((await messages()).matchNotFound, 404);
 
     await broadcast(REALTIME.events.mediaChanged, { matchId: id });
 

@@ -1,4 +1,5 @@
 import { removePlayerFromMatch, setPlayerPaid } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -23,8 +24,8 @@ export async function PATCH(request: Request, { params }: Context) {
 
     if (!result.ok) {
       return result.reason === "organizer"
-        ? fail("The organizer's share is always settled", 422)
-        : fail("That player is not in this match", 404);
+        ? fail((await messages()).organizerSettled, 422)
+        : fail((await messages()).notInMatch, 404);
     }
 
     const { match } = result;
@@ -42,7 +43,7 @@ export async function DELETE(_request: Request, { params }: Context) {
     const { id, playerId } = await params;
     const match = await removePlayerFromMatch(id, playerId);
 
-    if (!match) return fail("Match not found", 404);
+    if (!match) return fail((await messages()).matchNotFound, 404);
 
     await broadcast(REALTIME.events.lineupChanged, { matchId: id });
     await broadcast(REALTIME.events.matchesChanged, { id });

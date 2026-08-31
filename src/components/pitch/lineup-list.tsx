@@ -7,7 +7,8 @@ import { areaColor } from "@/components/players/area-badge";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
-import { getArea } from "@/lib/constants";
+import { useLocale } from "@/components/providers/locale-provider";
+import { areaLabel, fill } from "@/i18n/dictionaries";
 import type { MatchTeam, Player } from "@/types";
 import { PaidMark } from "./paid-mark";
 
@@ -145,6 +146,7 @@ function Row({
   onView?: (player: Player) => void;
   onRemove?: (player: Player) => void;
 }) {
+  const { t } = useLocale();
   const area = areaColor(player.area);
   const ring = accent ?? area;
 
@@ -167,14 +169,14 @@ function Row({
             aria-hidden
             tabIndex={-1}
             onClick={() => onView(player)}
-            title={`View ${player.firstName}'s card`}
+            title={fill(t.pitch.viewCard, { name: player.firstName })}
             className="absolute inset-0 cursor-pointer rounded-full"
           />
         ) : null}
 
         {isOrganizer ? (
           <span
-            aria-label="Match organizer"
+            aria-label={t.pitch.organizer}
             className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground"
           >
             <Icon icon={CrownIcon} size={9} strokeWidth={2} />
@@ -186,7 +188,7 @@ function Row({
         type="button"
         onClick={onView ? () => onView(player) : undefined}
         disabled={!onView}
-        aria-label={`View ${player.firstName}'s card`}
+        aria-label={fill(t.pitch.viewCard, { name: player.firstName })}
         className="flex min-w-0 flex-1 flex-col text-left disabled:cursor-default enabled:cursor-pointer"
       >
         <span className="truncate text-sm font-medium leading-tight">
@@ -196,15 +198,15 @@ function Row({
           className="truncate font-display text-xs uppercase leading-tight tracking-widest"
           style={{ color: area }}
         >
-          {getArea(player.area).label}
+          {areaLabel(t, player.area)}
         </span>
       </button>
 
       <span className="ml-auto flex shrink-0 items-center gap-1.5">
         {isKeeper ? (
           <span
-            aria-label="In goal"
-            title="In goal"
+            aria-label={t.pitch.inGoal}
+            title={t.pitch.inGoal}
             className="grid size-6 place-items-center rounded-full border"
             style={{
               color: accent ?? area,
@@ -219,8 +221,8 @@ function Row({
             type="button"
             onClick={onMakeKeeper}
             disabled={keeperPending}
-            aria-label={`Put ${player.firstName} in goal`}
-            title={`Put ${player.firstName} in goal`}
+            aria-label={fill(t.pitch.putInGoal, { name: player.firstName })}
+            title={fill(t.pitch.putInGoal, { name: player.firstName })}
             className="grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default"
           >
             {keeperPending ? (
@@ -244,7 +246,9 @@ function Row({
           <button
             type="button"
             onClick={() => onRemove(player)}
-            aria-label={`Remove ${player.firstName} from the match`}
+            aria-label={fill(t.pitch.removeFromMatch, {
+              name: player.firstName,
+            })}
             className="grid size-7 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
           >
             <Icon icon={Cancel01Icon} size={14} />

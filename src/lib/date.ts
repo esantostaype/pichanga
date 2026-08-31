@@ -1,5 +1,5 @@
 import { formatDistanceToNowStrict } from "date-fns";
-import { enUS } from "date-fns/locale";
+import { enUS, es as esLocale } from "date-fns/locale";
 
 /**
  * Every date is rendered in one fixed zone, never in "whatever zone the
@@ -12,11 +12,36 @@ import { enUS } from "date-fns/locale";
  */
 export const TIME_ZONE = process.env.NEXT_PUBLIC_TIME_ZONE || "America/Lima";
 
-const formatter = (options: Intl.DateTimeFormatOptions) =>
-  new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, ...options });
+/**
+ * Dates in the language the reader chose.
+ *
+ * `Intl` already knows how to say Saturday in both, so the only thing this
+ * app has to carry is which one to ask for. Formatters are built once per
+ * language and kept: they are not cheap to make and there are two of them.
+ */
+type Lang = "en" | "es";
 
-const longDate = formatter({ weekday: "long", month: "long", day: "numeric" });
-const shortDate = formatter({ month: "short", day: "numeric", year: "numeric" });
+const TAGS: Record<Lang, string> = { en: "en-US", es: "es-PE" };
+
+const cache = new Map<string, Intl.DateTimeFormat>();
+
+const formatter = (options: Intl.DateTimeFormatOptions, lang: Lang = "en") => {
+  const key = lang + JSON.stringify(options);
+  const kept = cache.get(key);
+  if (kept) return kept;
+
+  const made = new Intl.DateTimeFormat(TAGS[lang], {
+    timeZone: TIME_ZONE,
+    ...options,
+  });
+
+  cache.set(key, made);
+  return made;
+};
+
+const LONG = { weekday: "long", month: "long", day: "numeric" } as const;
+const SHORT = { month: "short", day: "numeric", year: "numeric" } as const;
+
 const time = formatter({ hour: "2-digit", minute: "2-digit", hour12: false });
 const weekdayName = formatter({ weekday: "short" });
 const parts = formatter({
@@ -29,8 +54,11 @@ const parts = formatter({
   hour12: false,
 });
 
-export const formatLongDate = (ms: number) => longDate.format(ms);
-export const formatShortDate = (ms: number) => shortDate.format(ms);
+export const formatLongDate = (ms: number, lang: Lang = "en") =>
+  formatter(LONG, lang).format(ms);
+
+export const formatShortDate = (ms: number, lang: Lang = "en") =>
+  formatter(SHORT, lang).format(ms);
 export const formatTime = (ms: number) => time.format(ms);
 
 /** "18:00 - 19:30" */
@@ -144,13 +172,25 @@ export function suggestedMatchDate(now = Date.now()) {
 export const isLive = (playedAt: number, endsAt: number, now: number) =>
   now >= playedAt && now < endsAt;
 
-/** "Today", "Tomorrow", "in 3 days" or "2 days ago". */
-export function relativeLabel(ms: number, now = Date.now()) {
+/** "Today", "Tomorrow", "in 3 days" or "2 days ago", in either language. */
+export function relativeLabel(
+  ms: number,
+  now = Date.now(),
+  lang: Lang = "en",
+  words: { today: string; tomorrow: string } = {
+    today: "Today",
+    tomorrow: "Tomorrow",
+  },
+) {
   const day = toDateInput(ms);
 
-  if (day === toDateInput(now)) return "Today";
-  if (day === toDateInput(now + 24 * 60 * 60 * 1000)) return "Tomorrow";
+  if (day === toDateInput(now)) return words.today;
+  if (day === toDateInput(now + 24 * 60 * 60 * 1000)) return words.tomorrow;
 
-  const distance = formatDistanceToNowStrict(new Date(ms), { locale: enUS });
-  return ms < now ? `${distance} ago` : `in ${distance}`;
+  // `addSuffix` rather than gluing "ago" on afterwards: Spanish puts it in
+  // front ("hace 2 dias") and only the locale knows that.
+  return formatDistanceToNowStrict(new Date(ms), {
+    addSuffix: true,
+    locale: lang === "es" ? esLocale : enUS,
+  });
 }

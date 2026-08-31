@@ -26,7 +26,9 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { useLocale } from "@/components/providers/locale-provider";
 import { useAction } from "@/hooks/use-action";
+import { fill } from "@/i18n/dictionaries";
 import { useRealtime } from "@/hooks/use-realtime";
 import { api } from "@/lib/api-client";
 import { GAME_MINUTES_CHOICES, INDEFINITE_GAME } from "@/lib/constants";
@@ -56,6 +58,7 @@ export function TeamsDialog({
 }) {
   const { isAdmin, drawTeams, clearTeams, setGameMinutes, setKeeper, demo } =
     usePichanga();
+  const { t } = useLocale();
 
   /*
    * How far the night has got, which is what decides half of this dialog: a
@@ -104,17 +107,17 @@ export function TeamsDialog({
   const [mixAreas, setMixAreas] = useState(false);
 
   const shuffle = useAction(async () => drawTeams(newSeed(), mixAreas), {
-    success: "Teams drawn again",
+    success: t.teams.shuffled,
   });
 
   const length = useAction(async (minutes: number) => setGameMinutes(minutes), {
-    success: "Game length agreed",
+    success: t.teams.lengthAgreed,
   });
 
   const gloves = useAction(
     async ({ teamId, playerId }: { teamId: string; playerId: string }) =>
       setKeeper(teamId, playerId),
-    { success: "Keeper changed" },
+    { success: t.teams.keeperChanged },
   );
 
   /** Whose gloves are in flight, so the spinner sits on the right row. */
@@ -126,7 +129,7 @@ export function TeamsDialog({
   };
 
   const clear = useAction(async () => clearTeams(), {
-    success: "Teams put away",
+    success: t.teams.putAwayDone,
     onSuccess: () => onOpenChange(false),
   });
 
@@ -157,13 +160,13 @@ export function TeamsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={widthFor(teams.length)}>
         <DialogHeader>
-          <DialogTitle>Teams</DialogTitle>
+          <DialogTitle>{t.teams.title}</DialogTitle>
           <DialogDescription>
             {teams.length === 0
-              ? "Nobody has drawn the sides yet."
-              : started
-                ? `${teams.length} sides. The night has started, so they stand as they are.`
-                : `${teams.length} sides, drawn from the skills on each profile.`}
+              ? t.teams.none
+              : fill(started ? t.teams.started : t.teams.drawn, {
+                  count: teams.length,
+                })}
           </DialogDescription>
         </DialogHeader>
 
@@ -195,8 +198,11 @@ export function TeamsDialog({
                       {team.name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {squad.length} {squad.length === 1 ? "player" : "players"}
-                      {team.borrowedKeeper ? " · keeper borrowed" : ""}
+                      {squad.length}{" "}
+                      {squad.length === 1 ? t.common.player : t.common.players}
+                      {team.borrowedKeeper
+                        ? ` · ${t.teams.keeperBorrowed}`
+                        : ""}
                     </p>
                   </div>
                 </header>
@@ -222,11 +228,13 @@ export function TeamsDialog({
                           }}
                           title={
                             team.borrowedKeeper
-                              ? "Nobody volunteered, so they are filling in"
-                              : "In goal by choice"
+                              ? t.teams.keeperFillingIn
+                              : t.teams.keeperByChoice
                           }
                         >
-                          {team.borrowedKeeper ? "In goal" : "Keeper"}
+                          {team.borrowedKeeper
+                            ? t.teams.inGoal
+                            : t.teams.keeper}
                         </span>
                       ) : keeperLocked ? null : (
                         /*
@@ -240,8 +248,12 @@ export function TeamsDialog({
                           type="button"
                           disabled={gloves.pending}
                           onClick={() => handOver(team.id, player.id)}
-                          aria-label={`Put ${player.firstName} in goal`}
-                          title={`Put ${player.firstName} in goal`}
+                          aria-label={fill(t.pitch.putInGoal, {
+                            name: player.firstName,
+                          })}
+                          title={fill(t.pitch.putInGoal, {
+                            name: player.firstName,
+                          })}
                           className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground/60 transition-colors hover:text-foreground disabled:cursor-default"
                         >
                           {handing === player.id ? (
@@ -288,13 +300,12 @@ export function TeamsDialog({
             */}
             <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 md:flex-row md:items-center md:gap-4">
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-medium">Minutes per game</span>
+                <span className="text-sm font-medium">
+                  {t.teams.minutesTitle}
+                </span>
                 <span className="text-xs text-muted-foreground">
-                  How long a game runs before the sides change. The clock on
-                  match night turns amber near it and red at it.
-                  {teams.length === 2
-                    ? " Two sides can also play with no clock at all, for as long as the pitch is rented."
-                    : ""}
+                  {t.teams.minutesLine}
+                  {teams.length === 2 ? t.teams.minutesTwoSides : ""}
                 </span>
               </span>
 
@@ -311,13 +322,13 @@ export function TeamsDialog({
                       aria-pressed={picked}
                       aria-label={
                         forever
-                          ? "No clock, one game all match"
-                          : `${minutes} minutes`
+                          ? t.teams.noClock
+                          : fill(t.teams.minutesOne, { count: minutes })
                       }
                       title={
                         forever
-                          ? "One game, for as long as the pitch is rented"
-                          : `${minutes} minutes`
+                          ? t.teams.noClockTitle
+                          : fill(t.teams.minutesOne, { count: minutes })
                       }
                       onClick={() => void length.run(minutes)}
                       className={cn(
@@ -350,10 +361,9 @@ export function TeamsDialog({
               disabled={busy}
             />
             <span className="flex flex-col">
-              <span className="text-sm font-medium">Mix the areas</span>
+              <span className="text-sm font-medium">{t.teams.mixTitle}</span>
               <span className="text-xs text-muted-foreground">
-                Spreads the smaller areas across the sides, so a team is not one
-                floor of the office. Strength still comes first.
+                {t.teams.mixLine}
               </span>
             </span>
           </label>
@@ -379,7 +389,7 @@ export function TeamsDialog({
                   ) : (
                     <Icon icon={Delete02Icon} size={16} />
                   )}
-                  Put away
+                  {t.teams.putAway}
                 </Button>
                 <Button
                   variant="secondary"
@@ -391,7 +401,7 @@ export function TeamsDialog({
                   ) : (
                     <Icon icon={ArrowDataTransferHorizontalIcon} size={16} />
                   )}
-                  Shuffle again
+                  {t.teams.shuffle}
                 </Button>
               </span>
             ) : (
@@ -416,7 +426,7 @@ export function TeamsDialog({
               }}
             >
               <Icon icon={StopWatchIcon} size={16} />
-              Match night
+              {t.teams.matchNight}
             </Button>
           </DialogFooter>
         ) : null}

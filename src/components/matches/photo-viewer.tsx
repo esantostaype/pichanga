@@ -16,6 +16,7 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { EASE } from "@/lib/ease";
@@ -58,7 +59,7 @@ export function preloadPhoto(src: string): Promise<NaturalSize> {
     const done = () =>
       image.naturalWidth
         ? resolve({ width: image.naturalWidth, height: image.naturalHeight })
-        : reject(new Error("The photo could not be loaded"));
+        : reject(new Error("gallery.photoFailed"));
 
     image.onload = () => {
       if (!image.decode) return done();
@@ -72,7 +73,7 @@ export function preloadPhoto(src: string): Promise<NaturalSize> {
         new Promise((settle) => setTimeout(settle, DECODE_GRACE_MS)),
       ]).then(done, done);
     };
-    image.onerror = () => reject(new Error("The photo could not be loaded"));
+    image.onerror = () => reject(new Error("gallery.photoFailed"));
     image.src = src;
   });
 }
@@ -137,6 +138,7 @@ export function PhotoViewer({
   rectFor: (mediaId: string) => OpenFrom | null;
   onClose: () => void;
 }) {
+  const { t } = useLocale();
   /** The frame of the settled photo: what the growing tween moves. */
   const mover = useRef<HTMLDivElement>(null);
   /** The two sliding layers, each centring its own photo. */
@@ -419,7 +421,7 @@ export function PhotoViewer({
           onOpenAutoFocus={(event) => event.preventDefault()}
         >
           <DialogPrimitive.Title className="sr-only">
-            {isVideo ? "Match clip" : "Match photo"}
+            {isVideo ? t.gallery.clip : t.gallery.photo}
           </DialogPrimitive.Title>
 
           {media ? (
@@ -469,14 +471,14 @@ export function PhotoViewer({
             <>
               <ViewerButton
                 icon={ArrowLeft01Icon}
-                label="Previous photo"
+                label={t.gallery.previous}
                 disabled={!hasPrev || waiting}
                 onClick={() => void go(-1)}
                 className="left-0 top-1/2 -translate-y-1/2"
               />
               <ViewerButton
                 icon={ArrowRight01Icon}
-                label="Next photo"
+                label={t.gallery.next}
                 disabled={!hasNext || waiting}
                 onClick={() => void go(1)}
                 className="right-0 top-1/2 -translate-y-1/2"
@@ -490,7 +492,7 @@ export function PhotoViewer({
 
           <DialogPrimitive.Close
             className="absolute right-0 top-0 z-10 grid size-10 cursor-pointer place-items-center rounded-full bg-black/60 text-white backdrop-blur-sm transition-colors hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-            aria-label="Close"
+            aria-label={t.common.close}
           >
             <Icon icon={Cancel01Icon} size={18} />
           </DialogPrimitive.Close>

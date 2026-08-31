@@ -1,4 +1,5 @@
 import { getMatch, startGame } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -20,11 +21,11 @@ export async function POST(request: Request, { params }: Context) {
     const { homeTeamId, awayTeamId } = await readJson(request, gameInputSchema);
 
     if (homeTeamId === awayTeamId) {
-      return fail("A team cannot play itself", 422);
+      return fail((await messages()).aTeamCannotPlayItself, 422);
     }
 
     const match = await getMatch(id);
-    if (!match) return fail("Match not found", 404);
+    if (!match) return fail((await messages()).matchNotFound, 404);
 
     /*
      * Not before kick-off. The teams can be drawn two hours early -- that is
@@ -35,12 +36,12 @@ export async function POST(request: Request, { params }: Context) {
      * afternoon on a Tuesday.
      */
     if (!match.isDemo && Date.now() < match.playedAt) {
-      return fail("The match has not kicked off yet", 409);
+      return fail((await messages()).notKickedOff, 409);
     }
 
     const ids = new Set(match.teams.map((team) => team.id));
     if (!ids.has(homeTeamId) || !ids.has(awayTeamId)) {
-      return fail("Those teams are not in this match", 422);
+      return fail((await messages()).teamsNotInMatch, 422);
     }
 
     const live = await startGame(id, homeTeamId, awayTeamId);

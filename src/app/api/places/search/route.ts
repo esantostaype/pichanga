@@ -4,6 +4,7 @@ import {
   searchPlaces,
 } from "@/lib/google-places";
 import { fail, json, route } from "@/lib/http";
+import { messages } from "@/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,13 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return route(async () => {
     if (!isPlacesSearchEnabled()) {
-      return fail("Place search is not configured", 503);
+      return fail((await messages()).searchNotConfigured, 503);
     }
 
     const { searchParams } = new URL(request.url);
     const session = searchParams.get("session")?.trim();
 
-    if (!session) return fail("Missing session token");
+    if (!session) return fail((await messages()).missingSession);
 
     const placeId = searchParams.get("placeId")?.trim();
     if (placeId) return json(await getPlaceDetails(placeId, session));

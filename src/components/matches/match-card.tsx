@@ -11,6 +11,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import Link from "next/link";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { AppLink } from "@/components/ui/app-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
   isLive,
   relativeLabel,
 } from "@/lib/date";
+import { fill } from "@/i18n/dictionaries";
 import { formatMoney, perPlayer } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MatchSummary } from "@/types";
@@ -69,6 +71,7 @@ export function MatchCard({
   onEdit?: () => void;
   onDelete?: () => void;
 }) {
+  const { t, locale } = useLocale();
   const live = now !== null && isLive(match.playedAt, match.endsAt, now);
   const share = perPlayer(match.place?.price, match.playerCount);
 
@@ -83,7 +86,9 @@ export function MatchCard({
       {href ? (
         <Link
           href={href}
-          aria-label={`Open ${formatShortDate(match.playedAt)}`}
+          aria-label={fill(t.matches.openDate, {
+            date: formatShortDate(match.playedAt, locale),
+          })}
           onClick={(event) => {
             if (event.metaKey || event.ctrlKey || event.shiftKey) return;
             event.preventDefault();
@@ -100,21 +105,27 @@ export function MatchCard({
               className="relative z-20 mt-1"
               checked={!!selected}
               onCheckedChange={onSelect}
-              aria-label={`Select the ${formatShortDate(match.playedAt)} match`}
+              aria-label={fill(t.matches.selectDate, {
+                date: formatShortDate(match.playedAt, locale),
+              })}
             />
           ) : null}
 
           <div className="min-w-0 flex-1">
             <p className="font-display text-xl uppercase leading-tight tracking-[0.04em]">
-              {formatShortDate(match.playedAt)}
+              {formatShortDate(match.playedAt, locale)}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {formatTimeRange(match.playedAt, match.endsAt)} ·{" "}
-              {relativeLabel(match.playedAt)}
+              {relativeLabel(match.playedAt, undefined, locale, t.common)}
             </p>
           </div>
 
-          {live ? <LiveBadge /> : isNext ? <Badge>On pitch</Badge> : null}
+          {live ? (
+            <LiveBadge />
+          ) : isNext ? (
+            <Badge>{t.matches.onPitch}</Badge>
+          ) : null}
         </header>
 
         <dl className="space-y-2 text-[0.9375rem] text-muted-foreground">
@@ -137,7 +148,7 @@ export function MatchCard({
           ) : (
             <div className="flex items-center gap-2 opacity-50">
               <Icon icon={Location01Icon} size={15} />
-              <span>No place yet</span>
+              <span>{t.matches.noPlaceYet}</span>
             </div>
           )}
 
@@ -156,12 +167,15 @@ export function MatchCard({
             labelClassName="tabular-nums"
           >
             {match.playerCount} {match.playerCount === 1 ? "player" : "players"}
-            {match.paidCount > 0 ? ` · ${match.paidCount} paid` : ""}
+            {match.paidCount > 0
+              ? fill(t.matches.paidSuffix, { count: match.paidCount })
+              : ""}
           </AppLink>
 
           {share !== null ? (
             <p className="text-primary">
-              <span className="tabular-nums">{formatMoney(share)}</span> each
+              <span className="tabular-nums">{formatMoney(share)}</span>{" "}
+              {t.common.each}
             </p>
           ) : null}
         </dl>
@@ -172,7 +186,7 @@ export function MatchCard({
         {match.recurrence === "weekly" ? (
           <Badge variant="outline">
             <Icon icon={RepeatIcon} size={11} />
-            Weekly
+            {t.hud.weekly}
           </Badge>
         ) : (
           <span />
@@ -183,7 +197,7 @@ export function MatchCard({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Match gallery"
+            aria-label={t.matches.gallery}
             onClick={onGallery}
           >
             <Icon icon={Album02Icon} size={16} />
@@ -193,7 +207,7 @@ export function MatchCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Edit match"
+              aria-label={t.matches.editMatch}
               onClick={onEdit}
             >
               <Icon icon={PencilEdit02Icon} size={16} />
@@ -204,7 +218,7 @@ export function MatchCard({
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label="Delete match"
+              aria-label={t.matches.deleteMatch}
               className="text-muted-foreground hover:text-destructive"
               onClick={onDelete}
             >

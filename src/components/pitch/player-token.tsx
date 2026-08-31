@@ -16,7 +16,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getArea } from "@/lib/constants";
+import { useLocale } from "@/components/providers/locale-provider";
+import { areaLabel, fill } from "@/i18n/dictionaries";
 import { clamp, cn, shortName } from "@/lib/utils";
 import type { Player } from "@/types";
 import { Spinner } from "@/components/ui/spinner";
@@ -76,6 +77,7 @@ function PlayerTokenBase({
   onMakeKeeper,
   keeperPending,
 }: PlayerTokenProps) {
+  const { t } = useLocale();
   const color = accent ?? areaColor(player.area);
   // Low floors so a very large squad shrinks the labels instead of spilling
   // them outside the plate.
@@ -141,7 +143,7 @@ function PlayerTokenBase({
             aria-hidden
             tabIndex={-1}
             onClick={() => onView(player)}
-            title={`View ${player.firstName}'s card`}
+            title={fill(t.pitch.viewCard, { name: player.firstName })}
             className="absolute inset-0 cursor-pointer rounded-full"
           />
         ) : null}
@@ -169,7 +171,7 @@ function PlayerTokenBase({
               */}
               <span
                 tabIndex={0}
-                aria-label="Match organizer"
+                aria-label={t.pitch.organizer}
                 className="absolute -top-1 left-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 style={{ width: size * 0.48, height: size * 0.48 }}
               >
@@ -180,7 +182,7 @@ function PlayerTokenBase({
                 />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top">Organizer</TooltipContent>
+            <TooltipContent side="top">{t.pitch.organizerShort}</TooltipContent>
           </Tooltip>
         ) : null}
 
@@ -208,7 +210,7 @@ function PlayerTokenBase({
             <TooltipTrigger asChild>
               <span
                 tabIndex={0}
-                aria-label="In goal"
+                aria-label={t.pitch.inGoal}
                 className="absolute -left-1 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 style={{
                   width: Math.max(18, size * 0.36),
@@ -227,7 +229,7 @@ function PlayerTokenBase({
                 />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="left">In goal</TooltipContent>
+            <TooltipContent side="left">{t.pitch.inGoal}</TooltipContent>
           </Tooltip>
         ) : null}
 
@@ -244,7 +246,9 @@ function PlayerTokenBase({
           <button
             type="button"
             onClick={() => onRemove(player)}
-            aria-label={`Remove ${player.firstName} from the match`}
+            aria-label={fill(t.pitch.removeFromMatch, {
+              name: player.firstName,
+            })}
             className="absolute -right-1 -top-1 z-10 grid cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground opacity-0 shadow-lg transition-all before:absolute before:-inset-2 before:content-[''] hover:border-destructive/60 hover:text-destructive focus-visible:opacity-100 group-hover/token:opacity-100 pointer-coarse:opacity-70"
             style={{ width: size * 0.34, height: size * 0.34 }}
           >
@@ -266,8 +270,8 @@ function PlayerTokenBase({
             type="button"
             onClick={onMakeKeeper}
             disabled={keeperPending}
-            aria-label={`Put ${player.firstName} in goal`}
-            title={`Put ${player.firstName} in goal`}
+            aria-label={fill(t.pitch.putInGoal, { name: player.firstName })}
+            title={fill(t.pitch.putInGoal, { name: player.firstName })}
             className={cn(
               "absolute -right-1.5 -top-1.5 z-20 grid cursor-pointer place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-lg transition-all before:absolute before:-inset-2 before:content-[''] hover:text-foreground focus-visible:opacity-100 group-hover/token:opacity-100 disabled:cursor-default pointer-coarse:opacity-70",
               // Quiet until the token is reached for -- unless the gloves are
@@ -290,7 +294,7 @@ function PlayerTokenBase({
 
         <Plate
           onView={onView ? () => onView(player) : undefined}
-          label={`View ${player.firstName}'s card`}
+          label={fill(t.pitch.viewCard, { name: player.firstName })}
         >
           <p
             className="truncate font-display uppercase leading-none tracking-widest text-foreground"
@@ -303,7 +307,7 @@ function PlayerTokenBase({
             className="mt-1 truncate font-display uppercase leading-none tracking-widest text-foreground"
             style={{ fontSize: areaSize, color }}
           >
-            {getArea(player.area).label}
+            {areaLabel(t, player.area)}
           </p>
         </Plate>
       </div>

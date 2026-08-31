@@ -6,18 +6,18 @@ everyone watching.
 
 ## Stack
 
-| Piece | Technology |
-| --- | --- |
-| Framework | Next.js 16 (App Router, React 19) |
-| Styling | Tailwind CSS v4, shadcn/ui components on Radix |
-| Database | Turso (libSQL) with Drizzle ORM |
-| Realtime | Pusher Channels |
-| Images | Cloudinary |
-| Venue search | Google Places API (New), optional |
-| Animation | GSAP (`@gsap/react`) |
-| Icons | Hugeicons |
-| Typography | Sofia Sans (UI), Sofia Sans Extra Condensed 500 (display) |
-| Forms | React Hook Form + Zod, shadcn date picker (react-day-picker) |
+| Piece        | Technology                                                   |
+| ------------ | ------------------------------------------------------------ |
+| Framework    | Next.js 16 (App Router, React 19)                            |
+| Styling      | Tailwind CSS v4, shadcn/ui components on Radix               |
+| Database     | Turso (libSQL) with Drizzle ORM                              |
+| Realtime     | Pusher Channels                                              |
+| Images       | Cloudinary                                                   |
+| Venue search | Google Places API (New), optional                            |
+| Animation    | GSAP (`@gsap/react`)                                         |
+| Icons        | Hugeicons                                                    |
+| Typography   | Sofia Sans (UI), Sofia Sans Extra Condensed 500 (display)    |
+| Forms        | React Hook Form + Zod, shadcn date picker (react-day-picker) |
 
 ## Getting started
 
@@ -41,21 +41,21 @@ for an empty local file and nothing else.
 
 ### Scripts
 
-| Script | What it does |
-| --- | --- |
-| `npm run dev` | Development server |
-| `npm run build` / `start` | Production build and start |
-| `npm run lint` | ESLint |
-| `npm test` | Vitest, once |
-| `npm run db:migrate` | Applies pending migrations. **This is the one.** |
-| `npm run db:migrate:plan` | Lists what it would run, and writes nothing |
-| `npm run demo:clear` | Counts the sandbox rows in the database, writes nothing |
-| `npm run demo:clear:yes` | Deletes them |
-| `npm run test:watch` | Vitest, watching |
-| `npm run db:generate` | Generates migration SQL from the schema |
-| `npm run db:push` | Rebuilds tables from the schema. Local files only: it drops what it cannot keep, and refuses a remote database without `ALLOW_REMOTE_DB=1` |
-| `npm run db:studio` | Drizzle data browser |
-| `npm run db:seed` | Creates tables and seeds sample data |
+| Script                    | What it does                                                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run dev`             | Development server                                                                                                                         |
+| `npm run build` / `start` | Production build and start                                                                                                                 |
+| `npm run lint`            | ESLint                                                                                                                                     |
+| `npm test`                | Vitest, once                                                                                                                               |
+| `npm run db:migrate`      | Applies pending migrations. **This is the one.**                                                                                           |
+| `npm run db:migrate:plan` | Lists what it would run, and writes nothing                                                                                                |
+| `npm run demo:clear`      | Counts the sandbox rows in the database, writes nothing                                                                                    |
+| `npm run demo:clear:yes`  | Deletes them                                                                                                                               |
+| `npm run test:watch`      | Vitest, watching                                                                                                                           |
+| `npm run db:generate`     | Generates migration SQL from the schema                                                                                                    |
+| `npm run db:push`         | Rebuilds tables from the schema. Local files only: it drops what it cannot keep, and refuses a remote database without `ALLOW_REMOTE_DB=1` |
+| `npm run db:studio`       | Drizzle data browser                                                                                                                       |
+| `npm run db:seed`         | Creates tables and seeds sample data                                                                                                       |
 
 `db:seed` refuses to write to a remote database unless `--yes` is passed, and
 accepts `--db=file:local.db` to work against a local SQLite file.
@@ -127,19 +127,19 @@ the exact same verification works there and in route handlers.
 A guest fully manages **players** and the **lineup** — the part the whole
 office touches. The **fixture** itself, matches and places, needs the session.
 
-| | Guest | Admin | Super admin |
-| --- | --- | --- | --- |
-| Read anything, browse all three panels | yes | yes | yes |
-| Create / edit / delete players | yes | yes | yes |
-| Upload a player photo | yes | yes | yes |
-| Add players to a match, drop them | yes | yes | yes |
-| Create / edit / delete matches | no | yes | yes |
-| Create / edit / delete places | no | yes | yes |
-| Google venue search | no | yes | yes |
-| Add photos and clips to a gallery | yes | yes | yes |
-| Mark the rental as paid | no | yes | yes |
-| Delete a gallery file | no | yes | yes |
-| See the live headcount | no | no | yes |
+|                                        | Guest | Admin | Super admin |
+| -------------------------------------- | ----- | ----- | ----------- |
+| Read anything, browse all three panels | yes   | yes   | yes         |
+| Create / edit / delete players         | yes   | yes   | yes         |
+| Upload a player photo                  | yes   | yes   | yes         |
+| Add players to a match, drop them      | yes   | yes   | yes         |
+| Create / edit / delete matches         | no    | yes   | yes         |
+| Create / edit / delete places          | no    | yes   | yes         |
+| Google venue search                    | no    | yes   | yes         |
+| Add photos and clips to a gallery      | yes   | yes   | yes         |
+| Mark the rental as paid                | no    | yes   | yes         |
+| Delete a gallery file                  | no    | yes   | yes         |
+| See the live headcount                 | no    | no    | yes         |
 
 There are two passwords. `ADMIN_PASSWORD` is the one the office can be given;
 `SUPER_ADMIN_PASSWORD` is optional and grants everything the first does plus
@@ -337,7 +337,7 @@ waiting by the time the wipe has finished closing.
 ## Crests
 
 A shield in the side's colour with its short form on it, drawn rather than
-drawn *by hand*: fourteen names in the pool and more to come, each needing a
+drawn _by hand_: fourteen names in the pool and more to come, each needing a
 crest in two sizes and both themes. As artwork that is fourteen files to keep
 in step with a list in a constants file; as a shape plus a colour plus two
 letters, a new name arrives with its crest already made. `Los 404` reads
@@ -368,6 +368,70 @@ time the pool went from fourteen names to six. The step is nudged until the two
 are coprime, so the walk visits every name before it repeats one, and a turnout
 needing more sides than there are names gets the pool again with a numeral on
 it. It lives in `lib/teams.ts` now, with tests.
+
+## The tour
+
+`/tour` is the page you hand somebody who has never opened the app. It is
+built on three questions rather than a list of features, because the answer to
+"what does this do" depends entirely on which of the three you are: **you
+play**, **you organize**, or **you keep score**. Tabs, not scrolling past two
+thirds of it.
+
+The pitch behind it is `PitchSurface` -- the same component the match is
+played on, not a picture of it -- and `PICHANGAPP` stands on end down the left
+edge in outline, eighty per cent of the screen tall, anchored 240px in. It is
+SVG text so "eighty per cent" is a number the browser honours at any size in
+any font; the `viewBox` is taken from the glyphs once they have loaded,
+because a box guessed before the font arrives is a box the letters do not fit.
+The content is centred in **what is left** of the window, not in the window.
+
+The illustrations are frameless and loop for ever on CSS keyframes: players
+arriving on the grass, a cursor pressing the draw button while the sides
+recolour, a double tap setting off the shout, marks flipping from red to green,
+the card flying into a chat, the podium rising. Keyframes rather than a
+timeline in JavaScript because they have to survive a tab left in the
+background all morning, and because a tween that never gets a frame leaves
+whatever it was hiding hidden -- on this page above all. Everything stops dead
+for anybody who asked for less motion.
+
+**Smooth scrolling is on here and nowhere else.** `ScrollSmoother` moves the
+page by transforming a wrapper, and a transformed ancestor is a new containing
+block: every `position: fixed` header in the app would stop being fixed to the
+window and start being fixed to a moving box. The pitch screens do not scroll
+at all either, so there would be nothing to smooth. On the tour it costs
+nothing -- one long column, with the wordmark and the language switch rendered
+outside the wrapper on purpose.
+
+## Two languages
+
+English and Spanish, chosen with the **EN / ES** switch: at the bottom of the
+menu inside the app, and top right on the tour. The choice is a **cookie**, not
+a segment of the address -- the language belongs to the person and not to the
+page, and sharing a link to Wednesday's lineup should not hand somebody else
+your language. It lasts a year and is read by the server, so the first paint is
+already in the right one: no flash of the other while JavaScript catches up.
+
+Both dictionaries ship to the browser. They are a few kilobytes together, and
+the alternative is a round trip to read a word somebody has already picked --
+so switching is instant, and the cookie is only for next time.
+
+`src/i18n/dictionaries.ts` is the whole vocabulary, grouped by the screen each
+word belongs to. English is the shape: `Dictionary` is taken from it, so a key
+Spanish has not caught up with is a type error rather than a word missing on
+somebody's screen. Numbers and names go in with `fill`, which is one regular
+expression rather than a formatting library.
+
+**It reaches past the interface.** Dates and relative labels are formatted by
+`Intl` and `date-fns` in the chosen language -- Spanish puts "hace" in front
+where English puts "ago" behind, and only the locale knows that. The card and
+the message the share sheet builds are drawn in it, and the card is redrawn
+when the language changes because it has words on it. So are the server's
+refusals: routes read the same cookie, and the proxy -- which runs where
+`cookies()` does not exist -- reads it straight off the request.
+
+Areas and positions are looked up rather than stored translated, and an area
+this app has never heard of falls back to the id it was saved under, because
+areas are free text on a player row.
 
 ## Sharing a lineup
 
@@ -450,11 +514,11 @@ WhatsApp itself, which costs one tap.
 
 **Two tabs, two messages, the same squad in both.**
 
-*Match* is the fixture: date, time, venue with the maps link, and the numbered
+_Match_ is the fixture: date, time, venue with the maps link, and the numbered
 lineup. No ticks against the names and no line about what is owed -- it is a
 message about who is playing, and money in it starts a different conversation.
 
-*Payments* is the ledger: the same header plus the money -- what the pitch
+_Payments_ is the ledger: the same header plus the money -- what the pitch
 costs in full and what that comes to each -- then the same names, each with a
 ✅ or an ⏳, and the count of what is still pending. The maps link goes,
 because nobody chasing a debt needs directions to the pitch, and the tab
@@ -483,7 +547,7 @@ words under it were louder than the picture.
   opening a third one to hand it the same text is a detour.
 
 There is no share-sheet button. `navigator.share` was the only way to put the
-picture *and* the text into a chat in one gesture, and on a phone that now
+picture _and_ the text into a chat in one gesture, and on a phone that now
 takes two: copy or download the card, then the text.
 
 The message is date, time, venue, maps link, the split, and the numbered lineup
@@ -504,7 +568,6 @@ the message.
 
 **Neither the message nor the image carries a link back to the app.** Whoever
 is in that chat is being sent a lineup, not an advert for where it came from.
-
 
 ## Match galleries
 
@@ -528,12 +591,12 @@ Nothing ever loads the original. `lib/media-url.ts` writes the
 transformation into the delivery URL and Cloudinary renders and caches each
 size. For one demo photo:
 
-| Variant | Used for | Bytes |
-| --- | --- | --- |
-| original | never | 109,669 |
-| `w_400,h_400,c_fill` | grid tile | 32,099 |
-| `w_40,q_30` | first paint in the viewer | 674 |
-| `w_2400,q_auto` | the open photo | 98,960 |
+| Variant              | Used for                  | Bytes   |
+| -------------------- | ------------------------- | ------- |
+| original             | never                     | 109,669 |
+| `w_400,h_400,c_fill` | grid tile                 | 32,099  |
+| `w_40,q_30`          | first paint in the viewer | 674     |
+| `w_2400,q_auto`      | the open photo            | 98,960  |
 
 An album of forty phone photos is a few hundred kilobytes of thumbnails
 instead of eighty megabytes of originals.
@@ -566,7 +629,7 @@ Arrow keys, the buttons at either edge, or a horizontal swipe. Both photos
 move **at the same time**, on the app's curve: the one leaving and the one
 arriving are separate full-screen layers, so they can be different shapes and
 each still sits in the middle of the screen. When the slide ends the commit is
-forced through with `flushSync` *before* the layer's transform is cleared --
+forced through with `flushSync` _before_ the layer's transform is cleared --
 the other order flashes the previous photo back into the middle for a frame.
 
 A downward swipe closes, and so does a click anywhere that is not the photo.
@@ -663,9 +726,9 @@ already known:
   The same dialog opened from the pitch has **no** skeleton, and that is not an
   oversight: that match is already in hand, so there is nothing to wait for.
 
-Everywhere else a spinner is the honest thing. A spinner says *working*: an
-upload, a card being drawn, a form being saved. A skeleton says *this is coming
-and it will look like this*, which is a lie if the shape is not known yet.
+Everywhere else a spinner is the honest thing. A spinner says _working_: an
+upload, a card being drawn, a form being saved. A skeleton says _this is coming
+and it will look like this_, which is a lie if the shape is not known yet.
 
 **No page ever wears one.** There is no `loading.tsx` on the match screens: a
 skeleton of the pitch is a second, worse version of the screen you are waiting
@@ -703,10 +766,11 @@ longer "outside" the dialog, so a tap there has to say so itself.
 Footers put their buttons on one line, right-aligned, phone included. `Cancel`
 and `Remove` are two words; stacking them full-width made a small question look
 like a big one.
+
 ## Who is online
 
-A quiet line in the bottom-left corner reads *3 people are watching Pichanga
-right now*. **Only a super admin sees it**, and only that session can read the
+A quiet line in the bottom-left corner reads _3 people are watching Pichanga
+right now_. **Only a super admin sees it**, and only that session can read the
 number: it is not pushed to the other screens.
 
 That is why the count is kept in our own `visitors` table instead of a Pusher
@@ -718,7 +782,7 @@ Every open tab `POST`s an id to `/api/presence` every 20 seconds and counts as
 present while its last beat is under two minutes old. The id lives in
 `sessionStorage`, so it is **per tab**, not per person: five tabs of the same
 browser count as five. It is a random value with no address, no device and no
-link to a player, so the table can answer *how many* and never *who*.
+link to a player, so the table can answer _how many_ and never _who_.
 
 Two minutes of slack sounds long for a 20 second beat, and it is deliberate: a
 browser throttles timers in a hidden tab to roughly one a minute, so anything
@@ -748,7 +812,7 @@ The API key is **optional and server-side only**. Requests go through
 Without `GOOGLE_MAPS_API_KEY` the route answers `503`, the search box is not
 rendered at all and the form falls back to typing name and address by hand.
 
-Enabling it needs a Google Cloud project with the *Places API (New)* enabled and
+Enabling it needs a Google Cloud project with the _Places API (New)_ enabled and
 billing active.
 
 Restrict the key by **API** (Places API New) and, when the host has static
@@ -787,12 +851,12 @@ the pitch where everyone can read it.
 their six skills weighed by where they play, so a defender is never marked down
 for not finishing:
 
-| Position | What counts |
-| --- | --- |
-| Goalkeeper | goalkeeping 60%, the rest 40% |
-| Defender | defending 40%, stamina 25%, pace 20%, passing 15% |
+| Position   | What counts                                       |
+| ---------- | ------------------------------------------------- |
+| Goalkeeper | goalkeeping 60%, the rest 40%                     |
+| Defender   | defending 40%, stamina 25%, pace 20%, passing 15% |
 | Midfielder | passing 35%, stamina 30%, pace 20%, finishing 15% |
-| Forward | finishing 40%, pace 35%, passing 15%, stamina 10% |
+| Forward    | finishing 40%, pace 35%, passing 15%, stamina 10% |
 
 Each row sums to 1, so every player lands on the same 1-to-5 scale however they
 play.
@@ -856,7 +920,7 @@ once the last is settled:
 
 1. **Goal.** One keeper per team: volunteers first, best first. Where there are
    not enough, the gloves go to the highest `goalkeeping` among everyone else,
-   with a nudge towards defenders, and that team is marked as having *borrowed*
+   with a nudge towards defenders, and that team is marked as having _borrowed_
    a keeper. This runs first because it is the hardest constraint -- two
    perfectly balanced teams where one has nobody in goal are not balanced, they
    are unplayable. A keeper with nowhere to keep plays out, and is rated as a
@@ -1120,7 +1184,7 @@ tell four goals from four phones apart from four off one.
 scorer's face, the word in `SPORTNEWS` tilted ten degrees a hand below it, then
 their name and their area. A ball hitting a net was drawn here first, and it
 was the better drawing and the worse thing to look at -- the only two facts
-anybody wants in that second are *goal* and *who*, and they were the two
+anybody wants in that second are _goal_ and _who_, and they were the two
 arriving last. The photo is there for the same reason: six people look up at
 once and a name takes a moment to read, while a face does not.
 
@@ -1131,8 +1195,8 @@ A browser will not play audio until somebody has touched the page, which is the
 right rule: the phone keeping score has been touched, and the one that has not
 still gets the shout on screen with the `play()` rejection swallowed.
 
-**Muting is per device.** The switch under the board says *Sound on* or
-*Muted*, and the choice lives in that browser's own storage -- somebody at
+**Muting is per device.** The switch under the board says _Sound on_ or
+_Muted_, and the choice lives in that browser's own storage -- somebody at
 their desk with the tab open is exactly the person who wants it off, and their
 choice should not silence the phone at the ground. It is read with
 `useSyncExternalStore` rather than mirrored into state in an effect: one render
@@ -1284,7 +1348,7 @@ center. Without an organizer nothing changes and the grid stays as it was.
 ## Bulk delete
 
 Every drawer table has a checkbox column with a select-all header. Ticking
-rows raises a bar with the count, a *Clear* and a *Delete*, and the confirm
+rows raises a bar with the count, a _Clear_ and a _Delete_, and the confirm
 dialog names either the single row or the count.
 
 Some details worth knowing:
@@ -1308,8 +1372,8 @@ Dates render in one fixed zone, `NEXT_PUBLIC_TIME_ZONE` (default
 `America/Lima`), never in the machine's own zone.
 
 This matters because the server formats these during SSR: relying on the local
-zone made the same match read *Wednesday 20:00* on a laptop in Lima and
-*Thursday 01:00* on Vercel, which runs in UTC. A match kicks off at a
+zone made the same match read _Wednesday 20:00_ on a laptop in Lima and
+_Thursday 01:00_ on Vercel, which runs in UTC. A match kicks off at a
 wall-clock time at the pitch, so that is the time everyone sees.
 
 `src/lib/date.ts` does the formatting with `Intl.DateTimeFormat` and converts
@@ -1318,7 +1382,7 @@ the zone offset twice so a DST boundary cannot shift the result.
 
 ## Kick-off, final whistle and "Live"
 
-A match carries a start *and* an end (`played_at` / `ends_at`). That end is
+A match carries a start _and_ an end (`played_at` / `ends_at`). That end is
 what decides which fixture owns the pitch: a match counts as current until its
 final whistle, not until midnight. At 21:05 a 20:00-21:00 fixture is over and
 the next one takes over on its own — the `useNow` clock ticks every 30s and the
@@ -1362,5 +1426,6 @@ screen.
   existing profiles or creating one on the spot.
 - The pitch always shows the **closest upcoming** match; if there is none, it
   shows the most recent one played.
-#   p i c h a n g a  
- 
+  #   p i c h a n g a 
+   
+   

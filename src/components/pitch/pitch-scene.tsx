@@ -2,6 +2,7 @@
 
 import { FootballPitchIcon } from "@hugeicons/core-free-icons";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { Icon } from "@/components/ui/icon";
 import { useElementSize } from "@/hooks/use-element-size";
 import type { Match, Player } from "@/types";
@@ -52,6 +53,7 @@ export function PitchScene({
   keeperPending,
   over = false,
 }: PitchSceneProps) {
+  const { t } = useLocale();
   const [ref, size] = useElementSize<HTMLDivElement>();
   const players = match?.players ?? [];
 
@@ -121,12 +123,10 @@ export function PitchScene({
               <Icon icon={FootballPitchIcon} size={24} />
             </span>
             <p className="font-display text-lg uppercase tracking-[0.2em] text-white">
-              {match ? "Empty pitch" : "No matches yet"}
+              {match ? t.pitch.emptyTitle : t.pitch.noMatchTitle}
             </p>
             <p className="whitespace-nowrap text-md text-muted-foreground">
-              {match
-                ? "Add players and they line up from the center."
-                : "Create a match from the menu to build the lineup."}
+              {match ? t.pitch.emptyLine : t.pitch.noMatchLine}
             </p>
           </div>
         </div>

@@ -4,12 +4,14 @@ import { Camera01Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { Icon } from "@/components/ui/icon";
 import {
   ACCEPTED_PHOTO_ACCEPT,
   ACCEPTED_PHOTO_TYPES,
   MAX_PHOTO_BYTES,
 } from "@/lib/constants";
+import { fill } from "@/i18n/dictionaries";
 import { cn } from "@/lib/utils";
 
 type PhotoFieldProps = {
@@ -29,6 +31,7 @@ export function PhotoField({
   onClear,
   disabled,
 }: PhotoFieldProps) {
+  const { t } = useLocale();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const localPreview = useMemo(
@@ -51,13 +54,13 @@ export function PhotoField({
     if (!next) return;
 
     if (!ACCEPTED_PHOTO_TYPES.includes(next.type)) {
-      toast.error("Unsupported format. Use JPG, PNG, WebP or AVIF.");
+      toast.error(t.players.badFormat);
       return;
     }
 
     if (next.size > MAX_PHOTO_BYTES) {
       toast.error(
-        `The photo is over the ${MAX_PHOTO_BYTES / 1024 / 1024} MB limit`,
+        fill(t.players.tooBig, { mb: MAX_PHOTO_BYTES / 1024 / 1024 }),
       );
       return;
     }
@@ -81,11 +84,15 @@ export function PhotoField({
           "hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
           "disabled:cursor-not-allowed disabled:opacity-60",
         )}
-        aria-label="Pick a photo"
+        aria-label={t.players.pickPhoto}
       >
         {preview ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={preview} alt="Preview" className="size-full object-cover" />
+          <img
+            src={preview}
+            alt={t.common.preview}
+            className="size-full object-cover"
+          />
         ) : null}
 
         <span
@@ -99,11 +106,11 @@ export function PhotoField({
       </button>
 
       <div className="space-y-1.5 text-sm">
-        <p className="text-muted-foreground">
-          Drag an image here or click to upload.
-        </p>
+        <p className="text-muted-foreground">{t.players.photoHint}</p>
         <p className="text-xs text-muted-foreground/70">
-          JPG, PNG, WebP or AVIF - max {MAX_PHOTO_BYTES / 1024 / 1024} MB
+          {fill(t.players.photoTypes, {
+            mb: MAX_PHOTO_BYTES / 1024 / 1024,
+          })}
         </p>
 
         {preview ? (
@@ -118,7 +125,7 @@ export function PhotoField({
             className="cursor-pointer inline-flex items-center gap-1.5 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-destructive hover:underline"
           >
             <Icon icon={Cancel01Icon} size={12} />
-            Remove photo
+            {t.players.removePhoto}
           </button>
         ) : null}
       </div>

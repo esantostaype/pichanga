@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { useLocale } from "@/components/providers/locale-provider";
+import { problem } from "@/i18n/dictionaries";
 import { PlaceFormDialog } from "@/components/places/place-form-dialog";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { PlayerPicker } from "@/components/players/player-picker";
@@ -45,17 +47,21 @@ const NO_ORGANIZER = "none";
 
 const formSchema = z
   .object({
-    date: z.string().min(1, "Pick a date"),
-    time: z.string().min(1, "Pick a start time"),
-    endTime: z.string().min(1, "Pick an end time"),
+    date: z.string().min(1, "matches.pickDate"),
+    time: z.string().min(1, "matches.pickStart"),
+    endTime: z.string().min(1, "matches.pickEnd"),
     placeId: z.string(),
     organizerId: z.string(),
     recurring: z.boolean(),
   })
-  .refine((values) => toEpoch(values.date, values.endTime) > toEpoch(values.date, values.time), {
-    message: "Must be after the start",
-    path: ["endTime"],
-  });
+  .refine(
+    (values) =>
+      toEpoch(values.date, values.endTime) > toEpoch(values.date, values.time),
+    {
+      message: "matches.afterStart",
+      path: ["endTime"],
+    },
+  );
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -71,6 +77,7 @@ export function MatchFormDialog({
   onOpenChange,
   match,
 }: MatchFormDialogProps) {
+  const { t } = useLocale();
   const busy = useRef(false);
 
   return (
@@ -82,11 +89,10 @@ export function MatchFormDialog({
     >
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{match ? "Edit match" : "New match"}</DialogTitle>
-          <DialogDescription>
-            Pick the date and who plays. The closest match is the one shown on
-            the pitch.
-          </DialogDescription>
+          <DialogTitle>
+            {match ? t.matches.formEdit : t.matches.formNew}
+          </DialogTitle>
+          <DialogDescription>{t.matches.formHint}</DialogDescription>
         </DialogHeader>
 
         <MatchForm
@@ -108,6 +114,7 @@ function MatchForm({
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
 }) {
+  const { t } = useLocale();
   const { players, places, createMatch, updateMatch } = usePichanga();
 
   const [selected, setSelected] = useState<string[]>([]);
@@ -169,7 +176,7 @@ function MatchForm({
       return match ? updateMatch(match.id, payload) : createMatch(payload);
     },
     {
-      success: match ? "Match updated" : "Match created",
+      success: match ? t.matches.updated : t.matches.created,
       onSuccess: (saved) => saved && onDone(),
     },
   );
@@ -187,7 +194,10 @@ function MatchForm({
         })}
       >
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Date" error={errors.date?.message}>
+          <Field
+            label={t.matches.date}
+            error={problem(t, errors.date?.message)}
+          >
             <Controller
               control={form.control}
               name="date"
@@ -202,7 +212,10 @@ function MatchForm({
             />
           </Field>
 
-          <Field label="Starts" error={errors.time?.message}>
+          <Field
+            label={t.matches.starts}
+            error={problem(t, errors.time?.message)}
+          >
             <Controller
               control={form.control}
               name="time"
@@ -236,7 +249,10 @@ function MatchForm({
             />
           </Field>
 
-          <Field label="Ends" error={errors.endTime?.message}>
+          <Field
+            label={t.matches.ends}
+            error={problem(t, errors.endTime?.message)}
+          >
             <Controller
               control={form.control}
               name="endTime"
@@ -255,7 +271,7 @@ function MatchForm({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Place
+              {t.matches.place}
             </span>
             <Button
               type="button"
@@ -265,7 +281,7 @@ function MatchForm({
               onClick={() => setPlaceFormOpen(true)}
             >
               <Icon icon={Location01Icon} size={15} />
-              New place
+              {t.places.newPlace}
             </Button>
           </div>
 
@@ -279,10 +295,12 @@ function MatchForm({
                 disabled={pending}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick a place" />
+                  <SelectValue placeholder={t.matches.pickPlace} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_PLACE}>No place yet</SelectItem>
+                  <SelectItem value={NO_PLACE}>
+                    {t.matches.noPlaceYet}
+                  </SelectItem>
                   {places.map((place) => (
                     <SelectItem key={place.id} value={place.id}>
                       {place.name}
@@ -296,7 +314,7 @@ function MatchForm({
 
         <div className="space-y-1.5">
           <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Organizer
+            {t.matches.organizer}
           </span>
 
           <Controller
@@ -317,10 +335,12 @@ function MatchForm({
                 disabled={pending}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick the organizer" />
+                  <SelectValue placeholder={t.matches.pickOrganizer} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_ORGANIZER}>No organizer</SelectItem>
+                  <SelectItem value={NO_ORGANIZER}>
+                    {t.matches.noOrganizerYet}
+                  </SelectItem>
                   {players.map((player) => (
                     <SelectItem key={player.id} value={player.id}>
                       {player.firstName} {player.lastName}
@@ -338,17 +358,18 @@ function MatchForm({
           render={({ field }) => (
             <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
               <span className="space-y-0.5">
-                <span className="block text-sm font-medium">Repeat weekly</span>
+                <span className="block text-sm font-medium">
+                  {t.matches.repeatWeekly}
+                </span>
                 <span className="block text-xs text-muted-foreground">
-                  Same weekday, time and place. The next date appears on its own
-                  with the same lineup.
+                  {t.matches.repeatWeeklyLine}
                 </span>
               </span>
               <Switch
                 checked={field.value}
                 onCheckedChange={field.onChange}
                 disabled={pending}
-                aria-label="Repeat weekly"
+                aria-label={t.matches.repeatWeekly}
               />
             </label>
           )}
@@ -357,7 +378,7 @@ function MatchForm({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Players {selected.length}
+              {t.matches.playersLabel} {selected.length}
             </p>
             <Button
               type="button"
@@ -367,7 +388,7 @@ function MatchForm({
               onClick={() => setPlayerFormOpen(true)}
             >
               <Icon icon={UserAdd01Icon} size={15} />
-              New player
+              {t.players.newPlayer}
             </Button>
           </div>
 
@@ -386,11 +407,11 @@ function MatchForm({
             disabled={pending}
             onClick={onDone}
           >
-            Cancel
+            {t.common.cancel}
           </Button>
           <Button type="submit" disabled={pending}>
             {pending ? <Spinner /> : null}
-            {match ? "Save changes" : "Create match"}
+            {match ? t.matches.saveChanges : t.matches.createMatch}
           </Button>
         </DialogFooter>
       </form>

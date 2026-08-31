@@ -7,10 +7,11 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useMemo, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
-import { getArea } from "@/lib/constants";
+import { areaLabel } from "@/i18n/dictionaries";
 import { cn, normalize } from "@/lib/utils";
 import type { Player } from "@/types";
 import { AreaBadge } from "./area-badge";
@@ -33,6 +34,7 @@ export function PlayerPicker({
   lockedIds = [],
   className,
 }: PlayerPickerProps) {
+  const { t } = useLocale();
   const [query, setQuery] = useState("");
 
   const locked = useMemo(() => new Set(lockedIds), [lockedIds]);
@@ -44,10 +46,10 @@ export function PlayerPicker({
 
     return players.filter((player) =>
       normalize(
-        `${player.firstName} ${player.lastName} ${getArea(player.area).label}`,
+        `${player.firstName} ${player.lastName} ${areaLabel(t, player.area)}`,
       ).includes(needle),
     );
-  }, [players, query]);
+  }, [players, query, t]);
 
   return (
     <div className={cn("flex min-h-0 flex-col gap-3", className)}>
@@ -58,7 +60,7 @@ export function PlayerPicker({
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search by name or area..."
+          placeholder={t.players.searchByNameOrArea}
           className="pl-9"
         />
       </div>
@@ -67,11 +69,9 @@ export function PlayerPicker({
         {results.length === 0 ? (
           <EmptyState
             icon={UserGroupIcon}
-            title="No results"
+            title={t.players.noResults}
             description={
-              players.length
-                ? "Try another name."
-                : "No players have been created yet."
+              players.length ? t.players.tryAnotherName : t.players.noneCreated
             }
             className="py-10"
           />

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +25,7 @@ export function LoginDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLocale();
   const busy = useRef(false);
 
   return (
@@ -35,10 +37,8 @@ export function LoginDialog({
     >
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Sign in</DialogTitle>
-          <DialogDescription>
-            Managing matches, players and places needs the office password.
-          </DialogDescription>
+          <DialogTitle>{t.login.title}</DialogTitle>
+          <DialogDescription>{t.login.description}</DialogDescription>
         </DialogHeader>
 
         <LoginForm
@@ -58,10 +58,11 @@ function LoginForm({
   onDone: () => void;
 }) {
   const { login } = usePichanga();
+  const { t } = useLocale();
   const [password, setPassword] = useState("");
 
   const { run, pending } = useAction(async () => login(password), {
-    success: "Signed in",
+    success: t.login.signedIn,
     onSuccess: () => onDone(),
   });
 
@@ -75,7 +76,7 @@ function LoginForm({
         onBusyChange(false);
       }}
     >
-      <Field label="Password">
+      <Field label={t.login.password}>
         <Input
           type="password"
           autoComplete="current-password"
@@ -93,11 +94,11 @@ function LoginForm({
           disabled={pending}
           onClick={onDone}
         >
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button type="submit" disabled={pending || !password}>
           {pending ? <Spinner /> : null}
-          Sign in
+          {t.login.title}
         </Button>
       </DialogFooter>
     </form>

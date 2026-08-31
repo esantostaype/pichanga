@@ -30,8 +30,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     throw new Error(
-      (payload as { error?: string } | null)?.error ??
-        "The request could not be completed",
+      (payload as { error?: string } | null)?.error ?? "common.requestFailed",
     );
   }
 

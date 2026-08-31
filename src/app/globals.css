@@ -166,7 +166,6 @@
   ::selection {
     background: color-mix(in oklab, var(--primary) 30%, transparent);
   }
-
 }
 
 @layer utilities {
@@ -180,7 +179,7 @@
     font-synthesis-weight: none;
   }
 
-/*
+  /*
    * One scrollbar, everywhere.
    *
    * It used to be a class drawers and tables opted into, which left the page
@@ -293,6 +292,623 @@
     100% {
       opacity: 0;
       transform: scale(1.12);
+    }
+  }
+
+  /*
+   * The tour arrives a beat at a time.
+   *
+   * The hidden state hangs off `data-reveal`, which JavaScript puts on the
+   * root when it starts: with none, the page is simply all there. Transitions
+   * rather than an animation library, so nothing depends on a frame arriving
+   * -- a tween that never ticks leaves what it was hiding hidden, and this is
+   * the one page that has to work for somebody who has never seen the app.
+   */
+  [data-reveal="on"] [data-tour] {
+    opacity: 0;
+    transform: translateY(28px);
+    transition:
+      opacity 0.7s var(--ease-pichanga),
+      transform 0.7s var(--ease-pichanga);
+  }
+
+  [data-reveal="on"] [data-tour][data-seen] {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-reveal="on"] [data-tour] {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /*
+   * The tour's little films.
+   *
+   * Keyframes rather than a timeline in JavaScript: they loop for ever on a
+   * page somebody reads once, they have to survive a tab left in the
+   * background all morning, and nothing here should depend on a frame
+   * arriving. Every one of them stops dead for anybody who asked for less
+   * motion.
+   */
+  .tour-arrive {
+    animation: tour-arrive 6s var(--ease-pichanga) infinite;
+  }
+
+  .tour-recolour {
+    animation: tour-recolour 6s steps(1, end) infinite;
+  }
+
+  .tour-press {
+    animation: tour-press 6s var(--ease-pichanga) infinite;
+  }
+
+  .tour-cursor-draw {
+    left: 50%;
+    bottom: 0.75rem;
+    animation: tour-cursor-draw 6s var(--ease-pichanga) infinite;
+  }
+
+  .tour-cursor-tap {
+    left: 58%;
+    top: 46%;
+    animation: tour-cursor-tap 5s var(--ease-pichanga) infinite;
+  }
+
+  .tour-row-out {
+    animation: tour-row-out 5s var(--ease-pichanga) infinite;
+  }
+
+  .tour-shout {
+    animation: tour-shout 5s var(--ease-pichanga) infinite;
+  }
+
+  .tour-fill {
+    width: 0;
+    animation: tour-fill 5s var(--ease-pichanga) infinite;
+  }
+
+  /*
+   * A skill filling in as the card opens: once, not on a loop, and held
+   * where it lands. `--to` is the number as a percentage.
+   */
+  .skill-fill {
+    width: var(--to);
+    animation: skill-fill 0.7s var(--ease-pichanga) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skill-fill {
+      animation: none;
+    }
+  }
+
+  @keyframes skill-fill {
+    from {
+      width: 0;
+    }
+    to {
+      width: var(--to);
+    }
+  }
+
+  .tour-type {
+    animation: tour-type 5s var(--ease-pichanga) infinite;
+  }
+
+  .tour-pulse {
+    animation: tour-pulse 3s var(--ease-pichanga) infinite;
+  }
+
+  .tour-settle {
+    background-color: rgb(239 68 68 / 0.9);
+    animation: tour-settle 4s var(--ease-pichanga) infinite;
+  }
+
+  .tour-bench {
+    animation: tour-bench 4.2s var(--ease-pichanga) infinite;
+  }
+
+  .tour-count {
+    animation: tour-count 4.2s var(--ease-pichanga) infinite;
+  }
+
+  .tour-send {
+    animation: tour-send 5s var(--ease-pichanga) infinite;
+  }
+
+  .tour-bubble {
+    animation: tour-bubble 5s var(--ease-pichanga) infinite;
+  }
+
+  .tour-rise {
+    height: 0;
+    animation: tour-rise 5s var(--ease-pichanga) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tour-arrive,
+    .tour-recolour,
+    .tour-press,
+    .tour-cursor-draw,
+    .tour-cursor-tap,
+    .tour-row-out,
+    .tour-shout,
+    .tour-fill,
+    .tour-type,
+    .tour-pulse,
+    .tour-settle,
+    .tour-bench,
+    .tour-count,
+    .tour-send,
+    .tour-bubble,
+    .tour-rise {
+      animation: none;
+    }
+
+    .tour-fill {
+      width: var(--to, 60%);
+    }
+
+    .tour-rise {
+      height: var(--to, 60%);
+    }
+  }
+
+  @keyframes tour-arrive {
+    0%,
+    4% {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+    14%,
+    86% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    96%,
+    100% {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+  }
+
+  @keyframes tour-recolour {
+    0% {
+      border-color: var(--one);
+      background-color: color-mix(in oklab, var(--one) 22%, black);
+    }
+    33% {
+      border-color: var(--two);
+      background-color: color-mix(in oklab, var(--two) 22%, black);
+    }
+    66% {
+      border-color: var(--three);
+      background-color: color-mix(in oklab, var(--three) 22%, black);
+    }
+  }
+
+  @keyframes tour-press {
+    0%,
+    28%,
+    36%,
+    100% {
+      transform: scale(1);
+      filter: brightness(1);
+    }
+    32% {
+      transform: scale(0.94);
+      filter: brightness(1.25);
+    }
+  }
+
+  @keyframes tour-cursor-draw {
+    0% {
+      transform: translate(1.5rem, -1.5rem);
+      opacity: 0;
+    }
+    18% {
+      opacity: 1;
+    }
+    28% {
+      transform: translate(0.2rem, -0.2rem);
+    }
+    32% {
+      transform: translate(0.2rem, 0.15rem);
+    }
+    40%,
+    100% {
+      transform: translate(1.5rem, -1.5rem);
+      opacity: 0;
+    }
+  }
+
+  @keyframes tour-cursor-tap {
+    0% {
+      transform: translate(1.5rem, 1.5rem);
+      opacity: 0;
+    }
+    14% {
+      opacity: 1;
+      transform: translate(0, 0);
+    }
+    20%,
+    28% {
+      transform: translate(0, 0.2rem);
+    }
+    24%,
+    32% {
+      transform: translate(0, 0);
+    }
+    46%,
+    100% {
+      opacity: 0;
+      transform: translate(1.5rem, 1.5rem);
+    }
+  }
+
+  @keyframes tour-row-out {
+    0%,
+    30% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    34% {
+      transform: scale(0.98);
+    }
+    44%,
+    82% {
+      opacity: 0.15;
+      transform: scale(1);
+    }
+    92%,
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @keyframes tour-shout {
+    0%,
+    34% {
+      opacity: 0;
+      transform: scale(0.6) rotate(-4deg);
+    }
+    44%,
+    76% {
+      opacity: 1;
+      transform: scale(1) rotate(0deg);
+    }
+    88%,
+    100% {
+      opacity: 0;
+      transform: scale(0.7) rotate(-4deg);
+    }
+  }
+
+  @keyframes tour-fill {
+    0%,
+    6% {
+      width: 0;
+    }
+    36%,
+    88% {
+      width: var(--to);
+    }
+    100% {
+      width: 0;
+    }
+  }
+
+  @keyframes tour-type {
+    0%,
+    4% {
+      width: 0;
+    }
+    26%,
+    90% {
+      width: 7rem;
+    }
+    100% {
+      width: 0;
+    }
+  }
+
+  @keyframes tour-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 45%, transparent);
+    }
+    60% {
+      box-shadow: 0 0 0 12px transparent;
+    }
+  }
+
+  @keyframes tour-settle {
+    0%,
+    40% {
+      background-color: rgb(239 68 68 / 0.9);
+      transform: scale(1);
+    }
+    48% {
+      transform: scale(1.25);
+    }
+    56%,
+    92% {
+      background-color: rgb(16 185 129 / 0.95);
+      transform: scale(1);
+    }
+    100% {
+      background-color: rgb(239 68 68 / 0.9);
+    }
+  }
+
+  @keyframes tour-bench {
+    0%,
+    22% {
+      transform: translateY(0) scale(1);
+      opacity: 0.45;
+    }
+    34%,
+    64% {
+      transform: translateY(-0.5rem) scale(1.08);
+      opacity: 1;
+    }
+    78%,
+    100% {
+      transform: translateY(0) scale(1);
+      opacity: 0.45;
+    }
+  }
+
+  @keyframes tour-count {
+    0%,
+    30% {
+      opacity: 0.4;
+      transform: translateY(0.3rem);
+    }
+    44%,
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes tour-send {
+    0%,
+    36% {
+      transform: translate(0, 0) rotate(0deg);
+      opacity: 1;
+    }
+    62% {
+      transform: translate(1.5rem, -1.75rem) rotate(4deg) scale(0.9);
+      opacity: 0.15;
+    }
+    64%,
+    100% {
+      transform: translate(0, 0) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  @keyframes tour-bubble {
+    0%,
+    52% {
+      opacity: 0;
+      transform: translateY(0.5rem) scale(0.9);
+    }
+    66%,
+    88% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    96%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* The grass, standing back while the sides are read out. */
+  .tour-behind {
+    animation: tour-behind 6s var(--ease-pichanga) infinite;
+  }
+
+  /* And the sheet that comes up over it with the sides on it. */
+  .tour-sheet {
+    animation: tour-sheet 6s var(--ease-pichanga) infinite;
+  }
+
+  .tour-slot {
+    animation: tour-slot 6s var(--ease-pichanga) infinite;
+  }
+
+  /* The table, where fourth and fifth keep trading places. */
+  .tour-rank-1 {
+    animation: tour-rank-1 8s var(--ease-pichanga) infinite;
+  }
+
+  .tour-rank-2 {
+    animation: tour-rank-2 8s var(--ease-pichanga) infinite;
+  }
+
+  .tour-rank-3 {
+    animation: tour-rank-3 8s var(--ease-pichanga) infinite;
+  }
+
+  .tour-tick {
+    animation: tour-tick 8s var(--ease-pichanga) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tour-behind,
+    .tour-sheet,
+    .tour-slot,
+    .tour-rank-1,
+    .tour-rank-2,
+    .tour-rank-3,
+    .tour-tick {
+      animation: none;
+    }
+
+    .tour-rank-1 {
+      transform: translateY(0);
+    }
+    .tour-rank-2 {
+      transform: translateY(2.5rem);
+    }
+    .tour-rank-3 {
+      transform: translateY(5rem);
+    }
+  }
+
+  /*
+   * The button is pressed a third of the way in, so the grass steps back just
+   * after it and the sheet arrives on top -- late enough that the press reads
+   * as the cause of it.
+   */
+  @keyframes tour-behind {
+    0%,
+    34% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    46%,
+    84% {
+      opacity: 0.3;
+      transform: scale(0.97);
+    }
+    96%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes tour-sheet {
+    0%,
+    34% {
+      opacity: 0;
+      transform: translateY(8%) scale(0.94);
+    }
+    46%,
+    84% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    94%,
+    100% {
+      opacity: 0;
+      transform: translateY(8%) scale(0.94);
+    }
+  }
+
+  /* The names landing in the sheet one after another, not all at once. */
+  @keyframes tour-slot {
+    0%,
+    38% {
+      opacity: 0;
+      transform: translateX(-10%);
+    }
+    52%,
+    84% {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    94%,
+    100% {
+      opacity: 0;
+      transform: translateX(-10%);
+    }
+  }
+
+  /*
+   * Three rows, three places, and every one of them takes a turn at the top:
+   * the rows move rather than the list re-sorting, because `order` snaps and a
+   * transform slides.
+   */
+  @keyframes tour-rank-1 {
+    0%,
+    22% {
+      transform: translateY(0);
+    }
+    32%,
+    55% {
+      transform: translateY(2.5rem);
+    }
+    65%,
+    100% {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes tour-rank-2 {
+    0%,
+    22% {
+      transform: translateY(2.5rem);
+    }
+    32%,
+    55% {
+      transform: translateY(0);
+    }
+    65%,
+    88% {
+      transform: translateY(5rem);
+    }
+    98%,
+    100% {
+      transform: translateY(2.5rem);
+    }
+  }
+
+  @keyframes tour-rank-3 {
+    0%,
+    22% {
+      transform: translateY(5rem);
+    }
+    32%,
+    55% {
+      transform: translateY(5rem);
+    }
+    65%,
+    88% {
+      transform: translateY(2.5rem);
+    }
+    98%,
+    100% {
+      transform: translateY(5rem);
+    }
+  }
+
+  @keyframes tour-tick {
+    0%,
+    28% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    32% {
+      opacity: 0;
+      transform: translateY(-0.4rem);
+    }
+    36%,
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes tour-rise {
+    0%,
+    8% {
+      height: 0;
+    }
+    42%,
+    88% {
+      height: var(--to);
+    }
+    100% {
+      height: 0;
     }
   }
 

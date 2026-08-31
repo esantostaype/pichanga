@@ -1,4 +1,5 @@
 import { removeGoal } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -19,7 +20,7 @@ export async function DELETE(_request: Request, { params }: Context) {
     const { id, goalId } = await params;
 
     const live = await removeGoal(id, goalId);
-    if (!live) return fail("That game has finished; its goals stand", 409);
+    if (!live) return fail((await messages()).gameFinished, 409);
 
     await broadcast(REALTIME.events.liveChanged, { matchId: id });
 

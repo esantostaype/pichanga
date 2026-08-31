@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { DICTIONARIES } from "@/i18n/dictionaries";
+import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale } from "@/i18n/locale";
 import { SESSION_COOKIE, verifySessionToken, type Role } from "@/lib/auth";
 
 /**
@@ -73,6 +75,18 @@ const PROTECTED_READS: Array<{ pattern: RegExp; role: Role }> = [
 const allows = (role: Role, required: Role) =>
   role === "superadmin" || required === "admin";
 
+/*
+ * The words, without `next/headers`.
+ *
+ * This file runs in the proxy runtime, where `cookies()` does not exist --
+ * but the request is right here and it is carrying the same cookie, so the
+ * language is one lookup away.
+ */
+const refusals = (request: NextRequest) => {
+  const chosen = request.cookies.get(LOCALE_COOKIE)?.value;
+  return DICTIONARIES[isLocale(chosen) ? chosen : DEFAULT_LOCALE].api;
+};
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -106,15 +120,11 @@ export async function proxy(request: NextRequest) {
 
   // Signed in but not far enough: say so, instead of asking for a password
   // they already typed.
+  const says = refusals(request);
+
   return role
-    ? NextResponse.json(
-        { error: "This is only for the super admin" },
-        { status: 403 },
-      )
-    : NextResponse.json(
-        { error: "You need to sign in to do that" },
-        { status: 401 },
-      );
+    ? NextResponse.json({ error: says.superAdminOnly }, { status: 403 })
+    : NextResponse.json({ error: says.needSignIn }, { status: 401 });
 }
 
 export const config = {

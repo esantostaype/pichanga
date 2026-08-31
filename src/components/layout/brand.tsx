@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 
 /**
@@ -13,6 +14,7 @@ import { usePichanga } from "@/components/providers/pichanga-provider";
  */
 export function Brand() {
   const { pinnedMatchId } = usePichanga();
+  const { t } = useLocale();
 
   const mark = (
     // eslint-disable-next-line @next/next/no-img-element
@@ -26,7 +28,7 @@ export function Brand() {
   return (
     <Link
       href="/"
-      aria-label="Pichanga, current match"
+      aria-label={t.header.brand}
       className="flex shrink-0 cursor-pointer flex-col gap-1 rounded-lg no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
     >
       {mark}

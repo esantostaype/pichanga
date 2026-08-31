@@ -8,6 +8,8 @@ import {
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 
+import { useLocale } from "@/components/providers/locale-provider";
+import { DICTIONARIES } from "@/i18n/dictionaries";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,11 +27,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAction } from "@/hooks/use-action";
+import { fill } from "@/i18n/dictionaries";
 import { formatShortDate } from "@/lib/date";
 import {
   matchShareText,
   renderMatchCard,
   type ShareScope,
+  type ShareWords,
 } from "@/lib/share-card";
 import type { Match } from "@/types";
 
@@ -50,6 +54,16 @@ export function ShareDialog({
   onOpenChange: (open: boolean) => void;
   match: Match | null;
 }) {
+  const { t, locale } = useLocale();
+
+  /* What the drawn card and the message say around the numbers. */
+  const cardWords: ShareWords = {
+    cardPitch: t.share.cardPitch,
+    cardOnPitch: t.share.cardOnPitch,
+    cardAllPaid: t.share.cardAllPaid,
+    cardOwing: t.share.cardOwing,
+    cardOrganizer: t.share.cardOrganizer,
+  };
   const [preview, setPreview] = useState<string | null>(null);
   const file = useRef<Blob | null>(null);
   /** The object URL behind `preview`, so it can be released once replaced. */
@@ -76,7 +90,7 @@ export function ShareDialog({
 
     let cancelled = false;
 
-    void renderMatchCard(match, scope)
+    void renderMatchCard(match, scope, DICTIONARIES[locale].share, locale)
       .then((blob) => {
         const url = URL.createObjectURL(blob);
 
@@ -97,7 +111,9 @@ export function ShareDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, match, scope]);
+    // `locale` belongs here: the card has words on it, so it is a different
+    // card in the other language.
+  }, [open, match, scope, locale]);
 
   /** The last card ever drawn, released when the dialog leaves for good. */
   useEffect(
@@ -125,7 +141,7 @@ export function ShareDialog({
     if (!file.current) return;
 
     if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") {
-      toast.error("This browser cannot copy images. Download it instead.");
+      toast.error(t.share.noImageCopy);
       return;
     }
 
@@ -134,9 +150,9 @@ export function ShareDialog({
       await navigator.clipboard.write([
         new ClipboardItem({ "image/png": await asPng(file.current) }),
       ]);
-      toast.success("Image copied. Paste it into the chat.");
+      toast.success(t.share.copiedImagePaste);
     } catch {
-      toast.error("This browser cannot copy images. Download it instead.");
+      toast.error(t.share.noImageCopy);
     }
   });
 
@@ -156,25 +172,35 @@ export function ShareDialog({
     >
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Share the lineup</DialogTitle>
+          <DialogTitle>{t.share.heading}</DialogTitle>
           <DialogDescription>
             {!match
-              ? "Nothing to share yet."
+              ? t.share.nothing
               : scope === "payments"
-                ? `${formatShortDate(match.playedAt)}, ${owing} still to pay.`
-                : `${formatShortDate(match.playedAt)}, ${match.players.length} ${match.players.length === 1 ? "player" : "players"}.`}
+                ? fill(t.share.stillToPay, {
+                    date: formatShortDate(match.playedAt, locale),
+                    count: owing,
+                  })
+                : fill(t.share.lineup, {
+                    date: formatShortDate(match.playedAt, locale),
+                    count: match.players.length,
+                    players:
+                      match.players.length === 1
+                        ? t.common.player
+                        : t.common.players,
+                  })}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs
-          ariaLabel="What to share"
+          ariaLabel={t.share.whatToShare}
           value={scope}
           onChange={(next) => setScope(next as ShareScope)}
           items={[
-            { value: "match", label: "Match" },
+            { value: "match", label: t.share.tabMatch },
             {
               value: "payments",
-              label: "Payments",
+              label: t.share.tabPayments,
             },
           ]}
         />
@@ -185,7 +211,7 @@ export function ShareDialog({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview}
-              alt="The match card"
+              alt={t.share.cardAlt}
               className="block w-full rounded-xl"
             />
           ) : (
@@ -197,14 +223,14 @@ export function ShareDialog({
 
         <div className="flex items-center justify-end gap-2">
           <Action
-            label="Download the image"
+            label={t.share.download}
             icon={Download04Icon}
             disabled={!preview}
             onClick={download}
           />
 
           <Action
-            label="Copy the image"
+            label={t.share.copyImage}
             icon={Copy01Icon}
             disabled={!preview || copyImage.pending}
             pending={copyImage.pending}
@@ -214,15 +240,23 @@ export function ShareDialog({
           <Action
             // A phone opens the app; a desktop already has WhatsApp Web in
             // another tab and only needs the message to paste into it.
-            label={
-              onPhone ? "Send with WhatsApp" : "Copy the text for WhatsApp"
-            }
+            label={onPhone ? t.share.sendWhatsApp : t.share.copyForWhatsApp}
             icon={WhatsappIcon}
             disabled={!match}
             onClick={() => {
               if (!match) return;
-              if (onPhone) openWhatsApp(match, scope);
-              else void copyText(match, scope);
+              if (onPhone) openWhatsApp(match, scope, cardWords, locale);
+              else
+                void copyText(
+                  match,
+                  scope,
+                  {
+                    copied: t.share.copiedLineup,
+                    noClipboard: t.share.noClipboard,
+                  },
+                  cardWords,
+                  locale,
+                );
             }}
           />
         </div>
@@ -274,7 +308,7 @@ async function asPng(jpeg: Blob) {
 
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error("No image to copy"))),
+      (blob) => (blob ? resolve(blob) : reject(new Error("share.noImageCopy"))),
       "image/png",
     );
   });
@@ -296,12 +330,20 @@ function useCoarsePointer() {
 }
 
 /** The message on the clipboard, ready to paste into whatever chat is open. */
-async function copyText(match: Match, scope: ShareScope) {
+async function copyText(
+  match: Match,
+  scope: ShareScope,
+  said: { copied: string; noClipboard: string },
+  words: ShareWords,
+  lang: "en" | "es",
+) {
   try {
-    await navigator.clipboard.writeText(matchShareText(match, scope));
-    toast.success("Lineup copied. Paste it into WhatsApp.");
+    await navigator.clipboard.writeText(
+      matchShareText(match, scope, words, lang),
+    );
+    toast.success(said.copied);
   } catch {
-    toast.error("The clipboard is not available here.");
+    toast.error(said.noClipboard);
   }
 }
 
@@ -312,7 +354,12 @@ async function copyText(match: Match, scope: ShareScope) {
  * scheme for it and its Business API does not address groups at all. The chat
  * is picked in WhatsApp itself, which costs one tap.
  */
-function openWhatsApp(match: Match, scope: ShareScope) {
-  const text = encodeURIComponent(matchShareText(match, scope));
+function openWhatsApp(
+  match: Match,
+  scope: ShareScope,
+  words: ShareWords,
+  lang: "en" | "es",
+) {
+  const text = encodeURIComponent(matchShareText(match, scope, words, lang));
   window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
 }

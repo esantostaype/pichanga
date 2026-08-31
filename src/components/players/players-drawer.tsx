@@ -10,6 +10,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useMemo, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { BulkBar } from "@/components/ui/bulk-bar";
 import { Button } from "@/components/ui/button";
@@ -34,9 +35,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { areaLabel, fill } from "@/i18n/dictionaries";
 import { useAction } from "@/hooks/use-action";
 import { useRowSelection } from "@/hooks/use-row-selection";
-import { getArea } from "@/lib/constants";
 import { normalize } from "@/lib/utils";
 import type { Player } from "@/types";
 import { AreaBadge } from "./area-badge";
@@ -51,6 +52,7 @@ export function PlayersDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLocale();
   const { players, deletePlayers } = usePichanga();
 
   const [query, setQuery] = useState("");
@@ -69,17 +71,17 @@ export function PlayersDrawer({
 
     return players.filter((player) =>
       normalize(
-        `${player.firstName} ${player.lastName} ${getArea(player.area).label}`,
+        `${player.firstName} ${player.lastName} ${areaLabel(t, player.area)}`,
       ).includes(needle),
     );
-  }, [players, query]);
+  }, [players, query, t]);
 
   // Selection follows the filtered rows, so "select all" means what is on
   // screen rather than every player in the database.
   const selection = useRowSelection(results);
 
   const remove = useAction(async (ids: string[]) => deletePlayers(ids), {
-    success: "Players deleted",
+    success: t.players.deletedMany,
     onSuccess: () => {
       setPendingDelete([]);
       selection.clear();
@@ -88,11 +90,13 @@ export function PlayersDrawer({
 
   const deleteLabel = (() => {
     if (pendingDelete.length !== 1) {
-      return `${pendingDelete.length} players will be removed, and they will leave every match they are signed up for.`;
+      return fill(t.players.deleteManyLine, { count: pendingDelete.length });
     }
     const one = players.find((player) => player.id === pendingDelete[0]);
     return one
-      ? `${one.firstName} ${one.lastName} will also be dropped from every match they are signed up for.`
+      ? fill(t.players.deleteOneLine, {
+          name: `${one.firstName} ${one.lastName}`,
+        })
       : undefined;
   })();
 
@@ -111,9 +115,13 @@ export function PlayersDrawer({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Players</SheetTitle>
+            <SheetTitle>{t.players.title}</SheetTitle>
             <SheetDescription>
-              {players.length} profile{players.length === 1 ? "" : "s"} saved.
+              {fill(t.players.savedCount, {
+                count: players.length,
+                profiles:
+                  players.length === 1 ? t.players.profile : t.players.profiles,
+              })}
             </SheetDescription>
           </SheetHeader>
 
@@ -121,7 +129,7 @@ export function PlayersDrawer({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Button size="sm" onClick={openCreate} className="self-start">
                 <Icon icon={UserAdd01Icon} size={16} />
-                New player
+                {t.players.newPlayer}
               </Button>
 
               <div className="relative sm:w-64">
@@ -131,7 +139,7 @@ export function PlayersDrawer({
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search players..."
+                  placeholder={t.players.searchPlaceholder}
                   className="h-9 pl-9"
                 />
               </div>
@@ -140,17 +148,17 @@ export function PlayersDrawer({
             {results.length === 0 ? (
               <EmptyState
                 icon={UserGroupIcon}
-                title={players.length ? "No results" : "No players yet"}
+                title={
+                  players.length ? t.players.noResults : t.players.emptyTitle
+                }
                 description={
-                  players.length
-                    ? "Try another name or area."
-                    : "Create the first profile to start building matches."
+                  players.length ? t.players.tryAnother : t.players.noneYet
                 }
                 action={
                   players.length ? null : (
                     <Button size="sm" onClick={openCreate}>
                       <Icon icon={UserAdd01Icon} size={16} />
-                      New player
+                      {t.players.newPlayer}
                     </Button>
                   )
                 }
@@ -159,7 +167,9 @@ export function PlayersDrawer({
               <>
                 <BulkBar
                   count={selection.count}
-                  noun="player"
+                  noun={
+                    selection.count === 1 ? t.common.player : t.common.players
+                  }
                   disabled={remove.pending}
                   onClear={selection.clear}
                   onDelete={() => setPendingDelete(selection.selected)}
@@ -172,12 +182,14 @@ export function PlayersDrawer({
                         <Checkbox
                           checked={selection.headerState}
                           onCheckedChange={selection.toggleAll}
-                          aria-label="Select every player shown"
+                          aria-label={t.players.selectAllShown}
                         />
                       </TableHead>
-                      <TableHead>Player</TableHead>
-                      <TableHead>Area</TableHead>
-                      <TableHead className="w-24 text-right">Actions</TableHead>
+                      <TableHead>{t.stats.player}</TableHead>
+                      <TableHead>{t.players.area}</TableHead>
+                      <TableHead className="w-24 text-right">
+                        {t.common.actions}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -195,7 +207,9 @@ export function PlayersDrawer({
                             className="mt-2.5"
                             checked={selection.isSelected(player.id)}
                             onCheckedChange={() => selection.toggle(player.id)}
-                            aria-label={`Select ${player.firstName} ${player.lastName}`}
+                            aria-label={fill(t.players.select, {
+                              name: `${player.firstName} ${player.lastName}`,
+                            })}
                           />
                         </TableCell>
                         <TableCell>
@@ -216,7 +230,9 @@ export function PlayersDrawer({
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              aria-label={`View ${player.firstName}`}
+                              aria-label={fill(t.players.viewName, {
+                                name: player.firstName,
+                              })}
                               onClick={() => {
                                 setViewing(player);
                                 setCardOpen(true);
@@ -227,7 +243,9 @@ export function PlayersDrawer({
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              aria-label={`Edit ${player.firstName}`}
+                              aria-label={fill(t.players.editName, {
+                                name: player.firstName,
+                              })}
                               onClick={() => openEdit(player)}
                             >
                               <Icon icon={PencilEdit02Icon} size={15} />
@@ -235,7 +253,9 @@ export function PlayersDrawer({
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              aria-label={`Delete ${player.firstName}`}
+                              aria-label={fill(t.players.deleteName, {
+                                name: player.firstName,
+                              })}
                               className="text-muted-foreground hover:text-destructive"
                               onClick={() => setPendingDelete([player.id])}
                             >
@@ -257,6 +277,11 @@ export function PlayersDrawer({
         open={cardOpen}
         onOpenChange={setCardOpen}
         player={viewing}
+        onEdit={(player) => {
+          setCardOpen(false);
+          setEditing(player);
+          setFormOpen(true);
+        }}
       />
 
       <PlayerFormDialog
@@ -270,8 +295,8 @@ export function PlayersDrawer({
         onOpenChange={(next) => !next && setPendingDelete([])}
         title={
           pendingDelete.length > 1
-            ? `Delete ${pendingDelete.length} players`
-            : "Delete player"
+            ? fill(t.players.deleteMany, { count: pendingDelete.length })
+            : t.players.deleteOne
         }
         description={deleteLabel}
         pending={remove.pending}

@@ -3,6 +3,8 @@
 import { Cancel01Icon, Delete02Icon } from "@hugeicons/core-free-icons";
 
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/components/providers/locale-provider";
+import { fill } from "@/i18n/dictionaries";
 import { Icon } from "@/components/ui/icon";
 
 /** Appears above a table once rows are ticked. */
@@ -14,18 +16,19 @@ export function BulkBar({
   disabled,
 }: {
   count: number;
-  /** Singular form, e.g. "player". */
+  /** Already in the reader's language, already pluralised by the caller. */
   noun: string;
   onDelete: () => void;
   onClear: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useLocale();
   if (count === 0) return null;
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
       <p className="text-sm font-medium">
-        {count} {count === 1 ? noun : `${noun}s`} selected
+        {fill(t.common.selected, { count, noun })}
       </p>
 
       <div className="flex items-center gap-1">
@@ -34,10 +37,10 @@ export function BulkBar({
           size="sm"
           onClick={onClear}
           disabled={disabled}
-          aria-label="Clear selection"
+          aria-label={t.common.close}
         >
           <Icon icon={Cancel01Icon} size={14} />
-          Clear
+          {t.common.clear}
         </Button>
         <Button
           variant="destructive"
@@ -46,7 +49,7 @@ export function BulkBar({
           disabled={disabled}
         >
           <Icon icon={Delete02Icon} size={14} />
-          Delete
+          {t.common.delete}
         </Button>
       </div>
     </div>

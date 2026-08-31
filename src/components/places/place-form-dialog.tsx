@@ -5,6 +5,8 @@ import { useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { useLocale } from "@/components/providers/locale-provider";
+import { problem } from "@/i18n/dictionaries";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,21 +34,19 @@ import type { Place } from "@/types";
 import { PlaceSearchField } from "./place-search-field";
 
 const formSchema = z.object({
-  name: z.string().trim().min(2, "At least 2 characters").max(80),
+  name: z.string().trim().min(2, "places.nameTooShort").max(80),
   address: z.string().trim().max(200).optional(),
-  mapsUrl: z
-    .union([z.string().url("Must be a valid URL"), z.literal("")])
-    .optional(),
+  mapsUrl: z.union([z.string().url("places.badUrl"), z.literal("")]).optional(),
   // Same as the price: text, so an empty field means "nobody has said".
   format: z.string().optional(),
   // Kept as text so an empty field means "no price" instead of zero.
   price: z
     .string()
     .trim()
-    .refine((value) => value === "" || Number(value) >= 0, "Cannot be negative")
+    .refine((value) => value === "" || Number(value) >= 0, "places.negative")
     .refine(
       (value) => value === "" || Number.isFinite(Number(value)),
-      "Must be a number",
+      "places.notANumber",
     )
     .optional(),
 });
@@ -66,6 +66,7 @@ export function PlaceFormDialog({
   place,
   onSaved,
 }: PlaceFormDialogProps) {
+  const { t } = useLocale();
   const busy = useRef(false);
 
   return (
@@ -77,10 +78,10 @@ export function PlaceFormDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{place ? "Edit place" : "New place"}</DialogTitle>
-          <DialogDescription>
-            Search it on Google Maps to fill everything in, or type it by hand.
-          </DialogDescription>
+          <DialogTitle>
+            {place ? t.places.formEdit : t.places.formNew}
+          </DialogTitle>
+          <DialogDescription>{t.places.formHint}</DialogDescription>
         </DialogHeader>
 
         <PlaceForm
@@ -105,6 +106,7 @@ function PlaceForm({
   onBusyChange: (busy: boolean) => void;
   onDone: (saved?: Place) => void;
 }) {
+  const { t } = useLocale();
   const { createPlace, updatePlace } = usePichanga();
 
   // Google-only data that has no field of its own in the form.
@@ -143,7 +145,7 @@ function PlaceForm({
       return place ? updatePlace(place.id, payload) : createPlace(payload);
     },
     {
-      success: place ? "Place updated" : "Place created",
+      success: place ? t.places.updated : t.places.created,
       onSuccess: (saved) => saved && onDone(saved),
     },
   );
@@ -173,9 +175,9 @@ function PlaceForm({
         }}
       />
 
-      <Field label="Name" error={errors.name?.message}>
+      <Field label={t.places.name} error={problem(t, errors.name?.message)}>
         <Input
-          placeholder="Eureka El Polo"
+          placeholder={t.places.namePlaceholder}
           autoComplete="off"
           disabled={pending}
           aria-invalid={!!errors.name}
@@ -183,9 +185,12 @@ function PlaceForm({
         />
       </Field>
 
-      <Field label="Address" error={errors.address?.message}>
+      <Field
+        label={t.places.address}
+        error={problem(t, errors.address?.message)}
+      >
         <Input
-          placeholder="Av. El Polo 505, Santiago de Surco"
+          placeholder={t.places.addressPlaceholder}
           autoComplete="off"
           disabled={pending}
           {...form.register("address")}
@@ -194,8 +199,8 @@ function PlaceForm({
 
       <Field
         label={`Rental price (${CURRENCY})`}
-        error={errors.price?.message}
-        hint="Split across whoever plays. Leave empty if it is free."
+        error={problem(t, errors.price?.message)}
+        hint={t.places.priceHint}
       >
         <Input
           type="number"
@@ -211,9 +216,9 @@ function PlaceForm({
       </Field>
 
       <Field
-        label="Players a side"
-        error={errors.format?.message}
-        hint="Decides the size of the teams, and whether a big turnout plays a triangular."
+        label={t.places.formatLabel}
+        error={problem(t, errors.format?.message)}
+        hint={t.places.formatHint}
       >
         <Controller
           control={form.control}
@@ -225,7 +230,7 @@ function PlaceForm({
               disabled={pending}
             >
               <SelectTrigger aria-invalid={!!errors.format}>
-                <SelectValue placeholder="Not set" />
+                <SelectValue placeholder={t.places.notSet} />
               </SelectTrigger>
               <SelectContent>
                 {PITCH_FORMATS.map((format) => (
@@ -240,12 +245,12 @@ function PlaceForm({
       </Field>
 
       <Field
-        label="Maps link"
-        error={errors.mapsUrl?.message}
-        hint="Opens the venue in Google Maps."
+        label={t.places.mapsLink}
+        error={problem(t, errors.mapsUrl?.message)}
+        hint={t.places.mapsHint}
       >
         <Input
-          placeholder="https://maps.google.com/..."
+          placeholder={t.places.mapsPlaceholder}
           autoComplete="off"
           disabled={pending}
           aria-invalid={!!errors.mapsUrl}
@@ -260,11 +265,11 @@ function PlaceForm({
           disabled={pending}
           onClick={() => onDone()}
         >
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button type="submit" disabled={pending}>
           {pending ? <Spinner /> : null}
-          {place ? "Save changes" : "Create place"}
+          {place ? t.places.saveChanges : t.places.createPlace}
         </Button>
       </DialogFooter>
     </form>

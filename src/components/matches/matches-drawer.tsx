@@ -3,6 +3,7 @@
 import { Calendar03Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import { useEffect, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { BulkBar } from "@/components/ui/bulk-bar";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ import {
 import { useAction } from "@/hooks/use-action";
 import { useNow } from "@/hooks/use-now";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { fill } from "@/i18n/dictionaries";
 import { api } from "@/lib/api-client";
 import { formatShortDate, matchSlug } from "@/lib/date";
 import type { Match, MatchSummary } from "@/types";
@@ -40,6 +42,7 @@ export function MatchesDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t, locale } = useLocale();
   const { matches, players, nextMatch, homeMatchId, isAdmin, deleteMatches } =
     usePichanga();
   const { go } = useScene();
@@ -92,7 +95,7 @@ export function MatchesDrawer({
   const visible = matches.slice((current - 1) * PER_PAGE, current * PER_PAGE);
 
   const remove = useAction(async (ids: string[]) => deleteMatches(ids), {
-    success: "Matches deleted",
+    success: t.matches.deletedMany,
     onSuccess: () => {
       setPendingDelete([]);
       selection.clear();
@@ -101,11 +104,14 @@ export function MatchesDrawer({
 
   const deleteLabel = (() => {
     if (pendingDelete.length !== 1) {
-      return `${pendingDelete.length} dates and their lineups will be removed. Player profiles are kept.`;
+      return fill(t.matches.deleteManyLine, { count: pendingDelete.length });
     }
     const one = matches.find((match) => match.id === pendingDelete[0]);
     return one
-      ? `The ${formatShortDate(one.playedAt)} date and its lineup will be removed${one.recurrence === "weekly" ? ", and the weekly fixture stops repeating" : ""}. Player profiles are kept.`
+      ? fill(t.matches.deleteOneLine, {
+          date: formatShortDate(one.playedAt, locale),
+          weekly: one.recurrence === "weekly" ? t.matches.deleteWeekly : "",
+        })
       : undefined;
   })();
 
@@ -119,10 +125,12 @@ export function MatchesDrawer({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>Matches</SheetTitle>
+            <SheetTitle>{t.matches.title}</SheetTitle>
             <SheetDescription>
-              {matches.length} date{matches.length === 1 ? "" : "s"} created. The
-              closest one owns the pitch.
+              {fill(t.matches.datesCreated, {
+                count: matches.length,
+                dates: matches.length === 1 ? t.common.date : t.common.dates,
+              })}
             </SheetDescription>
           </SheetHeader>
 
@@ -132,14 +140,18 @@ export function MatchesDrawer({
               <div className="flex flex-wrap items-center gap-2">
                 <Button size="sm" onClick={openCreate}>
                   <Icon icon={PlusSignIcon} size={16} />
-                  New match
+                  {t.matches.newMatch}
                 </Button>
 
                 {matches.length > 0 ? (
-                  <Button variant="ghost" size="sm" onClick={selection.toggleAll}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={selection.toggleAll}
+                  >
                     {selection.count === matches.length
-                      ? "Clear all"
-                      : "Select all"}
+                      ? t.matches.clearAll
+                      : t.matches.selectAll}
                   </Button>
                 ) : null}
               </div>
@@ -148,17 +160,15 @@ export function MatchesDrawer({
             {matches.length === 0 ? (
               <EmptyState
                 icon={Calendar03Icon}
-                title="No matches yet"
+                title={t.matches.emptyTitle}
                 description={
-                  isAdmin
-                    ? "Create a date and start adding players to the pitch."
-                    : "Signing in is needed to create the first date."
+                  isAdmin ? t.matches.emptyLine : t.matches.emptyGuest
                 }
                 action={
                   isAdmin ? (
                     <Button size="sm" onClick={openCreate}>
                       <Icon icon={PlusSignIcon} size={16} />
-                      New match
+                      {t.matches.newMatch}
                     </Button>
                   ) : null
                 }
@@ -168,7 +178,9 @@ export function MatchesDrawer({
                 {isAdmin ? (
                   <BulkBar
                     count={selection.count}
-                    noun="match"
+                    noun={
+                      selection.count === 1 ? t.common.date : t.common.dates
+                    }
                     disabled={remove.pending}
                     onClear={selection.clear}
                     onDelete={() => setPendingDelete(selection.selected)}
@@ -264,9 +276,7 @@ export function MatchesDrawer({
         matchId={gallery?.id ?? null}
         playedAt={gallery?.playedAt ?? null}
         // Closed to new files once the match has started, like the fixture.
-        canAdd={
-          !!gallery && now !== null && gallery.playedAt > now
-        }
+        canAdd={!!gallery && now !== null && gallery.playedAt > now}
       />
 
       <PaymentsDialog
@@ -287,8 +297,8 @@ export function MatchesDrawer({
         onOpenChange={(next) => !next && setPendingDelete([])}
         title={
           pendingDelete.length > 1
-            ? `Delete ${pendingDelete.length} matches`
-            : "Delete match"
+            ? fill(t.matches.deleteMany, { count: pendingDelete.length })
+            : t.matches.deleteOne
         }
         description={deleteLabel}
         pending={remove.pending}

@@ -98,6 +98,28 @@ function circle(
  */
 export type ShareScope = "match" | "payments";
 
+/** The handful of words the card and the message put around the numbers. */
+export type ShareWords = {
+  cardPitch: string;
+  cardOnPitch: string;
+  cardAllPaid: string;
+  cardOwing: string;
+  cardOrganizer: string;
+};
+
+const DEFAULT_WORDS: ShareWords = {
+  cardPitch: "{total} the pitch, {each} each",
+  cardOnPitch: "{count} on the pitch",
+  cardAllPaid: "Everybody has paid",
+  cardOwing: "{paid} paid, {owing} pending{money}",
+  cardOrganizer: " (organizer)",
+};
+
+const fillWords = (line: string, values: Record<string, string | number>) =>
+  line.replace(/\{(\w+)\}/g, (whole, key: string) =>
+    key in values ? String(values[key]) : whole,
+  );
+
 /**
  * Draws the whole card and hands back a file ready to download or share.
  *
@@ -107,6 +129,8 @@ export type ShareScope = "match" | "payments";
 export async function renderMatchCard(
   match: Match,
   scope: ShareScope = "match",
+  words: ShareWords = DEFAULT_WORDS,
+  lang: "en" | "es" = "en",
 ): Promise<Blob> {
   const players = match.players;
   const paid = new Set(match.paidPlayerIds);
@@ -155,7 +179,7 @@ export async function renderMatchCard(
 
   ctx.fillStyle = INK;
   ctx.font = `600 46px "Sofia Sans Extra Condensed", "Sofia Sans", sans-serif`;
-  ctx.fillText(formatLongDate(match.playedAt).toUpperCase(), PAD, y + 34);
+  ctx.fillText(formatLongDate(match.playedAt, lang).toUpperCase(), PAD, y + 34);
   y += 74;
 
   ctx.fillStyle = MUTED;
@@ -164,7 +188,7 @@ export async function renderMatchCard(
   const facts = [
     formatTimeRange(match.playedAt, match.endsAt),
     match.place?.name,
-    `${players.length} ${players.length === 1 ? "player" : "players"}`,
+    fillWords(words.cardOnPitch, { count: players.length }),
   ].filter(Boolean) as string[];
 
   ctx.fillText(fit(ctx, facts.join("   ·   "), W - PAD * 2), PAD, y + 20);
@@ -278,7 +302,12 @@ export async function renderMatchCard(
     const textW = colW - 16 - (textX - x) - (paying ? 66 : 16);
 
     if (paying) {
-      drawPaidMark(ctx, x + colW - 16 - 44, top + (ROW_H - 14) / 2, paid.has(player.id));
+      drawPaidMark(
+        ctx,
+        x + colW - 16 - 44,
+        top + (ROW_H - 14) / 2,
+        paid.has(player.id),
+      );
     }
 
     // The organizer wears the crown here too, the way they do on the pitch.
@@ -377,19 +406,29 @@ function drawPaidMark(
 }
 
 /** The same information as a message, for a chat that wants text. */
-export function matchShareText(match: Match, scope: ShareScope = "match") {
+export function matchShareText(
+  match: Match,
+  scope: ShareScope = "match",
+  words: ShareWords = DEFAULT_WORDS,
+  lang: "en" | "es" = "en",
+) {
   const paying = scope === "payments";
   const players = match.players;
   const share = perPlayer(match.place?.price, players.length);
 
   const lines = [
-    `*${formatLongDate(match.playedAt)}*`,
+    `*${formatLongDate(match.playedAt, lang)}*`,
     `${formatTimeRange(match.playedAt, match.endsAt)}${match.place ? ` · ${match.place.name}` : ""}`,
   ];
 
   const total = match.place?.price ?? null;
   if (paying && total !== null && share !== null) {
-    lines.push(`${formatMoney(total)} the pitch, ${formatMoney(share)} each`);
+    lines.push(
+      fillWords(words.cardPitch, {
+        total: formatMoney(total),
+        each: formatMoney(share),
+      }),
+    );
   }
   const maps = paying ? null : placeMapsUrl(match.place);
   if (maps) lines.push(maps);
@@ -398,20 +437,24 @@ export function matchShareText(match: Match, scope: ShareScope = "match") {
   const owing = players.length - paid.size;
 
   lines.push("");
-  lines.push(`*${players.length} on the pitch*`);
+  lines.push(`*${fillWords(words.cardOnPitch, { count: players.length })}*`);
 
   if (paying) {
     lines.push(
       owing === 0
-        ? "Everybody has paid"
-        : `${paid.size} paid, ${owing} pending${share === null ? "" : ` (${formatMoney(share * owing)})`}`,
+        ? words.cardAllPaid
+        : fillWords(words.cardOwing, {
+            paid: paid.size,
+            owing,
+            money: share === null ? "" : ` (${formatMoney(share * owing)})`,
+          }),
     );
   }
 
   lines.push("");
 
   players.forEach((player, index) => {
-    const crown = player.id === match.organizerId ? " (organizer)" : "";
+    const crown = player.id === match.organizerId ? words.cardOrganizer : "";
     // Ticks belong to the ledger. On the fixture they would start an argument
     // about money in a message that was only saying who is playing.
     const mark = paying ? `${paid.has(player.id) ? "✅" : "⏳"} ` : "";

@@ -8,6 +8,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { useCallback, useRef, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { BulkBar } from "@/components/ui/bulk-bar";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { useMatchMedia } from "@/hooks/use-match-media";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { fill } from "@/i18n/dictionaries";
 import { GALLERY, GALLERY_ACCEPT } from "@/lib/constants";
 import { formatShortDate } from "@/lib/date";
 import { fullUrl, thumbUrl } from "@/lib/media-url";
@@ -55,6 +57,7 @@ export function GalleryDialog({
   /** False once the match has started: the album is then a record to read. */
   canAdd?: boolean;
 }) {
+  const { t, locale } = useLocale();
   const { isAdmin } = usePichanga();
   const { items, loading, uploading, upload, remove } = useMatchMedia(
     matchId,
@@ -79,7 +82,7 @@ export function GalleryDialog({
   const selection = useRowSelection(items);
 
   const add = useAction(async (files: File[]) => upload(files), {
-    success: "Added to the gallery",
+    success: t.gallery.added,
   });
 
   /**
@@ -126,7 +129,7 @@ export function GalleryDialog({
   }, []);
 
   const drop = useAction(async (ids: string[]) => remove(ids), {
-    success: "Removed",
+    success: t.gallery.removed,
     onSuccess: () => {
       setPendingDelete([]);
       selection.clear();
@@ -140,44 +143,53 @@ export function GalleryDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Gallery</DialogTitle>
+            <DialogTitle>{t.gallery.heading}</DialogTitle>
             <DialogDescription>
               {playedAt !== null
-                ? `Photos and clips from ${formatShortDate(playedAt)}.`
-                : "Photos and clips from this match."}{" "}
+                ? fill(t.gallery.fromDate, {
+                    date: formatShortDate(playedAt, locale),
+                  })
+                : t.gallery.fromMatch}{" "}
               {canAdd
-                ? `Up to ${mb(GALLERY.maxImageBytes)} MB per photo and ${mb(GALLERY.maxVideoBytes)} MB per clip.`
-                : "The match has started, so the album is closed to new files."}
+                ? fill(t.gallery.limits, {
+                    photo: mb(GALLERY.maxImageBytes),
+                    video: mb(GALLERY.maxVideoBytes),
+                  })
+                : t.gallery.closed}
             </DialogDescription>
           </DialogHeader>
 
           <div className="flex flex-wrap items-center gap-2">
             {canAdd ? (
-            <>
-            <input
-              ref={input}
-              type="file"
-              accept={GALLERY_ACCEPT}
-              multiple
-              hidden
-              onChange={(event) => {
-                const files = Array.from(event.target.files ?? []);
-                // Cleared straight away so picking the same file twice still
-                // fires a change event.
-                event.target.value = "";
-                if (files.length) void add.run(files);
-              }}
-            />
+              <>
+                <input
+                  ref={input}
+                  type="file"
+                  accept={GALLERY_ACCEPT}
+                  multiple
+                  hidden
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    // Cleared straight away so picking the same file twice still
+                    // fires a change event.
+                    event.target.value = "";
+                    if (files.length) void add.run(files);
+                  }}
+                />
 
-            <Button
-              size="sm"
-              disabled={busy || !matchId}
-              onClick={() => input.current?.click()}
-            >
-              {busy ? <Spinner /> : <Icon icon={ImageAdd02Icon} size={16} />}
-              {busy ? "Uploading" : "Add photos or videos"}
-            </Button>
-            </>
+                <Button
+                  size="sm"
+                  disabled={busy || !matchId}
+                  onClick={() => input.current?.click()}
+                >
+                  {busy ? (
+                    <Spinner />
+                  ) : (
+                    <Icon icon={ImageAdd02Icon} size={16} />
+                  )}
+                  {busy ? t.gallery.uploading : t.gallery.addFiles}
+                </Button>
+              </>
             ) : null}
 
             {isAdmin && items.length > 0 ? (
@@ -187,7 +199,9 @@ export function GalleryDialog({
                 onClick={selection.toggleAll}
                 disabled={drop.pending}
               >
-                {selection.count === items.length ? "Clear all" : "Select all"}
+                {selection.count === items.length
+                  ? t.gallery.clearAll
+                  : t.gallery.selectAll}
               </Button>
             ) : null}
           </div>
@@ -195,7 +209,7 @@ export function GalleryDialog({
           {isAdmin ? (
             <BulkBar
               count={selection.count}
-              noun="file"
+              noun={selection.count === 1 ? t.common.file : t.common.files}
               disabled={drop.pending}
               onClear={selection.clear}
               onDelete={() => setPendingDelete(selection.selected)}
@@ -213,11 +227,9 @@ export function GalleryDialog({
           ) : items.length === 0 ? (
             <EmptyState
               icon={Album02Icon}
-              title="Nothing here yet"
+              title={t.gallery.nothingTitle}
               description={
-                canAdd
-                  ? "Add the first photo or clip from this match."
-                  : "This match finished without anybody adding one."
+                canAdd ? t.gallery.nothingLine : t.gallery.nothingEver
               }
             />
           ) : (
@@ -268,7 +280,9 @@ export function GalleryDialog({
                         loading="lazy"
                         onLoad={() =>
                           setLoaded((prev) =>
-                            prev.includes(media.id) ? prev : [...prev, media.id],
+                            prev.includes(media.id)
+                              ? prev
+                              : [...prev, media.id],
                           )
                         }
                         className={cn(
@@ -308,14 +322,14 @@ export function GalleryDialog({
                           <Checkbox
                             checked={picked}
                             onCheckedChange={() => selection.toggle(media.id)}
-                            aria-label="Select this file"
+                            aria-label={t.gallery.selectFile}
                           />
                         </span>
 
                         <Button
                           variant="secondary"
                           size="icon-sm"
-                          aria-label="Delete this file"
+                          aria-label={t.gallery.deleteFile}
                           className="absolute right-1.5 top-1.5 bg-black/70 opacity-0 backdrop-blur-sm hover:text-destructive focus-visible:opacity-100 group-hover/media:opacity-100 pointer-coarse:opacity-100"
                           onClick={() => setPendingDelete([media.id])}
                         >
@@ -348,15 +362,14 @@ export function GalleryDialog({
         onOpenChange={(next) => !next && setPendingDelete([])}
         title={
           pendingDelete.length > 1
-            ? `Delete ${pendingDelete.length} files`
-            : "Delete this file"
+            ? fill(t.gallery.deleteMany, { count: pendingDelete.length })
+            : t.gallery.deleteFile
         }
         description={
           pendingDelete.length > 1
-            ? `${pendingDelete.length} files leave the gallery and storage. This cannot be undone.`
-            : "It is removed from the gallery and from storage. This cannot be undone."
+            ? fill(t.gallery.deleteManyLine, { count: pendingDelete.length })
+            : t.gallery.deleteOneLine
         }
-        confirmLabel="Delete"
         pending={drop.pending}
         onConfirm={() => void drop.run(pendingDelete)}
       />

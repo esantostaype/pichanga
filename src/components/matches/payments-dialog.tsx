@@ -21,7 +21,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { useLocale } from "@/components/providers/locale-provider";
 import { useAction } from "@/hooks/use-action";
+import { fill } from "@/i18n/dictionaries";
 import { formatLongDate } from "@/lib/date";
 import { formatMoney, perPlayer } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -61,6 +63,7 @@ export function PaymentsDialog({
   loading?: boolean;
   onToggled?: () => void;
 }) {
+  const { t, locale } = useLocale();
   const { isAdmin, setPlayerPaid } = usePichanga();
 
   const toggle = useAction(
@@ -89,7 +92,7 @@ export function PaymentsDialog({
               reading the dialog out loud.
             */}
             <span className={cn(loading && "sr-only")}>
-              {match ? formatLongDate(match.playedAt) : "Rental"}
+              {match ? formatLongDate(match.playedAt, locale) : t.ledger.title}
             </span>
             {loading ? (
               <span className="flex h-7 items-center">
@@ -103,16 +106,20 @@ export function PaymentsDialog({
                 <Skeleton className="h-3.5 w-64" />
               </span>
             ) : share === null ? (
-              "This venue has no price yet, so there is nothing to split."
+              t.ledger.noPrice
             ) : (
-              `${formatMoney(share)} each. ${paid.size} of ${players.length} settled.`
+              fill(t.ledger.eachSettled, {
+                money: formatMoney(share),
+                paid: paid.size,
+                total: players.length,
+              })
             )}
           </DialogDescription>
         </DialogHeader>
 
         {loading ? (
           <div className="grid grid-cols-2 gap-3">
-            {["Collected", "Pending"].map((label) => (
+            {[t.ledger.collected, t.ledger.pending].map((label) => (
               <div
                 key={label}
                 className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3"
@@ -130,7 +137,7 @@ export function PaymentsDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-xl border border-border/60 bg-muted/25 px-4 py-3">
               <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Collected
+                {t.ledger.collected}
               </p>
               <p className="mt-0.5 text-lg tabular-nums text-foreground">
                 {formatMoney(collected)}
@@ -145,7 +152,7 @@ export function PaymentsDialog({
               )}
             >
               <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                Pending
+                {t.ledger.pending}
               </p>
               <p
                 className={cn(
@@ -179,8 +186,8 @@ export function PaymentsDialog({
         ) : players.length === 0 ? (
           <EmptyState
             icon={Coins01Icon}
-            title="Nobody on the pitch"
-            description="Add players to the match and their shares appear here."
+            title={t.ledger.emptyTitle}
+            description={t.ledger.emptyLine}
           />
         ) : (
           <ul
@@ -212,10 +219,10 @@ export function PaymentsDialog({
                   {isOrganizer ? (
                     <span
                       className="ml-auto flex items-center gap-1.5 text-xs text-primary"
-                      title="The organizer pays the venue, so their share is always settled"
+                      title={t.ledger.organizerNote}
                     >
                       <Icon icon={CrownIcon} size={14} />
-                      Organizer
+                      {t.ledger.organizer}
                     </span>
                   ) : isAdmin ? (
                     <Switch
@@ -225,7 +232,9 @@ export function PaymentsDialog({
                       onCheckedChange={(next) =>
                         void toggle.run({ playerId: player.id, paid: next })
                       }
-                      aria-label={`${player.firstName} paid the rental`}
+                      aria-label={fill(t.ledger.paidToggle, {
+                        name: player.firstName,
+                      })}
                     />
                   ) : (
                     <span
@@ -240,7 +249,7 @@ export function PaymentsDialog({
                         }
                         size={16}
                       />
-                      {hasPaid ? "Paid" : "Pending"}
+                      {hasPaid ? t.ledger.paid : t.ledger.pending}
                     </span>
                   )}
                 </li>

@@ -1,5 +1,7 @@
 "use client";
 
+import { useLocale } from "@/components/providers/locale-provider";
+import { fill } from "@/i18n/dictionaries";
 import { useLiveVisitors } from "@/hooks/use-presence";
 
 /**
@@ -9,6 +11,7 @@ import { useLiveVisitors } from "@/hooks/use-presence";
  * the server for that session: see `api/presence`.
  */
 export function LiveVisitors() {
+  const { t } = useLocale();
   const count = useLiveVisitors();
 
   // Null while the first poll is in flight, or if it failed: an empty corner
@@ -23,8 +26,9 @@ export function LiveVisitors() {
       </span>
 
       <span className="truncate">
-        <span className="tabular-nums text-foreground/70">{count}</span>{" "}
-        {count === 1 ? "person is" : "people are"} watching right now
+        {fill(count === 1 ? t.live.watchingOne : t.live.watchingMany, {
+          count,
+        })}
       </span>
     </p>
   );

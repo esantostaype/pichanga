@@ -5,6 +5,7 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import * as React from "react";
 
 import { Icon } from "@/components/ui/icon";
+import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
 const Sheet = SheetPrimitive.Root;
@@ -39,6 +40,8 @@ function SheetContent({
   side = "right",
   ...props
 }: SheetContentProps) {
+  const { t } = useLocale();
+
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -62,7 +65,7 @@ function SheetContent({
           )}
         >
           <Icon icon={Cancel01Icon} size={18} />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t.common.close}</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal>
@@ -111,7 +114,10 @@ function SheetDescription({
 function SheetBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex-1 overflow-y-auto scrollbar-thin px-6 py-5", className)}
+      className={cn(
+        "flex-1 overflow-y-auto scrollbar-thin px-6 py-5",
+        className,
+      )}
       {...props}
     />
   );

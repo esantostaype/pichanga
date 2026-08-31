@@ -3,6 +3,7 @@
 import { UserAdd01Icon } from "@hugeicons/core-free-icons";
 import { useMemo, useRef, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { PlayerPicker } from "@/components/players/player-picker";
 import { usePichanga } from "@/components/providers/pichanga-provider";
@@ -18,6 +19,7 @@ import {
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
+import { fill } from "@/i18n/dictionaries";
 import { formatShortDate } from "@/lib/date";
 
 /** Adds players to the match currently on the pitch. */
@@ -54,6 +56,7 @@ function AddPlayersForm({
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
 }) {
+  const { t, locale } = useLocale();
   const { players, nextMatch, addPlayersToNextMatch } = usePichanga();
 
   const [selected, setSelected] = useState<string[]>([]);
@@ -73,17 +76,20 @@ function AddPlayersForm({
 
   const { run, pending } = useAction(
     async () => addPlayersToNextMatch(selected),
-    { success: "Lineup updated", onSuccess: () => onDone() },
+    { success: t.addPlayers.done, onSuccess: () => onDone() },
   );
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Add players</DialogTitle>
+        <DialogTitle>{t.addPlayers.title}</DialogTitle>
         <DialogDescription>
           {nextMatch
-            ? `Match on ${formatShortDate(nextMatch.playedAt)} - ${lockedIds.length} already in.`
-            : "Create a match first."}
+            ? fill(t.addPlayers.onDate, {
+                date: formatShortDate(nextMatch.playedAt, locale),
+                count: lockedIds.length,
+              })
+            : t.addPlayers.noMatch}
         </DialogDescription>
       </DialogHeader>
 
@@ -96,7 +102,7 @@ function AddPlayersForm({
           onClick={() => setPlayerFormOpen(true)}
         >
           <Icon icon={UserAdd01Icon} size={15} />
-          New player
+          {t.players.newPlayer}
         </Button>
       </div>
 
@@ -110,7 +116,7 @@ function AddPlayersForm({
 
       <DialogFooter>
         <Button variant="ghost" disabled={pending} onClick={onDone}>
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button
           disabled={pending || !selected.length || !nextMatch}

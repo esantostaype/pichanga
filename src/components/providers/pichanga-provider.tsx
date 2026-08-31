@@ -12,6 +12,8 @@ import {
 
 import { useNow } from "@/hooks/use-now";
 import { useRealtime } from "@/hooks/use-realtime";
+import { useLocale } from "@/components/providers/locale-provider";
+import { fill } from "@/i18n/dictionaries";
 import { api } from "@/lib/api-client";
 import { REALTIME } from "@/lib/constants";
 import type { MatchInput, PlaceInput, PlayerInput } from "@/lib/validators";
@@ -99,6 +101,7 @@ export function PichangaProvider({
   initial: PichangaState;
   children: React.ReactNode;
 }) {
+  const { t } = useLocale();
   const [state, setState] = useState<PichangaState>(initial);
   const [mediaVersion, setMediaVersion] = useState(0);
 
@@ -184,14 +187,17 @@ export function PichangaProvider({
     const deleteAll = async (
       ids: string[],
       remove: (id: string) => Promise<unknown>,
-      noun: string,
     ) => {
       const results = await Promise.allSettled(ids.map(remove));
       const failed = results.filter((r) => r.status === "rejected").length;
 
       if (failed) {
         throw new Error(
-          `${ids.length - failed} of ${ids.length} ${noun} deleted, ${failed} failed`,
+          fill(t.common.partlyDeleted, {
+            done: ids.length - failed,
+            total: ids.length,
+            failed,
+          }),
         );
       }
     };
@@ -260,7 +266,7 @@ export function PichangaProvider({
 
       deletePlayers: async (ids) => {
         try {
-          await deleteAll(ids, api.players.remove, "players");
+          await deleteAll(ids, api.players.remove);
         } finally {
           // Refresh even on a partial failure: some rows are already gone.
           await Promise.all([
@@ -290,7 +296,7 @@ export function PichangaProvider({
 
       deletePlaces: async (ids) => {
         try {
-          await deleteAll(ids, api.places.remove, "places");
+          await deleteAll(ids, api.places.remove);
         } finally {
           await Promise.all([
             refreshPlaces(),
@@ -314,26 +320,26 @@ export function PichangaProvider({
 
       deleteMatches: async (ids) => {
         try {
-          await deleteAll(ids, api.matches.remove, "matches");
+          await deleteAll(ids, api.matches.remove);
         } finally {
           await Promise.all([refreshMatches(), refreshNextMatch()]);
         }
       },
 
       drawTeams: async (seed, mixAreas = false) => {
-        if (!state.nextMatch) throw new Error("There is no active match");
+        if (!state.nextMatch) throw new Error("common.noActiveMatch");
         syncNextMatch(
           await api.matches.drawTeams(state.nextMatch.id, seed, mixAreas),
         );
       },
 
       clearTeams: async () => {
-        if (!state.nextMatch) throw new Error("There is no active match");
+        if (!state.nextMatch) throw new Error("common.noActiveMatch");
         syncNextMatch(await api.matches.clearTeams(state.nextMatch.id));
       },
 
       setKeeper: async (teamId, playerId) => {
-        if (!state.nextMatch) throw new Error("There is no active match");
+        if (!state.nextMatch) throw new Error("common.noActiveMatch");
         syncNextMatch(
           await api.matches.setKeeper(state.nextMatch.id, teamId, playerId),
         );
@@ -341,7 +347,7 @@ export function PichangaProvider({
 
       setGameMinutes: async (minutes) => {
         const match = state.nextMatch;
-        if (!match) throw new Error("There is no active match");
+        if (!match) throw new Error("common.noActiveMatch");
 
         // Six people are looking at the same screen agreeing on this; the one
         // pressing it should see it land, not watch a round trip first.
@@ -357,7 +363,7 @@ export function PichangaProvider({
       },
 
       addPlayersToNextMatch: async (playerIds) => {
-        if (!state.nextMatch) throw new Error("There is no active match");
+        if (!state.nextMatch) throw new Error("common.noActiveMatch");
         const match = await api.matches.addPlayers(
           state.nextMatch.id,
           playerIds,
@@ -375,7 +381,7 @@ export function PichangaProvider({
        */
       setPlayerPaid: async (playerId, paid, matchId) => {
         const target = matchId ?? state.nextMatch?.id;
-        if (!target) throw new Error("There is no active match");
+        if (!target) throw new Error("common.noActiveMatch");
 
         /*
          * The optimistic step only applies to the match on screen -- it is the
@@ -406,7 +412,7 @@ export function PichangaProvider({
       },
 
       removePlayerFromNextMatch: async (playerId) => {
-        if (!state.nextMatch) throw new Error("There is no active match");
+        if (!state.nextMatch) throw new Error("common.noActiveMatch");
         const match = await api.matches.removePlayer(
           state.nextMatch.id,
           playerId,
@@ -419,6 +425,7 @@ export function PichangaProvider({
     state,
     mediaVersion,
     demo,
+    t,
     patch,
     refreshPlayers,
     refreshPlaces,

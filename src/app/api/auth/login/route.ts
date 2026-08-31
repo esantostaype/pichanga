@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { messages } from "@/i18n/server";
 import { z } from "zod";
 
 import {
@@ -12,18 +13,20 @@ import { fail, json, readJson, route } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
-const loginSchema = z.object({ password: z.string().min(1, "Enter the password") });
+const loginSchema = z.object({
+  password: z.string().min(1, "api.enterPassword"),
+});
 
 export async function POST(request: Request) {
   return route(async () => {
     if (!isAuthConfigured()) {
-      return fail("Sign-in is not configured on this server", 503);
+      return fail((await messages()).authNotConfigured, 503);
     }
 
     const { password } = await readJson(request, loginSchema);
 
     const role = roleForPassword(password);
-    if (!role) return fail("Wrong password", 401);
+    if (!role) return fail((await messages()).wrongPassword, 401);
 
     const store = await cookies();
     store.set(SESSION_COOKIE, await createSessionToken(role), {

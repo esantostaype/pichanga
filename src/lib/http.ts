@@ -3,6 +3,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { getDictionary } from "@/i18n/server";
+
 export function json<T>(data: T, status = 200) {
   return NextResponse.json(data, { status });
 }
@@ -28,7 +30,7 @@ export async function route(fn: () => Promise<NextResponse>) {
   } catch (error) {
     if (error instanceof z.ZodError) return fail(firstIssue(error), 422);
     console.error("[api]", error);
-    return fail("Something went wrong. Please try again.", 500);
+    return fail((await getDictionary()).common.somethingWrong, 500);
   }
 }
 

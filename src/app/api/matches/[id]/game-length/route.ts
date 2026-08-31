@@ -1,4 +1,5 @@
 import { getMatch, setGameMinutes } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { INDEFINITE_GAME, REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -21,16 +22,16 @@ export async function POST(request: Request, { params }: Context) {
     const { minutes } = await readJson(request, gameLengthInputSchema);
 
     const current = await getMatch(id);
-    if (!current) return fail("Match not found", 404);
+    if (!current) return fail((await messages()).matchNotFound, 404);
 
     // A game with no clock is a side that never comes off, and with three
     // teams there is always somebody waiting for it to.
     if (minutes === INDEFINITE_GAME && current.teams.length > 2) {
-      return fail("Only two sides can play without a clock", 422);
+      return fail((await messages()).noClockThreeSides, 422);
     }
 
     const match = await setGameMinutes(id, minutes);
-    if (!match) return fail("Match not found", 404);
+    if (!match) return fail((await messages()).matchNotFound, 404);
 
     await broadcast(REALTIME.events.lineupChanged, { matchId: id });
 

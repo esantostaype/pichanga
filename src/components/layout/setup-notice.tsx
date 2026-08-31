@@ -1,6 +1,7 @@
 import { Alert01Icon } from "@hugeicons/core-free-icons";
 
 import { Icon } from "@/components/ui/icon";
+import { getDictionary } from "@/i18n/server";
 
 const REQUIRED = [
   "TURSO_DATABASE_URL",
@@ -23,7 +24,9 @@ const REQUIRED = [
  * that rebuilds tables to match the schema, which on a database with rows in
  * it means losing them.
  */
-export function SetupNotice({ detail }: { detail?: string }) {
+export async function SetupNotice({ detail }: { detail?: string }) {
+  const t = await getDictionary();
+
   return (
     <main className="grid min-h-dvh place-items-center bg-background p-6">
       <div className="w-full max-w-lg space-y-5 rounded-2xl border border-border bg-card p-7">
@@ -33,18 +36,18 @@ export function SetupNotice({ detail }: { detail?: string }) {
           </span>
           <div>
             <h1 className="font-display text-xl uppercase tracking-[0.04em]">
-              Environment not configured
+              {t.setup.title}
             </h1>
-            <p className="text-sm text-muted-foreground">
-              No credentials, or a schema behind the code.
-            </p>
+            <p className="text-sm text-muted-foreground">{t.setup.subtitle}</p>
           </div>
         </div>
 
         <ol className="space-y-2 text-sm text-muted-foreground">
           <li>
-            1. Copy <code className="text-foreground">.env.example</code> to{" "}
-            <code className="text-foreground">.env.local</code> and fill in:
+            1. {t.setup.copyFrom}{" "}
+            <code className="text-foreground">.env.example</code>{" "}
+            {t.setup.copyTo} <code className="text-foreground">.env.local</code>{" "}
+            {t.setup.copyFill}
           </li>
           <li>
             <ul className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -59,13 +62,13 @@ export function SetupNotice({ detail }: { detail?: string }) {
             </ul>
           </li>
           <li>
-            2. Bring the schema up to date with{" "}
-            <code className="text-foreground">npm run db:migrate</code>. It only
-            adds what is missing; see it first with{" "}
+            2. {t.setup.migrateWith}{" "}
+            <code className="text-foreground">npm run db:migrate</code>
+            {t.setup.migratePlan}{" "}
             <code className="text-foreground">npm run db:migrate:plan</code>.
           </li>
           <li>
-            3. Restart the server with{" "}
+            3. {t.setup.restartWith}{" "}
             <code className="text-foreground">npm run dev</code>.
           </li>
         </ol>

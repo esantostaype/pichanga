@@ -5,6 +5,7 @@ import {
   PaymentSuccess01Icon,
 } from "@hugeicons/core-free-icons";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,8 @@ export function PaidMark({
   className?: string;
   onToggle?: () => void;
 }) {
-  const label = paid ? "Paid the rental" : "Has not paid yet";
+  const { t } = useLocale();
+  const label = paid ? t.pitch.paid : t.pitch.notPaid;
 
   const shape = cn(
     "grid shrink-0 place-items-center rounded-full border shadow-lg transition-colors",
@@ -53,7 +55,11 @@ export function PaidMark({
 
   if (!onToggle) {
     return (
-      <span title={label} className={shape} style={{ width: side, height: side }}>
+      <span
+        title={label}
+        className={shape}
+        style={{ width: side, height: side }}
+      >
         {content}
       </span>
     );
@@ -62,7 +68,7 @@ export function PaidMark({
   return (
     <button
       type="button"
-      title={paid ? "Paid. Click to undo" : "Not paid. Click to mark as paid"}
+      title={label}
       aria-pressed={paid}
       onClick={onToggle}
       className={shape}

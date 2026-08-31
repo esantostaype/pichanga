@@ -1,4 +1,5 @@
 import { addGoal } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -27,7 +28,7 @@ export async function POST(request: Request, { params }: Context) {
       input.recordedBy ?? null,
     );
 
-    if (!live) return fail("That player is not on a team in this match", 422);
+    if (!live) return fail((await messages()).notOnATeam, 422);
 
     // The one just written: the state comes back in order, so it is the last.
     const scored = live.goals[live.goals.length - 1];

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { messages } from "@/i18n/server";
 
 import { countLiveVisitors, forgetVisit, recordVisit } from "@/db/presence";
 import { fail, json, readJson, route } from "@/lib/http";
@@ -34,7 +35,7 @@ export async function GET() {
     // The proxy already blocks this path, but the number never leaves the
     // server on the strength of a single guard.
     if (!(await getIsSuperAdmin())) {
-      return fail("This is only for the super admin", 403);
+      return fail((await messages()).superAdminOnly, 403);
     }
 
     return json({ count: await countLiveVisitors() });

@@ -5,6 +5,7 @@ import {
   placeExists,
 } from "@/db/queries";
 import { REALTIME } from "@/lib/constants";
+import { messages } from "@/i18n/server";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
 import { matchInputSchema } from "@/lib/validators";
@@ -21,11 +22,11 @@ export async function POST(request: Request) {
     const input = await readJson(request, matchInputSchema);
 
     if (!(await assertPlayersExist(input.playerIds))) {
-      return fail("One of the selected players no longer exists", 422);
+      return fail((await messages()).playerGone, 422);
     }
 
     if (!(await placeExists(input.placeId))) {
-      return fail("The selected place no longer exists", 422);
+      return fail((await messages()).placeGone, 422);
     }
 
     const match = await createMatch(input);

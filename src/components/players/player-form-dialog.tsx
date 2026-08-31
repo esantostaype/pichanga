@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,6 +28,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
+import { problem, skillLabel } from "@/i18n/dictionaries";
 import { AREAS, POSITIONS, SKILLS, SKILL_DEFAULT } from "@/lib/constants";
 import { playerInputSchema } from "@/lib/validators";
 import type { Player } from "@/types";
@@ -57,6 +59,7 @@ export function PlayerFormDialog({
   player,
   onSaved,
 }: PlayerFormDialogProps) {
+  const { t } = useLocale();
   // Prevents closing mid-save without lifting the form state out.
   const busy = useRef(false);
 
@@ -69,10 +72,10 @@ export function PlayerFormDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{player ? "Edit player" : "New player"}</DialogTitle>
-          <DialogDescription>
-            The profile is saved for future matches.
-          </DialogDescription>
+          <DialogTitle>
+            {player ? t.players.formEdit : t.players.formNew}
+          </DialogTitle>
+          <DialogDescription>{t.players.profileNote}</DialogDescription>
         </DialogHeader>
 
         {/* Mounted on open: initial values never need a reset. */}
@@ -98,6 +101,7 @@ function PlayerForm({
   onBusyChange: (busy: boolean) => void;
   onDone: (saved?: Player) => void;
 }) {
+  const { t } = useLocale();
   const { createPlayer, updatePlayer } = usePichanga();
   const [file, setFile] = useState<File | null>(null);
   const [photoRemoved, setPhotoRemoved] = useState(false);
@@ -141,7 +145,7 @@ function PlayerForm({
       return player ? updatePlayer(player.id, payload) : createPlayer(payload);
     },
     {
-      success: player ? "Player updated" : "Player created",
+      success: player ? t.players.updated : t.players.created,
       onSuccess: (saved) => saved && onDone(saved),
     },
   );
@@ -169,9 +173,12 @@ function PlayerForm({
       />
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="First name" error={errors.firstName?.message}>
+        <Field
+          label={t.players.firstName}
+          error={problem(t, errors.firstName?.message)}
+        >
           <Input
-            placeholder="Diego"
+            placeholder={t.players.firstNamePlaceholder}
             autoComplete="off"
             disabled={pending}
             aria-invalid={!!errors.firstName}
@@ -179,9 +186,12 @@ function PlayerForm({
           />
         </Field>
 
-        <Field label="Last name" error={errors.lastName?.message}>
+        <Field
+          label={t.players.lastName}
+          error={problem(t, errors.lastName?.message)}
+        >
           <Input
-            placeholder="Maradona"
+            placeholder={t.players.lastNamePlaceholder}
             autoComplete="off"
             disabled={pending}
             aria-invalid={!!errors.lastName}
@@ -190,7 +200,7 @@ function PlayerForm({
         </Field>
       </div>
 
-      <Field label="Area" error={errors.area?.message}>
+      <Field label={t.players.area} error={problem(t, errors.area?.message)}>
         <Controller
           control={form.control}
           name="area"
@@ -201,7 +211,7 @@ function PlayerForm({
               disabled={pending}
             >
               <SelectTrigger aria-invalid={!!errors.area}>
-                <SelectValue placeholder="Pick an area" />
+                <SelectValue placeholder={t.players.pickArea} />
               </SelectTrigger>
               <SelectContent>
                 {AREAS.map((area) => (
@@ -221,7 +231,10 @@ function PlayerForm({
         />
       </Field>
 
-      <Field label="Position" error={errors.position?.message}>
+      <Field
+        label={t.players.position}
+        error={problem(t, errors.position?.message)}
+      >
         <Controller
           control={form.control}
           name="position"
@@ -232,7 +245,7 @@ function PlayerForm({
               disabled={pending}
             >
               <SelectTrigger aria-invalid={!!errors.position}>
-                <SelectValue placeholder="Pick a position" />
+                <SelectValue placeholder={t.players.pickPosition} />
               </SelectTrigger>
               <SelectContent>
                 {POSITIONS.map((position) => (
@@ -252,7 +265,7 @@ function PlayerForm({
       */}
       <div className="grid gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">
-          Skills
+          {t.players.skills}
         </p>
 
         {SKILLS.map((skill) => (
@@ -262,7 +275,7 @@ function PlayerForm({
             name={`skills.${skill.id}`}
             render={({ field }) => (
               <SkillField
-                label={skill.label}
+                label={skillLabel(t, skill.id)}
                 value={field.value}
                 onChange={field.onChange}
                 disabled={pending}
@@ -279,11 +292,11 @@ function PlayerForm({
           disabled={pending}
           onClick={() => onDone()}
         >
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button type="submit" disabled={pending}>
           {pending ? <Spinner /> : null}
-          {player ? "Save changes" : "Create player"}
+          {player ? t.players.saveChanges : t.players.createPlayer}
         </Button>
       </DialogFooter>
     </form>

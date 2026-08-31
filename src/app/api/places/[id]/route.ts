@@ -1,4 +1,5 @@
 import { deletePlace, updatePlace } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -14,7 +15,7 @@ export async function PATCH(request: Request, { params }: Context) {
     const input = await readJson(request, placeInputSchema);
     const place = await updatePlace(id, input);
 
-    if (!place) return fail("Place not found", 404);
+    if (!place) return fail((await messages()).placeNotFound, 404);
 
     await broadcast(REALTIME.events.placesChanged, { id });
     // Matches show the place name, so the pitch and the table change too.
@@ -30,7 +31,7 @@ export async function DELETE(_request: Request, { params }: Context) {
     const { id } = await params;
     const removed = await deletePlace(id);
 
-    if (!removed) return fail("Place not found", 404);
+    if (!removed) return fail((await messages()).placeNotFound, 404);
 
     // Matches that pointed here keep existing with no place attached.
     await broadcast(REALTIME.events.placesChanged, { id });

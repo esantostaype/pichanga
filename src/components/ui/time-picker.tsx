@@ -9,6 +9,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
 type TimePickerProps = {
@@ -40,11 +41,12 @@ export function TimePicker({
   value,
   onChange,
   disabled,
-  placeholder = "Pick a time",
+  placeholder,
   invalid,
   minuteStep = 5,
   className,
 }: TimePickerProps) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const { hour, minute } = parse(value);
 
@@ -61,7 +63,7 @@ export function TimePicker({
       <PopoverTrigger asChild>
         <PickerTrigger
           icon={Time04Icon}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t.common.pickTime}
           invalid={invalid}
           disabled={disabled}
           className={className}
@@ -72,13 +74,13 @@ export function TimePicker({
       <PopoverContent className="w-auto p-3">
         <div className="flex gap-2">
           <TimeColumn
-            label="Hour"
+            label={t.common.hour}
             options={HOURS}
             selected={hour}
             onSelect={(next) => commit(next, minute ?? 0)}
           />
           <TimeColumn
-            label="Min"
+            label={t.common.minute}
             options={minutes}
             selected={minute}
             onSelect={(next) => {

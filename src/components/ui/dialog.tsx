@@ -5,6 +5,7 @@ import { Cancel01Icon } from "@hugeicons/core-free-icons";
 import * as React from "react";
 
 import { Icon } from "@/components/ui/icon";
+import { useLocale } from "@/components/providers/locale-provider";
 import { cn } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
@@ -34,6 +35,8 @@ function DialogContent({
   children,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content>) {
+  const { t } = useLocale();
+
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -83,7 +86,7 @@ function DialogContent({
             )}
           >
             <Icon icon={Cancel01Icon} size={16} />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{t.common.close}</span>
           </DialogPrimitive.Close>
         </div>
       </DialogPrimitive.Content>
@@ -92,16 +95,15 @@ function DialogContent({
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex flex-col gap-1.5 pr-8", className)} {...props} />;
+  return (
+    <div className={cn("flex flex-col gap-1.5 pr-8", className)} {...props} />
+  );
 }
 
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn(
-        "flex flex-wrap items-center justify-end gap-2",
-        className,
-      )}
+      className={cn("flex flex-wrap items-center justify-end gap-2", className)}
       {...props}
     />
   );

@@ -7,6 +7,7 @@ import { useRef } from "react";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { EASE } from "@/lib/ease";
 import type { Player } from "@/types";
+import { useLocale } from "@/components/providers/locale-provider";
 
 gsap.registerPlugin(useGSAP);
 
@@ -106,6 +107,8 @@ export function GolOverlay({
     { scope },
   );
 
+  const { t } = useLocale();
+
   return (
     <div
       ref={scope}
@@ -135,7 +138,7 @@ export function GolOverlay({
             textShadow: `0 0 70px ${accent}55`,
           }}
         >
-          Goal
+          {t.common.goal}
         </p>
 
         <div data-gol="who" className="mt-4">

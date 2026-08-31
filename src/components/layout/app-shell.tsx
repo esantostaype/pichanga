@@ -9,6 +9,7 @@ import {
 import gsap from "gsap";
 import { useCallback, useRef, useState } from "react";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { AddPlayersDialog } from "@/components/matches/add-players-dialog";
 import { GalleryDialog } from "@/components/matches/gallery-dialog";
 import { MatchesDrawer } from "@/components/matches/matches-drawer";
@@ -18,6 +19,7 @@ import { TeamsDialog, newSeed } from "@/components/matches/teams-dialog";
 import { PitchScene } from "@/components/pitch/pitch-scene";
 import { PlacesDrawer } from "@/components/places/places-drawer";
 import { PlayerCardDialog } from "@/components/players/player-card-dialog";
+import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { PlayersDrawer } from "@/components/players/players-drawer";
 import { StatsDrawer } from "@/components/stats/stats-drawer";
 import { usePichanga } from "@/components/providers/pichanga-provider";
@@ -29,6 +31,7 @@ import { useAction } from "@/hooks/use-action";
 import { useElementSize } from "@/hooks/use-element-size";
 import { useNow } from "@/hooks/use-now";
 import { useVisitorHeartbeat } from "@/hooks/use-presence";
+import { fill } from "@/i18n/dictionaries";
 import { TEAMS_OPEN_MS } from "@/lib/constants";
 import { matchSlug } from "@/lib/date";
 import { EASE } from "@/lib/ease";
@@ -50,6 +53,7 @@ const FAB_CLEARANCE = 48 + 16 + 16;
 const HUD_GAP = 12;
 
 export function AppShell() {
+  const { t } = useLocale();
   const {
     nextMatch,
     isAdmin,
@@ -77,6 +81,7 @@ export function AppShell() {
    */
   const [viewing, setViewing] = useState<Player | null>(null);
   const [cardOpen, setCardOpen] = useState(false);
+  const [editing, setEditing] = useState<Player | null>(null);
 
   const viewPlayer = useCallback((player: Player) => {
     setViewing(player);
@@ -110,7 +115,7 @@ export function AppShell() {
   const gloves = useAction(
     async ({ teamId, playerId }: { teamId: string; playerId: string }) =>
       setKeeper(teamId, playerId),
-    { success: "Keeper changed" },
+    { success: t.teams.keeperChanged },
   );
 
   /*
@@ -126,7 +131,7 @@ export function AppShell() {
   };
 
   const draw = useAction(async () => drawTeams(newSeed()), {
-    success: "Teams drawn",
+    success: t.pitch.teamsDrawn,
     onSuccess: () => setTeamsDialogOpen(true),
   });
   const [addOpen, setAddOpen] = useState(false);
@@ -157,7 +162,7 @@ export function AppShell() {
   const removeFromLineup = useAction(
     async (player: Player) => removePlayerFromNextMatch(player.id),
     {
-      success: "Player removed from the lineup",
+      success: t.pitch.playerRemoved,
       onSuccess: () => setPendingRemoval(null),
     },
   );
@@ -232,7 +237,7 @@ export function AppShell() {
             <Button
               variant="soft"
               size="icon-lg"
-              aria-label={hasTeams ? "Teams" : "Draw the teams"}
+              aria-label={hasTeams ? t.pitch.teams : t.pitch.drawTeams}
               disabled={draw.pending}
               onClick={() => {
                 if (hasTeams) setTeamsDialogOpen(true);
@@ -251,7 +256,7 @@ export function AppShell() {
             <Button
               variant="soft"
               size="icon-lg"
-              aria-label="Match night"
+              aria-label={t.pitch.matchNight}
               onClick={() =>
                 go(
                   demo
@@ -266,7 +271,7 @@ export function AppShell() {
 
           <Button
             size="icon-lg"
-            aria-label="Add players to the match"
+            aria-label={t.pitch.addPlayers}
             disabled={!nextMatch}
             onClick={() => setAddOpen(true)}
           >
@@ -304,6 +309,20 @@ export function AppShell() {
         onOpenChange={setCardOpen}
         player={viewing}
         isOrganizer={!!viewing && viewing.id === nextMatch?.organizerId}
+        onEdit={
+          isAdmin
+            ? (player) => {
+                setCardOpen(false);
+                setEditing(player);
+              }
+            : undefined
+        }
+      />
+
+      <PlayerFormDialog
+        open={!!editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+        player={editing}
       />
 
       <TeamsDialog
@@ -334,13 +353,11 @@ export function AppShell() {
       <ConfirmDialog
         open={!!pendingRemoval}
         onOpenChange={(open) => !open && setPendingRemoval(null)}
-        title="Remove from match"
-        description={
-          pendingRemoval
-            ? `${pendingRemoval.firstName} ${pendingRemoval.lastName} will leave the lineup. Their profile is kept.`
-            : undefined
-        }
-        confirmLabel="Remove"
+        title={fill(t.pitch.dropTitle, {
+          name: pendingRemoval?.firstName ?? "",
+        })}
+        description={pendingRemoval ? t.pitch.dropLine : undefined}
+        confirmLabel={t.pitch.dropConfirm}
         pending={removeFromLineup.pending}
         onConfirm={() =>
           pendingRemoval && void removeFromLineup.run(pendingRemoval)

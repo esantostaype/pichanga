@@ -30,6 +30,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useLocale } from "@/components/providers/locale-provider";
+import { fill } from "@/i18n/dictionaries";
 import { api } from "@/lib/api-client";
 import { formatShortDate } from "@/lib/date";
 import type { PlayerStat, Stats } from "@/lib/stats";
@@ -53,6 +55,7 @@ export function StatsDrawer({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t, locale } = useLocale();
   const { players, demo } = usePichanga();
   const [stats, setStats] = useState<Stats | null>(null);
   const [tab, setTab] = useState<"players" | "matches">("players");
@@ -84,27 +87,34 @@ export function StatsDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Stats</SheetTitle>
+          <SheetTitle>{t.stats.title}</SheetTitle>
           <SheetDescription>
             {stats
-              ? `${played} ${played === 1 ? "night" : "nights"} played, ${stats.players.reduce((total, row) => total + row.goals, 0)} goals.`
-              : "Counting up."}
+              ? fill(t.stats.summary, {
+                  count: played,
+                  nights: played === 1 ? t.common.night : t.common.nights,
+                  goals: stats.players.reduce(
+                    (total, row) => total + row.goals,
+                    0,
+                  ),
+                })
+              : t.stats.counting}
           </SheetDescription>
         </SheetHeader>
 
         <SheetBody className="flex flex-col gap-4">
           <Tabs
-            ariaLabel="How to read the season"
+            ariaLabel={t.stats.title}
             value={tab}
             onChange={(next) => setTab(next as "players" | "matches")}
             items={[
               {
                 value: "players",
-                label: "Players",
+                label: t.stats.tabPlayers,
               },
               {
                 value: "matches",
-                label: "Nights",
+                label: t.stats.tabNights,
               },
             ]}
           />
@@ -114,8 +124,8 @@ export function StatsDrawer({
           ) : played === 0 ? (
             <EmptyState
               icon={ChartLineData01Icon}
-              title="Nothing played yet"
-              description="Keep score on a match night and the numbers show up here."
+              title={t.stats.emptyTitle}
+              description={t.stats.emptyLine}
             />
           ) : tab === "players" ? (
             <>
@@ -125,11 +135,19 @@ export function StatsDrawer({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Player</TableHead>
-                      <TableHead className="w-12 text-right">G</TableHead>
-                      <TableHead className="w-12 text-right">Pl</TableHead>
-                      <TableHead className="w-20 text-right">W-D-L</TableHead>
-                      <TableHead className="w-12 text-right">Pts</TableHead>
+                      <TableHead>{t.stats.player}</TableHead>
+                      <TableHead className="w-12 text-right">
+                        {t.table.goals}
+                      </TableHead>
+                      <TableHead className="w-12 text-right">
+                        {t.table.played}
+                      </TableHead>
+                      <TableHead className="w-20 text-right">
+                        {t.table.record}
+                      </TableHead>
+                      <TableHead className="w-12 text-right">
+                        {t.table.points}
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -155,11 +173,13 @@ export function StatsDrawer({
                                 <span className="block truncate font-medium">
                                   {player
                                     ? `${player.firstName} ${player.lastName}`
-                                    : "Left the office"}
+                                    : t.stats.left}
                                 </span>
                                 <span className="block text-xs text-muted-foreground">
                                   {row.matches}{" "}
-                                  {row.matches === 1 ? "night" : "nights"}
+                                  {row.matches === 1
+                                    ? t.common.night
+                                    : t.common.nights}
                                 </span>
                               </span>
                             </div>
@@ -210,11 +230,13 @@ export function StatsDrawer({
                   >
                     <header className="flex items-baseline justify-between gap-3">
                       <p className="font-display text-lg uppercase tracking-[0.04em]">
-                        {formatShortDate(match.playedAt)}
+                        {formatShortDate(match.playedAt, locale)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {match.games} {match.games === 1 ? "game" : "games"} ·{" "}
-                        {match.goals} {match.goals === 1 ? "goal" : "goals"}
+                        {match.games}{" "}
+                        {match.games === 1 ? t.common.game : t.common.games} ·{" "}
+                        {match.goals}{" "}
+                        {match.goals === 1 ? t.common.goal : t.common.goals}
                       </p>
                     </header>
 
@@ -247,7 +269,7 @@ export function StatsDrawer({
                       </ul>
                     ) : (
                       <p className="mt-2 text-sm text-muted-foreground">
-                        No sides were drawn that night.
+                        {t.stats.noSides}
                       </p>
                     )}
 
@@ -258,8 +280,10 @@ export function StatsDrawer({
                           size={13}
                           className="text-primary"
                         />
-                        {scorer.firstName} {scorer.lastName} scored{" "}
-                        {match.topScorer.goals}
+                        {fill(t.stats.scored, {
+                          name: `${scorer.firstName} ${scorer.lastName}`,
+                          count: match.topScorer.goals,
+                        })}
                       </p>
                     ) : null}
                   </li>
@@ -312,6 +336,7 @@ function Podium({
   rows: PlayerStat[];
   players: Map<string, Player>;
 }) {
+  const { t } = useLocale();
   if (rows.length === 0) return null;
 
   const standing = ORDER.filter((place) => rows[place]);
@@ -348,10 +373,10 @@ function Podium({
               )}
             >
               <span className="truncate text-sm font-semibold leading-5">
-                {player ? player.firstName : "Left"}
+                {player ? player.firstName : t.stats.left}
               </span>
               <span className="truncate text-xs leading-4 text-muted-foreground">
-                {player ? player.lastName : "the office"}
+                {player ? player.lastName : t.stats.leftLine}
               </span>
             </span>
 
@@ -410,6 +435,7 @@ function Cup({ medal }: { medal: (typeof PODIUM)[number] }) {
  * numbers land nothing moves except the ink.
  */
 function StatsSkeleton() {
+  const { t } = useLocale();
   return (
     <div className="flex flex-col gap-4">
       <ol className="flex items-end justify-center gap-2">
@@ -447,11 +473,11 @@ function StatsSkeleton() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Player</TableHead>
-            <TableHead className="w-12 text-right">G</TableHead>
-            <TableHead className="w-12 text-right">Pl</TableHead>
-            <TableHead className="w-20 text-right">W-D-L</TableHead>
-            <TableHead className="w-12 text-right">Pts</TableHead>
+            <TableHead>{t.stats.player}</TableHead>
+            <TableHead className="w-12 text-right">{t.table.goals}</TableHead>
+            <TableHead className="w-12 text-right">{t.table.played}</TableHead>
+            <TableHead className="w-20 text-right">{t.table.record}</TableHead>
+            <TableHead className="w-12 text-right">{t.table.points}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

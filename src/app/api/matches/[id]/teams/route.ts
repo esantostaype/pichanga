@@ -1,4 +1,5 @@
 import { clearTeams, drawTeams, getMatch, getMatchLive } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { REALTIME, TEAMS_OPEN_MS } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -22,14 +23,14 @@ export async function POST(request: Request, { params }: Context) {
     const { seed, mixAreas } = await readJson(request, teamDrawInputSchema);
 
     const current = await getMatch(id);
-    if (!current) return fail("Match not found", 404);
+    if (!current) return fail((await messages()).matchNotFound, 404);
 
     if (Date.now() < current.playedAt - TEAMS_OPEN_MS) {
-      return fail("The teams are drawn two hours before kick-off", 409);
+      return fail((await messages()).teamsWindow, 409);
     }
 
     if (current.players.length < 4) {
-      return fail("There are not enough players for two sides", 422);
+      return fail((await messages()).notEnoughPlayers, 422);
     }
 
     /*
@@ -39,11 +40,11 @@ export async function POST(request: Request, { params }: Context) {
      */
     const live = await getMatchLive(id);
     if (live.games.length > 0) {
-      return fail("The night has started; the sides stand", 409);
+      return fail((await messages()).nightStarted, 409);
     }
 
     const match = await drawTeams(id, seed, mixAreas ?? false);
-    if (!match) return fail("Match not found", 404);
+    if (!match) return fail((await messages()).matchNotFound, 404);
 
     await broadcast(REALTIME.events.lineupChanged, { matchId: id });
 
@@ -60,11 +61,11 @@ export async function DELETE(_request: Request, { params }: Context) {
     // rows. Putting the sides away after a game would take it with them.
     const live = await getMatchLive(id);
     if (live.games.length > 0) {
-      return fail("The night has started; the sides stand", 409);
+      return fail((await messages()).nightStarted, 409);
     }
 
     const match = await clearTeams(id);
-    if (!match) return fail("Match not found", 404);
+    if (!match) return fail((await messages()).matchNotFound, 404);
 
     await broadcast(REALTIME.events.lineupChanged, { matchId: id });
 

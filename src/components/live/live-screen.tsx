@@ -47,7 +47,9 @@ import {
 } from "@/components/ui/tooltip";
 import { useElementSize } from "@/hooks/use-element-size";
 import { useNow } from "@/hooks/use-now";
+import { useLocale } from "@/components/providers/locale-provider";
 import { useGoalSound } from "@/hooks/use-goal-sound";
+import { areaLabel, fill } from "@/i18n/dictionaries";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { api } from "@/lib/api-client";
@@ -114,6 +116,7 @@ export function LiveScreen({
   backHref: string;
   initial: MatchLive;
 }) {
+  const { t } = useLocale();
   /*
    * The lineup can change under a night in progress -- somebody turns up, or
    * somebody has to leave -- and this screen was only handed the match once,
@@ -324,9 +327,7 @@ export function LiveScreen({
       .then(setMatch)
       .catch((error: unknown) => {
         toast.error(
-          error instanceof Error
-            ? error.message
-            : "Could not change the keeper",
+          error instanceof Error ? error.message : t.live.keeperStuck,
         );
       })
       .finally(() => setHanding(null));
@@ -571,22 +572,27 @@ export function LiveScreen({
       <Dialog open={goalsOpen} onOpenChange={setGoalsOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Goals</DialogTitle>
+            <DialogTitle>{t.live.goalsTitle}</DialogTitle>
             <DialogDescription>
               {live.goals.length === 0
-                ? "Nobody has scored yet."
-                : `${live.goals.length} so far tonight, across ${live.games.length} ${live.games.length === 1 ? "game" : "games"}.`}
+                ? t.live.noGoalsYet
+                : fill(t.live.goalsSoFar, {
+                    goals: live.goals.length,
+                    count: live.games.length,
+                    games:
+                      live.games.length === 1 ? t.common.game : t.common.games,
+                  })}
             </DialogDescription>
           </DialogHeader>
 
           {live.games.length > 0 ? (
             <Tabs
-              ariaLabel="Which game"
+              ariaLabel={t.live.whichGame}
               value={readingGame ?? ""}
               onChange={setGoalsGame}
               items={live.games.map((one) => ({
                 value: one.id,
-                label: `Game ${one.slot + 1}`,
+                label: fill(t.live.gameNumber, { number: one.slot + 1 }),
               }))}
             />
           ) : null}
@@ -603,7 +609,7 @@ export function LiveScreen({
             />
           ) : (
             <p className="py-6 text-center text-sm text-muted-foreground">
-              Nothing went in that one.
+              {t.live.goalsEmpty}
             </p>
           )}
         </DialogContent>
@@ -612,23 +618,26 @@ export function LiveScreen({
       <Dialog open={tableOpen} onOpenChange={setTableOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Table</DialogTitle>
-            <DialogDescription>
-              Three for a win, one for a draw, from the games that have
-              finished.
-            </DialogDescription>
+            <DialogTitle>{t.live.tableTitle}</DialogTitle>
+            <DialogDescription>{t.live.tableLine}</DialogDescription>
           </DialogHeader>
 
           <table className="w-full text-sm">
             <thead className="text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="py-1 text-left font-normal">Team</th>
-                <th className="w-8 py-1 text-right font-normal">P</th>
-                <th className="w-8 py-1 text-right font-normal">W</th>
-                <th className="w-8 py-1 text-right font-normal">D</th>
-                <th className="w-8 py-1 text-right font-normal">L</th>
-                <th className="w-12 py-1 text-right font-normal">GD</th>
-                <th className="w-8 py-1 text-right font-normal">Pts</th>
+                <th className="py-1 text-left font-normal">
+                  {t.live.tableTeam}
+                </th>
+                <th className="w-8 py-1 text-right font-normal">{t.table.p}</th>
+                <th className="w-8 py-1 text-right font-normal">{t.table.w}</th>
+                <th className="w-8 py-1 text-right font-normal">{t.table.d}</th>
+                <th className="w-8 py-1 text-right font-normal">{t.table.l}</th>
+                <th className="w-12 py-1 text-right font-normal">
+                  {t.table.gd}
+                </th>
+                <th className="w-8 py-1 text-right font-normal">
+                  {t.table.points}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -676,8 +685,8 @@ export function LiveScreen({
         <Button
           variant="soft"
           size="icon-lg"
-          aria-label="Finish the match"
-          title="Finish the match"
+          aria-label={t.live.finishTitle}
+          title={t.live.finishTitle}
           disabled={busy}
           onClick={() => setFinishing(true)}
         >
@@ -688,9 +697,12 @@ export function LiveScreen({
       <ConfirmDialog
         open={endingEarly}
         onOpenChange={setEndingEarly}
-        title="There is still time on the clock"
-        description={`${clock(remaining)} left of the ${match.gameMinutes} minutes agreed for a game. Blow up anyway?`}
-        confirmLabel="Full time"
+        title={t.live.earlyTitle}
+        description={fill(t.live.earlyLine, {
+          left: clock(remaining),
+          minutes: match.gameMinutes,
+        })}
+        confirmLabel={t.live.earlyConfirm}
         pending={busy}
         onConfirm={() => {
           setEndingEarly(false);
@@ -701,9 +713,9 @@ export function LiveScreen({
       <ConfirmDialog
         open={finishing}
         onOpenChange={setFinishing}
-        title="Finish the match"
-        description="The game being played is whistled off and the night is closed. The lineup and the ledger stay as they are."
-        confirmLabel="Finish"
+        title={t.live.finishTitle}
+        description={t.live.finishLine}
+        confirmLabel={t.live.finishConfirm}
         pending={busy}
         onConfirm={() => {
           setFinishing(false);
@@ -809,6 +821,7 @@ function Board({
   soundOn: boolean;
   onToggleSound: () => void;
 }) {
+  const { t } = useLocale();
   /*
    * How far through the agreed length this game is -- and never, if the two
    * sides are playing the match out as one game. A clock with nothing to run
@@ -827,13 +840,13 @@ function Board({
           className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground no-underline transition-colors hover:text-foreground"
         >
           <Icon icon={ArrowLeft01Icon} size={14} />
-          Lineup
+          {t.live.lineup}
         </a>
 
         {unsent > 0 ? (
           <span className="flex items-center gap-2 rounded-full bg-amber-400/15 px-3 py-1 text-xs text-amber-300">
             <Spinner />
-            {unsent} unsent
+            {fill(t.live.unsent, { count: unsent })}
           </span>
         ) : null}
       </div>
@@ -845,7 +858,7 @@ function Board({
             <div className="flex flex-col items-center gap-1">
               <TeamCrest name={home.name} accent={home.accent} size={26} />
               <span className="font-display text-[0.625rem] uppercase tracking-[0.2em] text-muted-foreground">
-                vs
+                {t.common.versus}
               </span>
               <TeamCrest name={away.name} accent={away.accent} size={26} />
             </div>
@@ -869,19 +882,19 @@ function Board({
 
           <p className="mt-1.5 font-display text-sm uppercase tracking-[0.2em] text-muted-foreground">
             {playing
-              ? `game ${gameNumber}`
+              ? fill(t.live.gameNumber, { number: gameNumber ?? 0 })
               : gameNumber === null
-                ? "next up"
-                : "between games"}
+                ? t.live.nextUp
+                : t.live.betweenGames}
             {" · "}
             {match.gameMinutes > INDEFINITE_GAME
-              ? `${match.gameMinutes} min`
-              : "no clock"}
+              ? fill(t.live.minutes, { count: match.gameMinutes })
+              : t.live.noClock}
           </p>
         </>
       ) : (
         <p className="font-display text-xl uppercase tracking-[0.06em]">
-          The sides have not been drawn
+          {t.live.noSides}
         </p>
       )}
 
@@ -896,25 +909,25 @@ function Board({
             <Button
               variant="soft"
               size="icon"
-              aria-label="Goals"
+              aria-label={t.live.goalsTitle}
               disabled={goals === 0}
               onClick={onGoals}
             >
               <Icon icon={FootballIcon} size={18} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Goals</TooltipContent>
+          <TooltipContent side="bottom">{t.live.goalsTitle}</TooltipContent>
         </Tooltip>
 
         {playing ? (
           <Button variant="secondary" disabled={busy} onClick={onFullTime}>
             {busy ? <Spinner /> : <Icon icon={StopIcon} size={16} />}
-            Full time
+            {t.live.fullTime}
           </Button>
         ) : (
           <Button disabled={busy || !canKickOff} onClick={onKickOff}>
             {busy ? <Spinner /> : <Icon icon={PlayIcon} size={16} />}
-            Kick off
+            {t.live.kickOff}
           </Button>
         )}
 
@@ -923,14 +936,14 @@ function Board({
             <Button
               variant="soft"
               size="icon"
-              aria-label="Table"
+              aria-label={t.live.tableTitle}
               disabled={!hasTable}
               onClick={onTable}
             >
               <Icon icon={ChartLineData01Icon} size={18} />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">Table</TooltipContent>
+          <TooltipContent side="bottom">{t.live.tableTitle}</TooltipContent>
         </Tooltip>
       </div>
 
@@ -946,7 +959,7 @@ function Board({
               type="button"
               role="switch"
               aria-checked={soundOn}
-              aria-label={soundOn ? "Goal sound on" : "Goal sound off"}
+              aria-label={soundOn ? t.live.soundOnLabel : t.live.soundOffLabel}
               onClick={onToggleSound}
               className={cn(
                 "inline-flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 font-display text-[0.6875rem] uppercase tracking-[0.18em] transition-colors",
@@ -956,20 +969,20 @@ function Board({
               )}
             >
               <Icon icon={soundOn ? VolumeHighIcon : VolumeOffIcon} size={15} />
-              {soundOn ? "Sound on" : "Muted"}
+              {soundOn ? t.live.soundOn : t.live.muted}
             </button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {soundOn
-              ? "The goal shout plays out loud"
-              : "The goal shout is silent on this device"}
+            {soundOn ? t.live.soundOnHint : t.live.mutedHint}
           </TooltipContent>
         </Tooltip>
       </div>
 
       {!playing && !canKickOff ? (
         <p className="mt-3 text-xs text-muted-foreground">
-          The first game starts at kick-off,{" "}
+          {fill(t.live.firstGame, {
+            time: formatTimeRange(match.playedAt, match.endsAt).split(" - ")[0],
+          })}
           {formatTimeRange(match.playedAt, match.endsAt).split(" - ")[0]}.
         </p>
       ) : null}
@@ -1031,6 +1044,7 @@ function TeamSheet({
   keeperPending?: string | null;
   className?: string;
 }) {
+  const { t } = useLocale();
   const tally = new Map<string, number>();
   for (const goal of goals) {
     tally.set(goal.playerId, (tally.get(goal.playerId) ?? 0) + 1);
@@ -1065,7 +1079,7 @@ function TeamSheet({
           </p>
           {onScore ? (
             <span className="shrink-0 text-[0.625rem] uppercase tracking-wider text-muted-foreground">
-              double tap
+              {t.live.doubleTap}
             </span>
           ) : null}
         </header>
@@ -1093,7 +1107,7 @@ function TeamSheet({
                   disabled={!onScore}
                   title={
                     onScore
-                      ? `Double tap to give ${player.firstName} a goal`
+                      ? fill(t.live.giveGoal, { name: player.firstName })
                       : undefined
                   }
                   className="flex min-w-0 flex-1 select-none items-center gap-2.5 rounded-xl text-left transition-opacity enabled:cursor-pointer enabled:hover:opacity-80 enabled:active:scale-[0.99] disabled:cursor-default"
@@ -1112,7 +1126,7 @@ function TeamSheet({
                       {player.firstName} {player.lastName}
                     </span>
                     <span className="block truncate font-display text-[0.8125rem] uppercase leading-tight tracking-widest text-muted-foreground">
-                      {getArea(player.area).label}
+                      {areaLabel(t, player.area)}
                     </span>
                   </span>
 
@@ -1141,8 +1155,8 @@ function TeamSheet({
                 */}
                 {player.id === team.keeperId ? (
                   <span
-                    aria-label="In goal"
-                    title="In goal"
+                    aria-label={t.pitch.inGoal}
+                    title={t.pitch.inGoal}
                     className="grid size-8 shrink-0 place-items-center rounded-full border"
                     style={{
                       color: team.accent,
@@ -1157,8 +1171,12 @@ function TeamSheet({
                     type="button"
                     onClick={() => onSetKeeper(player.id)}
                     disabled={keeperPending === player.id}
-                    aria-label={`Put ${player.firstName} in goal`}
-                    title={`Put ${player.firstName} in goal`}
+                    aria-label={fill(t.pitch.putInGoal, {
+                      name: player.firstName,
+                    })}
+                    title={fill(t.pitch.putInGoal, {
+                      name: player.firstName,
+                    })}
                     className={cn(
                       "grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-all hover:text-foreground focus-visible:opacity-100 group-hover/sheet:opacity-100 disabled:cursor-default pointer-coarse:opacity-70",
                       keeperPending === player.id ? "opacity-100" : "opacity-0",
@@ -1201,6 +1219,7 @@ function Timeline({
   /** Absent once the game has finished, which is most of them. */
   onUndo?: (goal: MatchGoal) => void;
 }) {
+  const { t } = useLocale();
   return (
     <ol className="relative max-h-[60vh] overflow-y-auto scrollbar-thin">
       {/* The wire itself, behind the minutes. */}
@@ -1229,8 +1248,8 @@ function Timeline({
               <button
                 type="button"
                 onClick={() => onUndo(goal)}
-                aria-label="Take this goal off the board"
-                title="Take this goal off the board"
+                aria-label={t.live.undoGoal}
+                title={t.live.undoGoal}
                 className="shrink-0 cursor-pointer text-muted-foreground/40 transition-colors hover:text-destructive"
               >
                 <Icon icon={Delete02Icon} size={14} />
@@ -1238,7 +1257,9 @@ function Timeline({
             ) : null}
 
             <span className="min-w-0 truncate text-sm font-medium">
-              {scorer ? `${scorer.firstName} ${scorer.lastName}` : "Unknown"}
+              {scorer
+                ? `${scorer.firstName} ${scorer.lastName}`
+                : t.live.unknown}
             </span>
 
             <span className="shrink-0" style={{ color: team?.accent }}>

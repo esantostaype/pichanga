@@ -3,6 +3,7 @@
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 
 import { Button } from "@/components/ui/button";
+import { useLocale } from "@/components/providers/locale-provider";
 import { Icon } from "@/components/ui/icon";
 
 /**
@@ -21,6 +22,7 @@ export function Pager({
   pages: number;
   onChange: (page: number) => void;
 }) {
+  const { t } = useLocale();
   if (pages <= 1) return null;
 
   return (
@@ -28,7 +30,7 @@ export function Pager({
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Previous page"
+        aria-label={t.gallery.previous}
         disabled={page <= 1}
         onClick={() => onChange(page - 1)}
       >
@@ -43,7 +45,7 @@ export function Pager({
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Next page"
+        aria-label={t.gallery.next}
         disabled={page >= pages}
         onClick={() => onChange(page + 1)}
       >

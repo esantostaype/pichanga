@@ -1,4 +1,5 @@
 import { getMatch, getMatchLive, setKeeper } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
 import { currentGame } from "@/lib/live";
@@ -27,17 +28,17 @@ export async function POST(request: Request, { params }: Context) {
     const { playerId } = await readJson(request, keeperInputSchema);
 
     const current = await getMatch(id);
-    if (!current) return fail("Match not found", 404);
+    if (!current) return fail((await messages()).matchNotFound, 404);
 
     if (current.teams.length > 2) {
       const live = await getMatchLive(id);
       if (currentGame(live.games)) {
-        return fail("The gloves stay put while a game is on", 409);
+        return fail((await messages()).glovesStay, 409);
       }
     }
 
     const match = await setKeeper(id, teamId, playerId);
-    if (!match) return fail("That player is not on that side", 422);
+    if (!match) return fail((await messages()).notOnThatSide, 422);
 
     await broadcast(REALTIME.events.lineupChanged, { matchId: id });
 

@@ -1,4 +1,5 @@
 import { finishMatch } from "@/db/queries";
+import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, route } from "@/lib/http";
 import { broadcast } from "@/lib/pusher/server";
@@ -20,7 +21,7 @@ export async function POST(_request: Request, { params }: Context) {
     const { id } = await params;
 
     const match = await finishMatch(id);
-    if (!match) return fail("Match not found", 404);
+    if (!match) return fail((await messages()).matchNotFound, 404);
 
     await broadcast(REALTIME.events.liveChanged, { matchId: id });
     await broadcast(REALTIME.events.matchesChanged, { id });

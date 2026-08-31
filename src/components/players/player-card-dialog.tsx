@@ -1,8 +1,15 @@
 "use client";
 
-import { UserStar01Icon } from "@hugeicons/core-free-icons";
+import { PencilEdit02Icon, UserStar01Icon } from "@hugeicons/core-free-icons";
 
+import { useLocale } from "@/components/providers/locale-provider";
 import { areaColor } from "@/components/players/area-badge";
+import {
+  areaLabel,
+  fill,
+  positionLabel,
+  skillLabel,
+} from "@/i18n/dictionaries";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import {
   Dialog,
@@ -10,14 +17,9 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import {
-  SKILLS,
-  SKILL_MAX,
-  SKILL_MIN,
-  getArea,
-  getPosition,
-} from "@/lib/constants";
+import { SKILLS, SKILL_MAX, SKILL_MIN } from "@/lib/constants";
 import { strengthOf } from "@/lib/teams";
 import type { Player } from "@/types";
 
@@ -39,17 +41,19 @@ export function PlayerCardDialog({
   onOpenChange,
   player,
   isOrganizer,
+  onEdit,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   player: Player | null;
   isOrganizer?: boolean;
+  /** Shown as a pencil on the card when there is somewhere to go. */
+  onEdit?: (player: Player) => void;
 }) {
+  const { t } = useLocale();
   if (!player) return null;
 
-  const area = getArea(player.area);
   const color = areaColor(player.area);
-  const position = getPosition(player.position);
   const overall = strengthOf(player);
 
   return (
@@ -60,7 +64,8 @@ export function PlayerCardDialog({
           {player.firstName} {player.lastName}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          {position.label} · {area.label} · overall {overall.toFixed(1)} out of 5
+          {positionLabel(t, player.position)} · {areaLabel(t, player.area)} ·{" "}
+          {fill(t.players.overall, { value: overall.toFixed(1) })}
         </DialogDescription>
 
         <div
@@ -84,7 +89,7 @@ export function PlayerCardDialog({
               {isOrganizer ? (
                 <span
                   className="absolute -right-1 -top-1 grid size-7 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg"
-                  title="Runs the match"
+                  title={t.players.runsTheMatch}
                 >
                   <Icon icon={UserStar01Icon} size={15} strokeWidth={2} />
                 </span>
@@ -103,17 +108,17 @@ export function PlayerCardDialog({
                 className="mt-2 font-display text-xs uppercase tracking-[0.2em]"
                 style={{ color }}
               >
-                {area.label}
+                {areaLabel(t, player.area)}
               </p>
             </div>
 
             {/* The overall, where a card always puts it. */}
-            <div className="shrink-0 text-right">
+            <div className="shrink-0 pr-8 text-right">
               <p className="font-display text-4xl leading-none tabular-nums">
                 {overall.toFixed(1)}
               </p>
               <p className="mt-1 font-display text-[0.6875rem] uppercase tracking-[0.2em] text-muted-foreground">
-                {position.short}
+                {positionLabel(t, player.position)}
               </p>
             </div>
           </div>
@@ -122,26 +127,27 @@ export function PlayerCardDialog({
             <SkillWeb player={player} color={color} />
 
             <ul className="min-w-0 flex-1 space-y-2">
-              {SKILLS.map((skill) => {
+              {SKILLS.map((skill, index) => {
                 const value = player.skills[skill.id] ?? SKILL_MIN;
 
                 return (
                   <li key={skill.id} className="flex items-center gap-2">
                     <span className="w-20 shrink-0 truncate text-xs uppercase tracking-wider text-muted-foreground">
-                      {skill.label}
+                      {skillLabel(t, skill.id)}
                     </span>
 
-                    <span className="flex flex-1 items-center gap-[3px]">
-                      {Array.from({ length: SKILL_MAX }, (_, step) => (
-                        <span
-                          key={step}
-                          className="h-1.5 flex-1 rounded-full"
-                          style={{
-                            backgroundColor:
-                              step < value ? color : "var(--secondary)",
-                          }}
-                        />
-                      ))}
+                    {/* One bar, drawn to the number, and it grows on open. */}
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                      <span
+                        className="skill-fill block h-full rounded-full"
+                        style={
+                          {
+                            backgroundColor: color,
+                            "--to": `${(value / SKILL_MAX) * 100}%`,
+                            animationDelay: `${index * 0.06}s`,
+                          } as React.CSSProperties
+                        }
+                      />
                     </span>
 
                     <span className="w-3 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
@@ -153,10 +159,28 @@ export function PlayerCardDialog({
             </ul>
           </div>
 
-          <p className="mt-5 text-center text-xs text-muted-foreground">
-            Plays as {position.label.toLowerCase()}. The shape is what the
-            balancer reads when it draws the teams.
-          </p>
+          <div className="mt-5 flex items-end justify-between gap-4">
+            <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+              {fill(t.players.playsAs, {
+                position: positionLabel(t, player.position).toLowerCase(),
+              })}
+            </p>
+
+            {onEdit ? (
+              <Button
+                variant="soft"
+                size="icon-sm"
+                className="shrink-0"
+                aria-label={fill(t.players.editName, {
+                  name: player.firstName,
+                })}
+                title={fill(t.players.editName, { name: player.firstName })}
+                onClick={() => onEdit(player)}
+              >
+                <Icon icon={PencilEdit02Icon} size={16} />
+              </Button>
+            ) : null}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

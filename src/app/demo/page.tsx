@@ -2,10 +2,14 @@ import { notFound } from "next/navigation";
 
 import { MatchScreen } from "@/components/layout/match-screen";
 import { getRole } from "@/lib/session";
+import { SITE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Demo - Pichanga", robots: { index: false } };
+export const metadata = {
+  title: `Demo - ${SITE.name}`,
+  robots: { index: false },
+};
 
 /**
  * The whole app, over rows nobody plays on.

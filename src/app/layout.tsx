@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Sofia_Sans, Sofia_Sans_Extra_Condensed } from "next/font/google";
 
+import { LocaleProvider } from "@/components/providers/locale-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { SceneTransitionProvider } from "@/components/layout/scene-transition";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { getDictionary, getLocale } from "@/i18n/server";
 import { SITE } from "@/lib/site";
 import { cn } from "@/lib/utils";
 import "./globals.css";
@@ -22,7 +24,31 @@ const sofiaCondensed = Sofia_Sans_Extra_Condensed({
   display: "swap",
 });
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getDictionary();
+
+  /*
+   * The card the link shows in a chat carries the words too: a Spanish office
+   * pasting the address into their group should not get an English preview.
+   */
+  return {
+    ...metadata,
+    title: t.site.title,
+    description: t.site.description,
+    openGraph: {
+      ...metadata.openGraph,
+      title: t.site.title,
+      description: t.site.description,
+    },
+    twitter: {
+      ...metadata.twitter,
+      title: t.site.title,
+      description: t.site.description,
+    },
+  };
+}
+
+const metadata: Metadata = {
   // Makes every relative path below resolve to an absolute URL.
   metadataBase: new URL(SITE.url),
   title: SITE.title,
@@ -69,12 +95,16 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // The cookie decides the language, so the first paint is already in it --
+  // no flash of the other one while JavaScript catches up.
+  const locale = await getLocale();
+
   return (
     <html
-      lang="en"
+      lang={locale}
       className={cn("dark", sofiaSans.variable, sofiaCondensed.variable)}
     >
       {/*
@@ -85,9 +115,11 @@ export default function RootLayout({
         scroll at all, whatever it did to itself.
       */}
       <body className="bg-background text-foreground antialiased">
-        <SceneTransitionProvider>
-          <TooltipProvider delayDuration={250}>{children}</TooltipProvider>
-        </SceneTransitionProvider>
+        <LocaleProvider initial={locale}>
+          <SceneTransitionProvider>
+            <TooltipProvider delayDuration={250}>{children}</TooltipProvider>
+          </SceneTransitionProvider>
+        </LocaleProvider>
         <Toaster />
       </body>
     </html>
