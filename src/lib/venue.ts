@@ -1,12 +1,14 @@
 import type { Match, MatchSummary } from "@/types";
 
 /**
- * Where it is played, in one line: `DeporPlaza Jockey Club · Cancha 4 - F7`.
+ * Where it is played, as one string: `DeporPlaza Jockey Club · Cancha 4 - F7`.
  *
- * The venue is the half everybody already knows and the pitch is the half
- * nobody remembers, so the two are never shown apart. The separator disappears
- * when the pitch has not been filled in, which is every fixture until the week
- * it is played -- whichever one they manage to book is settled late.
+ * For the shared card and the WhatsApp text, which have one line and no
+ * markup to put the two halves on. On screen they are stacked instead, so the
+ * maps link can stop at the venue -- the pitch is not a page Google can open.
+ *
+ * The separator disappears when the pitch has not been filled in, which is
+ * every fixture until the week it is played.
  */
 export const whereLabel = (
   match: Pick<Match | MatchSummary, "venue" | "pitch"> | null | undefined,

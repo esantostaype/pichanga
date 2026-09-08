@@ -25,7 +25,6 @@ import {
 } from "@/lib/date";
 import { fill } from "@/i18n/dictionaries";
 import { formatMoney, perPlayer } from "@/lib/money";
-import { whereLabel } from "@/lib/venue";
 import { cn } from "@/lib/utils";
 import type { MatchSummary } from "@/types";
 import { LiveBadge } from "./live-badge";
@@ -131,21 +130,36 @@ export function MatchCard({
 
         <dl className="space-y-2 text-[0.9375rem] text-muted-foreground">
           {match.venue ? (
-            match.venue.mapsUrl ? (
-              <AppLink
-                href={match.venue.mapsUrl}
-                external
-                icon={Location01Icon}
-                className="relative z-20 flex w-fit"
-              >
-                {whereLabel(match)}
-              </AppLink>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Icon icon={Location01Icon} size={15} />
-                <span className="min-w-0 truncate">{whereLabel(match)}</span>
-              </div>
-            )
+            /*
+              Two lines, and only the first is a link: the maps pin belongs to
+              the venue, and the pitch is not a page Google can open. On one
+              line the pair also ran out of room on a phone and the pitch --
+              the half nobody knows -- was what got cut.
+            */
+            <div className="space-y-0.5">
+              {match.venue.mapsUrl ? (
+                <AppLink
+                  href={match.venue.mapsUrl}
+                  external
+                  icon={Location01Icon}
+                  className="relative z-20 flex w-fit"
+                >
+                  {match.venue.name}
+                </AppLink>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Icon icon={Location01Icon} size={15} />
+                  <span className="min-w-0 truncate">{match.venue.name}</span>
+                </div>
+              )}
+
+              {match.pitch ? (
+                // Indented past the pin, so it reads under the venue name.
+                <p className="truncate pl-[23px] text-sm text-muted-foreground/70">
+                  {match.pitch}
+                </p>
+              ) : null}
+            </div>
           ) : (
             <div className="flex items-center gap-2 opacity-50">
               <Icon icon={Location01Icon} size={15} />

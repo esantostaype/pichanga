@@ -14,7 +14,6 @@ import { Icon } from "@/components/ui/icon";
 import { useNow } from "@/hooks/use-now";
 import { fill } from "@/i18n/dictionaries";
 import { formatMoney, perPlayer } from "@/lib/money";
-import { whereLabel } from "@/lib/venue";
 import { cn } from "@/lib/utils";
 import {
   formatLongDate,
@@ -147,23 +146,36 @@ export function MatchHudCard({
         </span>
 
         {match.venue ? (
-          match.venue.mapsUrl ? (
-            <AppLink
-              href={match.venue.mapsUrl}
-              external
-              icon={Location01Icon}
-              iconSize={13}
-              className="gap-1.5"
-              title={match.venue.address ?? match.venue.name}
-            >
-              {whereLabel(match)}
-            </AppLink>
-          ) : (
-            <span className="flex min-w-0 items-center gap-1.5">
-              <Icon icon={Location01Icon} size={13} />
-              <span className="truncate">{whereLabel(match)}</span>
-            </span>
-          )
+          <span className="flex min-w-0 items-center gap-1.5">
+            {/*
+              The link covers the venue and stops there: the maps pin is the
+              venue's, and the pitch is not somewhere Google can take you, so
+              underlining it would promise a page that does not exist.
+            */}
+            {match.venue.mapsUrl ? (
+              <AppLink
+                href={match.venue.mapsUrl}
+                external
+                icon={Location01Icon}
+                iconSize={13}
+                className="gap-1.5"
+                title={match.venue.address ?? match.venue.name}
+              >
+                {match.venue.name}
+              </AppLink>
+            ) : (
+              <>
+                <Icon icon={Location01Icon} size={13} />
+                <span className="truncate">{match.venue.name}</span>
+              </>
+            )}
+
+            {match.pitch ? (
+              <span className="truncate text-muted-foreground">
+                · {match.pitch}
+              </span>
+            ) : null}
+          </span>
         ) : null}
 
         {match.recurrence === "weekly" ? (
