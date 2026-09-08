@@ -1,4 +1,4 @@
-import { TEAM_NAMES } from "@/lib/constants";
+import { badgeFor } from "@/lib/teams";
 import { cn } from "@/lib/utils";
 
 /**
@@ -68,24 +68,4 @@ export function TeamCrest({
       </text>
     </svg>
   );
-}
-
-/**
- * The short form for a name.
- *
- * Taken from the pool when the name is in it, so `Los 404` reads `404` rather
- * than `L4`. A name from outside the pool -- an older match, a rename -- falls
- * back to its initials, which is never wrong even when it is dull.
- */
-function badgeFor(name: string) {
-  const known = TEAM_NAMES.find((team) => team.name === name);
-  if (known) return known.badge;
-
-  return name
-    .split(/\s+/)
-    .filter((word) => !/^(los|las|the|fc)$/i.test(word))
-    .slice(0, 2)
-    .map((word) => word.charAt(0))
-    .join("")
-    .toUpperCase();
 }

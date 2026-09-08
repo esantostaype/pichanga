@@ -125,7 +125,7 @@ not `middleware`. It is deliberately dependency-free and runs on Web Crypto so
 the exact same verification works there and in route handlers.
 
 A guest fully manages **players** and the **lineup** — the part the whole
-office touches. The **fixture** itself, matches and places, needs the session.
+office touches. The **fixture** itself, matches and venues, needs the session.
 
 |                                        | Guest | Admin | Super admin |
 | -------------------------------------- | ----- | ----- | ----------- |
@@ -134,7 +134,7 @@ office touches. The **fixture** itself, matches and places, needs the session.
 | Upload a player photo                  | yes   | yes   | yes         |
 | Add players to a match, drop them      | yes   | yes   | yes         |
 | Create / edit / delete matches         | no    | yes   | yes         |
-| Create / edit / delete places          | no    | yes   | yes         |
+| Create / edit / delete venues          | no    | yes   | yes         |
 | Google venue search                    | no    | yes   | yes         |
 | Add photos and clips to a gallery      | yes   | yes   | yes         |
 | Mark the rental as paid                | no    | yes   | yes         |
@@ -733,7 +733,7 @@ and it will look like this_, which is a lie if the shape is not known yet.
 **No page ever wears one.** There is no `loading.tsx` on the match screens: a
 skeleton of the pitch is a second, worse version of the screen you are waiting
 for, and the wipe already covers the move between them. The fixture cards and
-the players and places tables have none either -- they arrive with the page,
+the players and venues tables have none either -- they arrive with the page,
 from the server, already filled in.
 
 ## Dialog motion
@@ -800,15 +800,31 @@ signing out only clears the cookie: the token itself stays valid until it
 expires, which is how a stateless session works. Rotating `AUTH_SECRET`
 invalidates every session at once.
 
-## Places
+## Venues
 
-Venues live in their own table and matches point at them, so a pitch is typed
-once and reused. `PlaceFormDialog` can autocomplete through the Google Places
+A **venue** is the business you ring up -- DeporPlaza Jockey Club -- and it
+carries the address, the maps link, the Google id, the rental price and how
+many a side it takes. It is typed once and reused.
+
+Which pitch inside it -- `Cancha 4 - F7` -- lives on the **match**, not on the
+venue: whichever one they manage to book changes week to week, and the venue is
+the part that does not. It is free text, because a venue names its pitches
+however it likes and the only thing the office needs from it is the line that
+says which gate to walk to. It shows next to the venue name everywhere, through
+`whereLabel()` in `src/lib/venue.ts`, and a recurring fixture deliberately does
+**not** carry it forward -- last week's number on a fresh date sends people to
+the wrong gate with more confidence than a blank does.
+
+In Spanish the two words are **complejo** for the venue and **cancha** for the
+pitch inside it, which is what the letter on the gate says -- and it is why
+`cancha` is not the word for the venue anywhere in the app any more.
+
+`VenueFormDialog` can autocomplete through the Google Places
 API (New): pick a suggestion and name, address, coordinates and the clickable
 maps link are filled in.
 
 The API key is **optional and server-side only**. Requests go through
-`/api/places/search`, which proxies Google so the key never reaches the browser.
+`/api/venues/search`, which proxies Google so the key never reaches the browser.
 Without `GOOGLE_MAPS_API_KEY` the route answers `503`, the search box is not
 rendered at all and the form falls back to typing name and address by hand.
 
@@ -822,7 +838,7 @@ match.
 
 ## Splitting the rental
 
-A place carries a `price`, the rental for one match. The HUD shows what each
+A venue carries a `price`, the rental for one match. The HUD shows what each
 player owes at the far right of the date line, and it recomputes on every
 render, so signing someone up or dropping them changes the figure with the
 lineup, on every open screen.
@@ -901,7 +917,7 @@ the way out to animate.
 
 ### How many teams
 
-A place says how many a side it takes -- 5, 6, 7, 9 or 11 -- and that decides
+A venue says how many a side it takes -- 5, 6, 7, 9 or 11 -- and that decides
 the shape of the day, because a side may never be bigger than what fits on the
 pitch. The turnout is divided by it and **rounded up**: fifteen on a
 seven-a-side pitch is three fives taking turns, not seven against eight with
@@ -1105,7 +1121,7 @@ dialog -- which opens wider for three sides or more, as many across as the
 screen fits and the rest underneath, because reading a triangular in a column
 means scrolling past one team to compare it with another -- because that is the moment everyone is standing together looking at the
 same screen. Ten minutes unless somebody says otherwise, kept on the match
-rather than on the place -- the same pitch is rented for an hour some weeks and
+rather than on the pitch -- the same pitch is rented for an hour some weeks and
 two others, and it is the night that decides how long the side waiting has to
 wait. It reads on the board next to the game number, and it is not behind the
 session: the length of a game is settled out loud at the ground and the phone

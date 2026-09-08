@@ -18,7 +18,7 @@ const serverEnvSchema = z.object({
   /** Where match galleries land. Kept apart from the player portraits. */
   CLOUDINARY_GALLERY_FOLDER: z.string().default("pichanga/matches"),
 
-  // Optional: without it the place form simply drops the autocomplete and
+  // Optional: without it the venue form simply drops the autocomplete and
   // keeps working with manually typed name and address.
   GOOGLE_MAPS_API_KEY: z.string().optional(),
 });

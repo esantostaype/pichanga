@@ -24,8 +24,8 @@ import { matchSlug } from "@/lib/date";
 import type {
   MatchInput,
   MediaInput,
-  PlaceInput,
   PlayerInput,
+  VenueInput,
 } from "@/lib/validators";
 import type {
   Match,
@@ -34,9 +34,9 @@ import type {
   MatchLive,
   MatchMedia,
   MatchSummary,
-  Place,
   Player,
   Recurrence,
+  Venue,
 } from "@/types";
 import { db } from "./index";
 import { buildStats } from "@/lib/stats";
@@ -49,8 +49,8 @@ import {
   matchPlayers,
   matchTeams,
   matches,
-  places,
   players,
+  venues,
 } from "./schema";
 import type {
   MatchGameRow,
@@ -58,8 +58,8 @@ import type {
   MatchMediaRow,
   MatchRow,
   MatchTeamRow,
-  PlaceRow,
   PlayerRow,
+  VenueRow,
 } from "./schema";
 
 /* -------------------------------------------------------------------------- */
@@ -85,7 +85,7 @@ const toPlayer = (row: PlayerRow): Player => ({
   createdAt: row.createdAt.getTime(),
 });
 
-const toPlace = (row: PlaceRow | null): Place | null =>
+const toVenue = (row: VenueRow | null): Venue | null =>
   row
     ? {
         id: row.id,
@@ -118,7 +118,7 @@ const toMedia = (row: MatchMediaRow): MatchMedia => ({
 
 const toMatch = (
   row: MatchRow,
-  place: PlaceRow | null,
+  venue: VenueRow | null,
   lineup: Array<{
     player: PlayerRow;
     paidAt: Date | null;
@@ -131,7 +131,8 @@ const toMatch = (
   playedAt: row.playedAt.getTime(),
   endsAt: endOf(row),
   gameMinutes: row.gameMinutes ?? DEFAULT_GAME_MINUTES,
-  place: toPlace(place),
+  venue: toVenue(venue),
+  pitch: row.pitch,
   organizerId: row.organizerId,
   recurrence: (row.recurrence as Recurrence | null) ?? null,
   seriesId: row.seriesId,
@@ -191,7 +192,7 @@ const withinGrace = (at: number) =>
   sql`${endsAtSql} <= ${at} and ${endsAtSql} > ${at - MATCH_GRACE_MS}`;
 
 /* -------------------------------------------------------------------------- */
-/*                                   places                                   */
+/*                                   venues                                   */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -202,18 +203,18 @@ const withinGrace = (at: number) =>
  * whole app -- adding, deleting, drawing teams, keeping score -- against rows
  * nobody plays on.
  */
-export async function listPlaces(demo = false): Promise<Place[]> {
+export async function listVenues(demo = false): Promise<Venue[]> {
   const rows = await db
     .select()
-    .from(places)
-    .where(eq(places.isDemo, demo))
-    .orderBy(asc(places.name));
-  return rows.map((row) => toPlace(row)!);
+    .from(venues)
+    .where(eq(venues.isDemo, demo))
+    .orderBy(asc(venues.name));
+  return rows.map((row) => toVenue(row)!);
 }
 
-export async function createPlace(input: PlaceInput): Promise<Place> {
+export async function createVenue(input: VenueInput): Promise<Venue> {
   const [row] = await db
-    .insert(places)
+    .insert(venues)
     .values({
       name: input.name,
       address: input.address ?? null,
@@ -227,15 +228,15 @@ export async function createPlace(input: PlaceInput): Promise<Place> {
     })
     .returning();
 
-  return toPlace(row)!;
+  return toVenue(row)!;
 }
 
-export async function updatePlace(
+export async function updateVenue(
   id: string,
-  input: PlaceInput,
-): Promise<Place | null> {
+  input: VenueInput,
+): Promise<Venue | null> {
   const [row] = await db
-    .update(places)
+    .update(venues)
     .set({
       name: input.name,
       address: input.address ?? null,
@@ -246,14 +247,14 @@ export async function updatePlace(
       lat: input.lat ?? null,
       lng: input.lng ?? null,
     })
-    .where(eq(places.id, id))
+    .where(eq(venues.id, id))
     .returning();
 
-  return toPlace(row ?? null);
+  return toVenue(row ?? null);
 }
 
-export async function deletePlace(id: string): Promise<boolean> {
-  const rows = await db.delete(places).where(eq(places.id, id)).returning();
+export async function deleteVenue(id: string): Promise<boolean> {
+  const rows = await db.delete(venues).where(eq(venues.id, id)).returning();
   return rows.length > 0;
 }
 
@@ -381,7 +382,10 @@ async function _materializeRecurringMatches(): Promise<void> {
         .values({
           playedAt: new Date(next),
           endsAt: new Date(next + duration),
-          placeId: source.placeId,
+          venueId: source.venueId,
+          // Deliberately not carried forward. Which pitch they get is settled
+          // week by week, and last week's number on a fresh date sends people
+          // to the wrong gate with more confidence than a blank does.
           organizerId: source.organizerId,
           recurrence: source.recurrence,
           seriesId: source.seriesId,
@@ -423,13 +427,13 @@ export async function listMatches(demo = false): Promise<MatchSummary[]> {
   const rows = await db
     .select({
       match: matches,
-      place: places,
+      venue: venues,
       playerCount: sql<number>`count(${matchPlayers.playerId})`,
       // Same rule as `toMatch`: the organizer is counted as settled.
       paidCount: sql<number>`count(case when ${matchPlayers.paidAt} is not null or ${matchPlayers.playerId} = ${matches.organizerId} then 1 end)`,
     })
     .from(matches)
-    .leftJoin(places, eq(places.id, matches.placeId))
+    .leftJoin(venues, eq(venues.id, matches.venueId))
     .leftJoin(matchPlayers, eq(matchPlayers.matchId, matches.id))
     .where(eq(matches.isDemo, demo))
     .groupBy(matches.id)
@@ -439,7 +443,8 @@ export async function listMatches(demo = false): Promise<MatchSummary[]> {
     id: row.match.id,
     playedAt: row.match.playedAt.getTime(),
     endsAt: endOf(row.match),
-    place: toPlace(row.place),
+    venue: toVenue(row.venue),
+    pitch: row.match.pitch,
     organizerId: row.match.organizerId,
     recurrence: (row.match.recurrence as Recurrence | null) ?? null,
     seriesId: row.match.seriesId,
@@ -474,18 +479,18 @@ async function loadTeams(matchId: string) {
 
 /** Everything a `Match` needs, from the row the caller already has. */
 async function hydrate(row: MatchRow): Promise<Match> {
-  const [place, lineup, teams] = await Promise.all([
-    loadPlace(row.placeId),
+  const [venue, lineup, teams] = await Promise.all([
+    loadVenue(row.venueId),
     loadLineup(row.id),
     loadTeams(row.id),
   ]);
 
-  return toMatch(row, place, lineup, teams);
+  return toMatch(row, venue, lineup, teams);
 }
 
-async function loadPlace(placeId: string | null) {
-  if (!placeId) return null;
-  const [row] = await db.select().from(places).where(eq(places.id, placeId));
+async function loadVenue(venueId: string | null) {
+  if (!venueId) return null;
+  const [row] = await db.select().from(venues).where(eq(venues.id, venueId));
   return row ?? null;
 }
 
@@ -703,7 +708,7 @@ export async function deleteMatchMedia(
 /**
  * Just the id of the match the front page would show.
  *
- * Same choice as `getNextMatch`, without the place and the lineup: a pinned
+ * Same choice as `getNextMatch`, without the venue and the lineup: a pinned
  * page needs it only to know whether a row in the drawer should link to "/".
  */
 export async function getHomeMatchId(): Promise<string | null> {
@@ -751,7 +756,8 @@ export async function createMatch(input: MatchInput): Promise<Match> {
     .values({
       playedAt: new Date(input.playedAt),
       endsAt: new Date(input.endsAt),
-      placeId: input.placeId ?? null,
+      venueId: input.venueId ?? null,
+      pitch: input.pitch?.trim() || null,
       organizerId: input.organizerId ?? null,
       recurrence: input.recurrence ?? null,
       // A recurring fixture opens its own series; occurrences inherit the id.
@@ -793,7 +799,8 @@ export async function updateMatch(
     .set({
       playedAt: new Date(input.playedAt),
       endsAt: new Date(input.endsAt),
-      placeId: input.placeId ?? null,
+      venueId: input.venueId ?? null,
+      pitch: input.pitch?.trim() || null,
       organizerId: input.organizerId ?? null,
       recurrence: input.recurrence ?? null,
       seriesId,
@@ -958,8 +965,8 @@ export async function drawTeams(
   const lineup = await loadLineup(matchId);
   if (lineup.length < 4) return hydrate(match);
 
-  const place = await loadPlace(match.placeId);
-  const teamSize = place?.format ?? DEFAULT_PITCH_FORMAT;
+  const venue = await loadVenue(match.venueId);
+  const teamSize = venue?.format ?? DEFAULT_PITCH_FORMAT;
 
   const plan = planTeams(
     lineup.map((entry) => toPlayer(entry.player)),
@@ -1171,7 +1178,7 @@ export async function ensureDemo(): Promise<Match> {
       .orderBy(asc(matchPlayers.slot));
 
     return demoMatch(
-      existing.placeId,
+      existing.venueId,
       existing.organizerId,
       lineup.map((entry) => entry.playerId),
     );
@@ -1186,18 +1193,18 @@ export async function ensureDemo(): Promise<Match> {
    * Cardenas in one lineup, and taking one off leaves the other standing
    * there. What is already here is reused; only what is missing is made.
    */
-  const [pitch] = await db
+  const [standingVenue] = await db
     .select()
-    .from(places)
-    .where(eq(places.isDemo, true))
+    .from(venues)
+    .where(eq(venues.isDemo, true))
     .limit(1);
 
-  const place =
-    pitch ??
+  const venue =
+    standingVenue ??
     (
       await db
-        .insert(places)
-        .values({ ...DEMO.place, isDemo: true })
+        .insert(venues)
+        .values({ ...DEMO.venue, isDemo: true })
         .returning()
     )[0];
 
@@ -1209,7 +1216,7 @@ export async function ensureDemo(): Promise<Match> {
 
   if (standing.length) {
     return demoMatch(
-      place.id,
+      venue.id,
       standing[0].id,
       standing.map((player) => player.id),
     );
@@ -1239,7 +1246,7 @@ export async function ensureDemo(): Promise<Match> {
     .returning();
 
   return demoMatch(
-    place.id,
+    venue.id,
     squad[0].id,
     squad.map((player) => player.id),
   );
@@ -1253,7 +1260,7 @@ export async function ensureDemo(): Promise<Match> {
  * nothing special-cased for the demo.
  */
 async function demoMatch(
-  placeId: string | null,
+  venueId: string | null,
   organizerId: string | null,
   playerIds: string[],
 ): Promise<Match> {
@@ -1264,7 +1271,8 @@ async function demoMatch(
     .values({
       playedAt,
       endsAt: new Date(playedAt.getTime() + DEFAULT_MATCH_DURATION_MS),
-      placeId,
+      venueId,
+      pitch: DEMO.match.pitch,
       organizerId,
       isDemo: true,
     })
@@ -1288,7 +1296,7 @@ export async function resetDemo(): Promise<Match> {
   // The match takes its teams, games, goals and lineup with it.
   await db.delete(matches).where(eq(matches.isDemo, true));
   await db.delete(players).where(eq(players.isDemo, true));
-  await db.delete(places).where(eq(places.isDemo, true));
+  await db.delete(venues).where(eq(venues.isDemo, true));
 
   return ensureDemo();
 }
@@ -1422,7 +1430,7 @@ export async function addGoal(
 /**
  * How long a game runs on this night.
  *
- * Kept on the match rather than on the place: the same pitch is rented for an
+ * Kept on the match rather than on the venue: the same pitch is rented for an
  * hour some weeks and two others, and it is the night that decides how long
  * the side waiting has to wait.
  */
@@ -1676,11 +1684,11 @@ export async function assertPlayersExist(ids: string[]): Promise<boolean> {
   return rows.length === new Set(ids).size;
 }
 
-export async function placeExists(id: string | null | undefined) {
+export async function venueExists(id: string | null | undefined) {
   if (!id) return true;
   const [row] = await db
-    .select({ id: places.id })
-    .from(places)
-    .where(eq(places.id, id));
+    .select({ id: venues.id })
+    .from(venues)
+    .where(eq(venues.id, id));
   return !!row;
 }

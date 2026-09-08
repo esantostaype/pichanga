@@ -2,7 +2,7 @@ import {
   assertPlayersExist,
   deleteMatch,
   getMatch,
-  placeExists,
+  venueExists,
   updateMatch,
 } from "@/db/queries";
 import { REALTIME } from "@/lib/constants";
@@ -33,8 +33,8 @@ export async function PATCH(request: Request, { params }: Context) {
       return fail((await messages()).playerGone, 422);
     }
 
-    if (!(await placeExists(input.placeId))) {
-      return fail((await messages()).placeGone, 422);
+    if (!(await venueExists(input.venueId))) {
+      return fail((await messages()).venueGone, 422);
     }
 
     const match = await updateMatch(id, input);

@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { problem } from "@/i18n/dictionaries";
-import { PlaceFormDialog } from "@/components/places/place-form-dialog";
+import { VenueFormDialog } from "@/components/venues/venue-form-dialog";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { PlayerPicker } from "@/components/players/player-picker";
 import { usePichanga } from "@/components/providers/pichanga-provider";
@@ -24,6 +24,7 @@ import {
 import { DatePicker } from "@/components/ui/date-picker";
 import { Field } from "@/components/ui/field";
 import { Icon } from "@/components/ui/icon";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -42,7 +43,7 @@ import { toEpoch } from "@/lib/validators";
 import type { MatchSummary } from "@/types";
 
 /** Sentinels: Radix Select cannot hold an empty string value. */
-const NO_PLACE = "none";
+const NO_VENUE = "none";
 const NO_ORGANIZER = "none";
 
 const formSchema = z
@@ -50,7 +51,9 @@ const formSchema = z
     date: z.string().min(1, "matches.pickDate"),
     time: z.string().min(1, "matches.pickStart"),
     endTime: z.string().min(1, "matches.pickEnd"),
-    placeId: z.string(),
+    venueId: z.string(),
+    /** Which pitch inside it. Free text: nothing here to validate. */
+    pitch: z.string().trim().max(60, "form.tooLong"),
     organizerId: z.string(),
     recurring: z.boolean(),
   })
@@ -115,11 +118,11 @@ function MatchForm({
   onDone: () => void;
 }) {
   const { t } = useLocale();
-  const { players, places, createMatch, updateMatch } = usePichanga();
+  const { players, venues, createMatch, updateMatch } = usePichanga();
 
   const [selected, setSelected] = useState<string[]>([]);
   const [playerFormOpen, setPlayerFormOpen] = useState(false);
-  const [placeFormOpen, setPlaceFormOpen] = useState(false);
+  const [venueFormOpen, setVenueFormOpen] = useState(false);
 
   const base = match?.playedAt ?? suggestedMatchDate();
   const baseEnd = match?.endsAt ?? base + SUGGESTED_MATCH_LENGTH_MS;
@@ -130,7 +133,8 @@ function MatchForm({
       date: toDateInput(base),
       time: toTimeInput(base),
       endTime: toTimeInput(baseEnd),
-      placeId: match?.place?.id ?? NO_PLACE,
+      venueId: match?.venue?.id ?? NO_VENUE,
+      pitch: match?.pitch ?? "",
       organizerId: match?.organizerId ?? NO_ORGANIZER,
       recurring: match?.recurrence === "weekly",
     },
@@ -166,7 +170,8 @@ function MatchForm({
       const payload = {
         playedAt: toEpoch(values.date, values.time),
         endsAt: toEpoch(values.date, values.endTime),
-        placeId: values.placeId === NO_PLACE ? null : values.placeId,
+        venueId: values.venueId === NO_VENUE ? null : values.venueId,
+        pitch: values.pitch.trim() || null,
         organizerId:
           values.organizerId === NO_ORGANIZER ? null : values.organizerId,
         recurrence: values.recurring ? ("weekly" as const) : null,
@@ -271,23 +276,23 @@ function MatchForm({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {t.matches.place}
+              {t.matches.venue}
             </span>
             <Button
               type="button"
               variant="ghost"
               size="sm"
               disabled={pending}
-              onClick={() => setPlaceFormOpen(true)}
+              onClick={() => setVenueFormOpen(true)}
             >
               <Icon icon={Location01Icon} size={15} />
-              {t.places.newPlace}
+              {t.venues.newVenue}
             </Button>
           </div>
 
           <Controller
             control={form.control}
-            name="placeId"
+            name="venueId"
             render={({ field }) => (
               <Select
                 value={field.value}
@@ -295,21 +300,39 @@ function MatchForm({
                 disabled={pending}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={t.matches.pickPlace} />
+                  <SelectValue placeholder={t.matches.pickVenue} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_PLACE}>
-                    {t.matches.noPlaceYet}
+                  <SelectItem value={NO_VENUE}>
+                    {t.matches.noVenueYet}
                   </SelectItem>
-                  {places.map((place) => (
-                    <SelectItem key={place.id} value={place.id}>
-                      {place.name}
+                  {venues.map((venue) => (
+                    <SelectItem key={venue.id} value={venue.id}>
+                      {venue.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             )}
           />
+
+          <Input
+            placeholder={t.matches.pitchPlaceholder}
+            autoComplete="off"
+            disabled={pending}
+            aria-invalid={!!errors.pitch}
+            {...form.register("pitch")}
+          />
+
+          {problem(t, errors.pitch?.message) ? (
+            <p className="text-xs text-destructive">
+              {problem(t, errors.pitch?.message)}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground/70">
+              {t.matches.pitchHint}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1.5">
@@ -422,11 +445,11 @@ function MatchForm({
         onSaved={(player) => setSelected((prev) => [...prev, player.id])}
       />
 
-      <PlaceFormDialog
-        open={placeFormOpen}
-        onOpenChange={setPlaceFormOpen}
-        onSaved={(place) =>
-          form.setValue("placeId", place.id, { shouldValidate: true })
+      <VenueFormDialog
+        open={venueFormOpen}
+        onOpenChange={setVenueFormOpen}
+        onSaved={(venue) =>
+          form.setValue("venueId", venue.id, { shouldValidate: true })
         }
       />
     </>

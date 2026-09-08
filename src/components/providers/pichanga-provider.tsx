@@ -16,13 +16,13 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { fill } from "@/i18n/dictionaries";
 import { api } from "@/lib/api-client";
 import { REALTIME } from "@/lib/constants";
-import type { MatchInput, PlaceInput, PlayerInput } from "@/lib/validators";
-import type { Match, MatchSummary, Place, Player } from "@/types";
+import type { MatchInput, PlayerInput, VenueInput } from "@/lib/validators";
+import type { Match, MatchSummary, Player, Venue } from "@/types";
 
 type PichangaState = {
   nextMatch: Match | null;
   players: Player[];
-  places: Place[];
+  venues: Venue[];
   matches: MatchSummary[];
   /** Whether this visitor holds the admin session. */
   isAdmin: boolean;
@@ -55,9 +55,9 @@ type PichangaContextValue = PichangaState & {
   updatePlayer: (id: string, input: PlayerInput) => Promise<Player>;
   /** Takes a list so one row and a bulk selection share the same path. */
   deletePlayers: (ids: string[]) => Promise<void>;
-  createPlace: (input: PlaceInput) => Promise<Place>;
-  updatePlace: (id: string, input: PlaceInput) => Promise<Place>;
-  deletePlaces: (ids: string[]) => Promise<void>;
+  createVenue: (input: VenueInput) => Promise<Venue>;
+  updateVenue: (id: string, input: VenueInput) => Promise<Venue>;
+  deleteVenues: (ids: string[]) => Promise<void>;
   createMatch: (input: MatchInput) => Promise<Match>;
   updateMatch: (id: string, input: MatchInput) => Promise<Match>;
   deleteMatches: (ids: string[]) => Promise<void>;
@@ -118,8 +118,8 @@ export function PichangaProvider({
     [patch, demo],
   );
 
-  const refreshPlaces = useCallback(
-    async () => patch({ places: await api.places.list(demo) }),
+  const refreshVenues = useCallback(
+    async () => patch({ venues: await api.venues.list(demo) }),
     [patch, demo],
   );
 
@@ -144,8 +144,8 @@ export function PichangaProvider({
       void refreshPlayers();
       void refreshNextMatch();
     },
-    [REALTIME.events.placesChanged]: () => {
-      void refreshPlaces();
+    [REALTIME.events.venuesChanged]: () => {
+      void refreshVenues();
     },
     [REALTIME.events.matchesChanged]: () => {
       void refreshMatches();
@@ -277,29 +277,29 @@ export function PichangaProvider({
         }
       },
 
-      createPlace: async (input) => {
-        const place = await api.places.create({ ...input, isDemo: demo });
-        await refreshPlaces();
-        return place;
+      createVenue: async (input) => {
+        const venue = await api.venues.create({ ...input, isDemo: demo });
+        await refreshVenues();
+        return venue;
       },
 
-      updatePlace: async (id, input) => {
+      updateVenue: async (id, input) => {
         input = { ...input, isDemo: demo };
-        const place = await api.places.update(id, input);
+        const venue = await api.venues.update(id, input);
         await Promise.all([
-          refreshPlaces(),
+          refreshVenues(),
           refreshMatches(),
           refreshNextMatch(),
         ]);
-        return place;
+        return venue;
       },
 
-      deletePlaces: async (ids) => {
+      deleteVenues: async (ids) => {
         try {
-          await deleteAll(ids, api.places.remove);
+          await deleteAll(ids, api.venues.remove);
         } finally {
           await Promise.all([
-            refreshPlaces(),
+            refreshVenues(),
             refreshMatches(),
             refreshNextMatch(),
           ]);
@@ -428,7 +428,7 @@ export function PichangaProvider({
     t,
     patch,
     refreshPlayers,
-    refreshPlaces,
+    refreshVenues,
     refreshMatches,
     refreshNextMatch,
   ]);

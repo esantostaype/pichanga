@@ -339,13 +339,13 @@ function Podium({
   const { t } = useLocale();
   if (rows.length === 0) return null;
 
-  const standing = ORDER.filter((place) => rows[place]);
+  const standing = ORDER.filter((spot) => rows[spot]);
 
   return (
     <ol className="flex items-end justify-center gap-2">
-      {standing.map((place) => {
-        const row = rows[place];
-        const medal = PODIUM[place];
+      {standing.map((spot) => {
+        const row = rows[spot];
+        const medal = PODIUM[spot];
         const player = players.get(row.playerId);
 
         return (
@@ -439,12 +439,12 @@ function StatsSkeleton() {
   return (
     <div className="flex flex-col gap-4">
       <ol className="flex items-end justify-center gap-2">
-        {ORDER.map((place) => {
-          const medal = PODIUM[place];
+        {ORDER.map((spot) => {
+          const medal = PODIUM[spot];
 
           return (
             <li
-              key={place}
+              key={spot}
               className={cn(step, medal.step)}
               style={{ background: "rgba(255,255,255,0.035)" }}
             >

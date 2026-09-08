@@ -38,10 +38,10 @@ import { fill } from "@/i18n/dictionaries";
 import { useAction } from "@/hooks/use-action";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { formatMoney } from "@/lib/money";
-import type { Place } from "@/types";
-import { PlaceFormDialog } from "./place-form-dialog";
+import type { Venue } from "@/types";
+import { VenueFormDialog } from "./venue-form-dialog";
 
-export function PlacesDrawer({
+export function VenuesDrawer({
   open,
   onOpenChange,
 }: {
@@ -49,17 +49,17 @@ export function PlacesDrawer({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useLocale();
-  const { places, isAdmin, deletePlaces } = usePichanga();
+  const { venues, isAdmin, deleteVenues } = usePichanga();
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Place | null>(null);
+  const [editing, setEditing] = useState<Venue | null>(null);
   /** Ids queued for deletion: one row or a whole selection, same path. */
   const [pendingDelete, setPendingDelete] = useState<string[]>([]);
 
-  const selection = useRowSelection(places);
+  const selection = useRowSelection(venues);
 
-  const remove = useAction(async (ids: string[]) => deletePlaces(ids), {
-    success: t.places.deletedMany,
+  const remove = useAction(async (ids: string[]) => deleteVenues(ids), {
+    success: t.venues.deletedMany,
     onSuccess: () => {
       setPendingDelete([]);
       selection.clear();
@@ -68,10 +68,10 @@ export function PlacesDrawer({
 
   const deleteLabel = (() => {
     if (pendingDelete.length !== 1) {
-      return t.places.deleteManyLine;
+      return t.venues.deleteManyLine;
     }
-    const one = places.find((place) => place.id === pendingDelete[0]);
-    return one ? t.places.deleteOneLine : undefined;
+    const one = venues.find((venue) => venue.id === pendingDelete[0]);
+    return one ? t.venues.deleteOneLine : undefined;
   })();
 
   const openCreate = () => {
@@ -84,12 +84,12 @@ export function PlacesDrawer({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent>
           <SheetHeader>
-            <SheetTitle>{t.places.title}</SheetTitle>
+            <SheetTitle>{t.venues.title}</SheetTitle>
             <SheetDescription>
-              {fill(t.places.savedCount, {
-                count: places.length,
-                places:
-                  places.length === 1 ? t.common.place : t.common.placesPlural,
+              {fill(t.venues.savedCount, {
+                count: venues.length,
+                venues:
+                  venues.length === 1 ? t.common.venue : t.common.venuesPlural,
               })}
             </SheetDescription>
           </SheetHeader>
@@ -99,22 +99,22 @@ export function PlacesDrawer({
             {isAdmin ? (
               <Button size="sm" onClick={openCreate} className="self-start">
                 <Icon icon={PlusSignIcon} size={16} />
-                {t.places.newPlace}
+                {t.venues.newVenue}
               </Button>
             ) : null}
 
-            {places.length === 0 ? (
+            {venues.length === 0 ? (
               <EmptyState
                 icon={Location01Icon}
-                title={t.places.emptyTitle}
+                title={t.venues.emptyTitle}
                 description={
-                  isAdmin ? t.places.emptyLineAdmin : t.places.emptyLineGuest
+                  isAdmin ? t.venues.emptyLineAdmin : t.venues.emptyLineGuest
                 }
                 action={
                   isAdmin ? (
                     <Button size="sm" onClick={openCreate}>
                       <Icon icon={PlusSignIcon} size={16} />
-                      {t.places.newPlace}
+                      {t.venues.newVenue}
                     </Button>
                   ) : null
                 }
@@ -126,8 +126,8 @@ export function PlacesDrawer({
                     count={selection.count}
                     noun={
                       selection.count === 1
-                        ? t.common.place
-                        : t.common.placesPlural
+                        ? t.common.venue
+                        : t.common.venuesPlural
                     }
                     disabled={remove.pending}
                     onClear={selection.clear}
@@ -143,18 +143,18 @@ export function PlacesDrawer({
                           <Checkbox
                             checked={selection.headerState}
                             onCheckedChange={selection.toggleAll}
-                            aria-label={t.places.selectAll}
+                            aria-label={t.venues.selectAll}
                           />
                         </TableHead>
                       ) : null}
                       <TableHead className="w-px whitespace-nowrap">
-                        {t.places.name}
+                        {t.venues.name}
                       </TableHead>
                       <TableHead className="w-full">
-                        {t.places.address}
+                        {t.venues.address}
                       </TableHead>
                       <TableHead className="w-px whitespace-nowrap text-right">
-                        {t.places.price}
+                        {t.venues.price}
                       </TableHead>
                       {isAdmin ? (
                         <TableHead className="w-px text-right">
@@ -164,11 +164,11 @@ export function PlacesDrawer({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {places.map((place) => (
+                    {venues.map((venue) => (
                       <TableRow
-                        key={place.id}
+                        key={venue.id}
                         data-state={
-                          selection.isSelected(place.id)
+                          selection.isSelected(venue.id)
                             ? "selected"
                             : undefined
                         }
@@ -177,40 +177,40 @@ export function PlacesDrawer({
                           <TableCell className="align-top">
                             <Checkbox
                               className="mt-1"
-                              checked={selection.isSelected(place.id)}
-                              onCheckedChange={() => selection.toggle(place.id)}
-                              aria-label={fill(t.places.selectName, {
-                                name: place.name,
+                              checked={selection.isSelected(venue.id)}
+                              onCheckedChange={() => selection.toggle(venue.id)}
+                              aria-label={fill(t.venues.selectName, {
+                                name: venue.name,
                               })}
                             />
                           </TableCell>
                         ) : null}
 
                         <TableCell className="align-top whitespace-nowrap font-medium">
-                          {place.mapsUrl ? (
+                          {venue.mapsUrl ? (
                             <AppLink
-                              href={place.mapsUrl}
+                              href={venue.mapsUrl}
                               external
                               trailingIcon={LinkSquare02Icon}
                               iconSize={13}
                               className="gap-1.5"
                             >
-                              {place.name}
+                              {venue.name}
                             </AppLink>
                           ) : (
-                            place.name
+                            venue.name
                           )}
                         </TableCell>
 
                         <TableCell className="align-top text-muted-foreground">
-                          {place.address ?? (
+                          {venue.address ?? (
                             <span className="opacity-50">-</span>
                           )}
                         </TableCell>
 
                         <TableCell className="align-top whitespace-nowrap text-right tabular-nums text-muted-foreground">
-                          {place.price != null ? (
-                            formatMoney(place.price)
+                          {venue.price != null ? (
+                            formatMoney(venue.price)
                           ) : (
                             <span className="opacity-50">-</span>
                           )}
@@ -222,11 +222,11 @@ export function PlacesDrawer({
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                aria-label={fill(t.places.editName, {
-                                  name: place.name,
+                                aria-label={fill(t.venues.editName, {
+                                  name: venue.name,
                                 })}
                                 onClick={() => {
-                                  setEditing(place);
+                                  setEditing(venue);
                                   setFormOpen(true);
                                 }}
                               >
@@ -235,11 +235,11 @@ export function PlacesDrawer({
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                aria-label={fill(t.places.deleteName, {
-                                  name: place.name,
+                                aria-label={fill(t.venues.deleteName, {
+                                  name: venue.name,
                                 })}
                                 className="text-muted-foreground hover:text-destructive"
-                                onClick={() => setPendingDelete([place.id])}
+                                onClick={() => setPendingDelete([venue.id])}
                               >
                                 <Icon icon={Delete02Icon} size={15} />
                               </Button>
@@ -256,10 +256,10 @@ export function PlacesDrawer({
         </SheetContent>
       </Sheet>
 
-      <PlaceFormDialog
+      <VenueFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        place={editing}
+        venue={editing}
       />
 
       <ConfirmDialog
@@ -267,8 +267,8 @@ export function PlacesDrawer({
         onOpenChange={(next) => !next && setPendingDelete([])}
         title={
           pendingDelete.length > 1
-            ? fill(t.places.deleteMany, { count: pendingDelete.length })
-            : t.places.deleteOne
+            ? fill(t.venues.deleteMany, { count: pendingDelete.length })
+            : t.venues.deleteOne
         }
         description={deleteLabel}
         pending={remove.pending}

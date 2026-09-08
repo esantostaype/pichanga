@@ -30,6 +30,7 @@ import { useAction } from "@/hooks/use-action";
 import { fill } from "@/i18n/dictionaries";
 import { formatShortDate } from "@/lib/date";
 import {
+  asPng,
   matchShareText,
   renderMatchCard,
   type ShareScope,
@@ -299,23 +300,6 @@ function Action({
       <TooltipContent side="top">{label}</TooltipContent>
     </Tooltip>
   );
-}
-
-/** The same picture, in the one format a clipboard will take. */
-async function asPng(jpeg: Blob) {
-  const bitmap = await createImageBitmap(jpeg);
-  const canvas = document.createElement("canvas");
-  canvas.width = bitmap.width;
-  canvas.height = bitmap.height;
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
-  bitmap.close();
-
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error("share.noImageCopy"))),
-      "image/png",
-    );
-  });
 }
 
 /** True on anything driven by a finger, which is where the app is worth opening. */

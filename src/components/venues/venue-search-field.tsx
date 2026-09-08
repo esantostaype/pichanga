@@ -8,25 +8,25 @@ import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { api } from "@/lib/api-client";
-import type { PlaceInput } from "@/lib/validators";
-import type { PlaceSuggestion } from "@/types";
+import type { VenueInput } from "@/lib/validators";
+import type { VenueSuggestion } from "@/types";
 
 /**
- * Google Places autocomplete.
+ * Google Venues autocomplete.
  *
- * Renders nothing when the server has no API key configured, so the place form
+ * Renders nothing when the server has no API key configured, so the venue form
  * degrades to plain manual entry instead of showing a dead search box.
  */
-export function PlaceSearchField({
+export function VenueSearchField({
   onPicked,
   disabled,
 }: {
-  onPicked: (place: PlaceInput) => void;
+  onPicked: (venue: VenueInput) => void;
   disabled?: boolean;
 }) {
   const { t } = useLocale();
   const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<VenueSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [available, setAvailable] = useState(true);
 
@@ -40,7 +40,7 @@ export function PlaceSearchField({
   useEffect(() => {
     let cancelled = false;
 
-    api.places.search("", session.current).catch((error: unknown) => {
+    api.venues.search("", session.current).catch((error: unknown) => {
       if (!cancelled && /not configured/i.test(String(error))) {
         setAvailable(false);
       }
@@ -60,7 +60,7 @@ export function PlaceSearchField({
     const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const results = await api.places.search(needle, session.current);
+        const results = await api.venues.search(needle, session.current);
         if (!cancelled) setSuggestions(results);
       } catch (error) {
         if (cancelled) return;
@@ -79,12 +79,12 @@ export function PlaceSearchField({
 
   if (!available) return null;
 
-  const pick = async (suggestion: PlaceSuggestion) => {
+  const pick = async (suggestion: VenueSuggestion) => {
     setSuggestions([]);
     setQuery("");
     setLoading(true);
     try {
-      const details = await api.places.details(
+      const details = await api.venues.details(
         suggestion.googlePlaceId,
         session.current,
       );
@@ -113,7 +113,7 @@ export function PlaceSearchField({
             setQuery(event.target.value);
             if (event.target.value.trim().length < 3) setSuggestions([]);
           }}
-          placeholder={t.places.searchMaps}
+          placeholder={t.venues.searchMaps}
           className="pl-9"
         />
       </div>

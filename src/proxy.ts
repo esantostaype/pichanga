@@ -8,7 +8,7 @@ import { SESSION_COOKIE, verifySessionToken, type Role } from "@/lib/auth";
  * Guards the API.
  *
  * A guest can read everything and fully manage *players* and the *lineup*:
- * that is the part of the app the whole office touches. Matches and places are
+ * that is the part of the app the whole office touches. Matches and venues are
  * the fixture itself, so creating or changing them needs the admin session.
  *
  * In Next 16 this file convention is `proxy`, not `middleware`.
@@ -66,7 +66,7 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
 const PROTECTED_READS: Array<{ pattern: RegExp; role: Role }> = [
   // The venue autocomplete is a read, but every call costs money on the
   // Google bill, so it stays behind the session.
-  { pattern: /^\/api\/places\/search/, role: "admin" },
+  { pattern: /^\/api\/venues\/search/, role: "admin" },
   // How many people are on the app is for whoever runs it, nobody else.
   { pattern: /^\/api\/presence\/?$/, role: "superadmin" },
 ];

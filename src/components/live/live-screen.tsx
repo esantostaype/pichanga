@@ -25,7 +25,7 @@ import { ShareDialog } from "@/components/matches/share-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TeamCrest } from "@/components/matches/team-crest";
 import { PitchSurface } from "@/components/pitch/pitch-surface";
-import { PlacesDrawer } from "@/components/places/places-drawer";
+import { VenuesDrawer } from "@/components/venues/venues-drawer";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { PlayersDrawer } from "@/components/players/players-drawer";
 import { StatsDrawer } from "@/components/stats/stats-drawer";
@@ -743,9 +743,9 @@ export function LiveScreen({
         onOpenChange={(next) => setPanel(next ? "players" : null)}
       />
 
-      <PlacesDrawer
-        open={panel === "places"}
-        onOpenChange={(next) => setPanel(next ? "places" : null)}
+      <VenuesDrawer
+        open={panel === "venues"}
+        onOpenChange={(next) => setPanel(next ? "venues" : null)}
       />
 
       <StatsDrawer

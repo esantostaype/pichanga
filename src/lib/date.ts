@@ -1,4 +1,4 @@
-import { formatDistanceToNowStrict } from "date-fns";
+import { formatDistanceStrict, formatDistanceToNowStrict } from "date-fns";
 import { enUS, es as esLocale } from "date-fns/locale";
 
 /**
@@ -190,6 +190,20 @@ export function relativeLabel(
   // `addSuffix` rather than gluing "ago" on afterwards: Spanish puts it in
   // front ("hace 2 dias") and only the locale knows that.
   return formatDistanceToNowStrict(new Date(ms), {
+    addSuffix: true,
+    locale: lang === "es" ? esLocale : enUS,
+  });
+}
+
+/**
+ * How long until a moment: "in 3 hours", "en 3 horas".
+ *
+ * `now` is passed in rather than read here, because the only caller is a
+ * screen that already has a ticking clock -- and a label that reads the time
+ * during render disagrees with the markup the server sent.
+ */
+export function untilLabel(ms: number, now: number, lang: Lang = "en") {
+  return formatDistanceStrict(new Date(ms), new Date(now), {
     addSuffix: true,
     locale: lang === "es" ? esLocale : enUS,
   });

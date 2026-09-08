@@ -2,7 +2,7 @@ import {
   assertPlayersExist,
   createMatch,
   listMatches,
-  placeExists,
+  venueExists,
 } from "@/db/queries";
 import { REALTIME } from "@/lib/constants";
 import { messages } from "@/i18n/server";
@@ -25,8 +25,8 @@ export async function POST(request: Request) {
       return fail((await messages()).playerGone, 422);
     }
 
-    if (!(await placeExists(input.placeId))) {
-      return fail((await messages()).placeGone, 422);
+    if (!(await venueExists(input.venueId))) {
+      return fail((await messages()).venueGone, 422);
     }
 
     const match = await createMatch(input);

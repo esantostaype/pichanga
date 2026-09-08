@@ -14,6 +14,7 @@ import { Icon } from "@/components/ui/icon";
 import { useNow } from "@/hooks/use-now";
 import { fill } from "@/i18n/dictionaries";
 import { formatMoney, perPlayer } from "@/lib/money";
+import { whereLabel } from "@/lib/venue";
 import { cn } from "@/lib/utils";
 import {
   formatLongDate,
@@ -53,7 +54,7 @@ export function MatchHudCard({
   }
 
   const live = now !== null && isLive(match.playedAt, match.endsAt, now);
-  const share = perPlayer(match.place?.price, match.players.length);
+  const share = perPlayer(match.venue?.price, match.players.length);
 
   /**
    * Played and finished. The pitch keeps the match for three days after the
@@ -113,7 +114,7 @@ export function MatchHudCard({
               stacked ? "" : "ml-auto",
             )}
             title={fill(t.hud.splitTitle, {
-              money: formatMoney(match.place!.price!),
+              money: formatMoney(match.venue!.price!),
               count: match.players.length,
               players:
                 match.players.length === 1 ? t.common.player : t.common.players,
@@ -145,22 +146,22 @@ export function MatchHudCard({
           {formatTimeRange(match.playedAt, match.endsAt)}
         </span>
 
-        {match.place ? (
-          match.place.mapsUrl ? (
+        {match.venue ? (
+          match.venue.mapsUrl ? (
             <AppLink
-              href={match.place.mapsUrl}
+              href={match.venue.mapsUrl}
               external
               icon={Location01Icon}
               iconSize={13}
               className="gap-1.5"
-              title={match.place.address ?? match.place.name}
+              title={match.venue.address ?? match.venue.name}
             >
-              {match.place.name}
+              {whereLabel(match)}
             </AppLink>
           ) : (
             <span className="flex min-w-0 items-center gap-1.5">
               <Icon icon={Location01Icon} size={13} />
-              <span className="truncate">{match.place.name}</span>
+              <span className="truncate">{whereLabel(match)}</span>
             </span>
           )
         ) : null}

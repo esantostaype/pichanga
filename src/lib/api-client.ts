@@ -4,14 +4,14 @@ import type {
   MatchLive,
   MatchMedia,
   MatchSummary,
-  Place,
-  PlaceSuggestion,
+  Venue,
+  VenueSuggestion,
   Player,
 } from "@/types";
 import type {
   MatchInput,
   MediaInput,
-  PlaceInput,
+  VenueInput,
   PlayerInput,
 } from "./validators";
 
@@ -108,26 +108,26 @@ export const api = {
       request<{ id: string }>(`/api/players/${id}`, { method: "DELETE" }),
   },
 
-  places: {
-    list: (demo = false) => request<Place[]>(`/api/places${world(demo)}`),
-    create: (input: PlaceInput) =>
-      request<Place>("/api/places", { method: "POST", body: body(input) }),
-    update: (id: string, input: PlaceInput) =>
-      request<Place>(`/api/places/${id}`, {
+  venues: {
+    list: (demo = false) => request<Venue[]>(`/api/venues${world(demo)}`),
+    create: (input: VenueInput) =>
+      request<Venue>("/api/venues", { method: "POST", body: body(input) }),
+    update: (id: string, input: VenueInput) =>
+      request<Venue>(`/api/venues/${id}`, {
         method: "PATCH",
         body: body(input),
       }),
     remove: (id: string) =>
-      request<{ id: string }>(`/api/places/${id}`, { method: "DELETE" }),
+      request<{ id: string }>(`/api/venues/${id}`, { method: "DELETE" }),
 
     /** Google autocomplete, proxied so the API key stays server-side. */
     search: (query: string, session: string) =>
-      request<PlaceSuggestion[]>(
-        `/api/places/search?q=${encodeURIComponent(query)}&session=${session}`,
+      request<VenueSuggestion[]>(
+        `/api/venues/search?q=${encodeURIComponent(query)}&session=${session}`,
       ),
     details: (googlePlaceId: string, session: string) =>
-      request<PlaceInput>(
-        `/api/places/search?placeId=${encodeURIComponent(googlePlaceId)}&session=${session}`,
+      request<VenueInput>(
+        `/api/venues/search?googlePlaceId=${encodeURIComponent(googlePlaceId)}&session=${session}`,
       ),
   },
 

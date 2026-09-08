@@ -143,16 +143,17 @@ const playedAt = (() => {
   return date.getTime();
 })();
 
-const placeId = crypto.randomUUID();
+const venueId = crypto.randomUUID();
 
 await db.execute({
-  sql: "insert into places (id, name, address, google_place_id, maps_url, price, lat, lng, created_at) values (?, ?, ?, null, ?, ?, null, null, ?)",
+  sql: "insert into venues (id, name, address, google_place_id, maps_url, price, format, lat, lng, created_at) values (?, ?, ?, null, ?, ?, ?, null, null, ?)",
   args: [
-    placeId,
-    "Pitch 3",
+    venueId,
+    "Complejo Ejemplo",
     "Av. Ejemplo 123",
-    "https://www.google.com/maps/search/?api=1&query=Pitch+3",
+    "https://www.google.com/maps/search/?api=1&query=Complejo+Ejemplo",
     120,
+    7,
     now,
   ],
 });
@@ -161,12 +162,13 @@ const matchId = crypto.randomUUID();
 
 // Seeded as a weekly fixture so the recurrence path has something to roll.
 await db.execute({
-  sql: "insert into matches (id, played_at, ends_at, place_id, organizer_id, recurrence, series_id, created_at) values (?, ?, ?, ?, ?, 'weekly', ?, ?)",
+  sql: "insert into matches (id, played_at, ends_at, venue_id, pitch, organizer_id, recurrence, series_id, created_at) values (?, ?, ?, ?, ?, ?, 'weekly', ?, ?)",
   args: [
     matchId,
     playedAt,
     playedAt + 90 * 60 * 1000,
-    placeId,
+    venueId,
+    "Cancha 3 - F7",
     players[0].id,
     crypto.randomUUID(),
     now,

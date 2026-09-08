@@ -2,6 +2,7 @@
 
 import { useGSAP } from "@gsap/react";
 import {
+  FootballPitchIcon,
   PlusSignIcon,
   StopWatchIcon,
   UserGroupIcon,
@@ -16,8 +17,9 @@ import { MatchesDrawer } from "@/components/matches/matches-drawer";
 import { PaymentsDialog } from "@/components/matches/payments-dialog";
 import { ShareDialog } from "@/components/matches/share-dialog";
 import { TeamsDialog, newSeed } from "@/components/matches/teams-dialog";
+import { TeamsPreviewDialog } from "@/components/matches/teams-preview-dialog";
 import { PitchScene } from "@/components/pitch/pitch-scene";
-import { PlacesDrawer } from "@/components/places/places-drawer";
+import { VenuesDrawer } from "@/components/venues/venues-drawer";
 import { PlayerCardDialog } from "@/components/players/player-card-dialog";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { PlayersDrawer } from "@/components/players/players-drawer";
@@ -71,6 +73,7 @@ export function AppShell() {
 
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [teamsDialogOpen, setTeamsDialogOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   /*
    * Whose card is open, from a tap on their name anywhere on the pitch.
    *
@@ -105,6 +108,22 @@ export function AppShell() {
     !!nextMatch &&
     nextMatch.players.length >= 4 &&
     (hasTeams || (now !== null && now >= nextMatch.playedAt - TEAMS_OPEN_MS));
+
+  /*
+   * Before the window, the same button asks a smaller question: not "draw the
+   * sides" but "how would they come out". It is worked out in the browser and
+   * saved nowhere, so it costs the match nothing and can be looked at all week.
+   *
+   * Not on the demo, which kicks off in half an hour and therefore has the real
+   * draw open from the moment it is seeded: a preview there would be a button
+   * that never appears, or worse, one that shadows the thing it is previewing.
+   */
+  const canPreview =
+    !over &&
+    !demo &&
+    !teamsOpen &&
+    !!nextMatch &&
+    nextMatch.players.length >= 4;
 
   /*
    * The app names a keeper for every side and is usually right, but it cannot
@@ -252,6 +271,17 @@ export function AppShell() {
             </Button>
           ) : null}
 
+          {canPreview ? (
+            <Button
+              variant="soft"
+              size="icon-lg"
+              aria-label={t.pitch.previewTeams}
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Icon icon={FootballPitchIcon} size={22} />
+            </Button>
+          ) : null}
+
           {hasTeams && nextMatch ? (
             <Button
               variant="soft"
@@ -290,9 +320,9 @@ export function AppShell() {
         onOpenChange={(open) => setPanel(open ? "players" : null)}
       />
 
-      <PlacesDrawer
-        open={panel === "places"}
-        onOpenChange={(open) => setPanel(open ? "places" : null)}
+      <VenuesDrawer
+        open={panel === "venues"}
+        onOpenChange={(open) => setPanel(open ? "venues" : null)}
       />
 
       <StatsDrawer
@@ -324,6 +354,17 @@ export function AppShell() {
       <TeamsDialog
         open={teamsDialogOpen}
         onOpenChange={setTeamsDialogOpen}
+        match={nextMatch}
+      />
+
+      {/*
+        Gated on the window as well as on the flag, so a preview left open as
+        the two hours come round closes itself rather than sitting there beside
+        the real draw saying something different.
+      */}
+      <TeamsPreviewDialog
+        open={previewOpen && canPreview}
+        onOpenChange={setPreviewOpen}
         match={nextMatch}
       />
 

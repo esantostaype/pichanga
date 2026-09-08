@@ -479,7 +479,7 @@ export function ScenePodium() {
           ))}
         </ol>
 
-        {/* And the table, where fourth and fifth keep trading places. */}
+        {/* And the table, where fourth and fifth keep trading venues. */}
         <div className="relative h-[8rem]">
           {TABLE_ROWS.map((row) => (
             <span

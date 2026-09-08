@@ -6,7 +6,7 @@ import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { useLocale } from "@/components/providers/locale-provider";
-import { problem } from "@/i18n/dictionaries";
+import { fill, problem } from "@/i18n/dictionaries";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,42 +30,42 @@ import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { PITCH_FORMATS } from "@/lib/constants";
 import { CURRENCY } from "@/lib/money";
-import type { Place } from "@/types";
-import { PlaceSearchField } from "./place-search-field";
+import type { Venue } from "@/types";
+import { VenueSearchField } from "./venue-search-field";
 
 const formSchema = z.object({
-  name: z.string().trim().min(2, "places.nameTooShort").max(80),
+  name: z.string().trim().min(2, "venues.nameTooShort").max(80),
   address: z.string().trim().max(200).optional(),
-  mapsUrl: z.union([z.string().url("places.badUrl"), z.literal("")]).optional(),
+  mapsUrl: z.union([z.string().url("venues.badUrl"), z.literal("")]).optional(),
   // Same as the price: text, so an empty field means "nobody has said".
   format: z.string().optional(),
   // Kept as text so an empty field means "no price" instead of zero.
   price: z
     .string()
     .trim()
-    .refine((value) => value === "" || Number(value) >= 0, "places.negative")
+    .refine((value) => value === "" || Number(value) >= 0, "venues.negative")
     .refine(
       (value) => value === "" || Number.isFinite(Number(value)),
-      "places.notANumber",
+      "venues.notANumber",
     )
     .optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
 
-type PlaceFormDialogProps = {
+type VenueFormDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  place?: Place | null;
-  onSaved?: (place: Place) => void;
+  venue?: Venue | null;
+  onSaved?: (venue: Venue) => void;
 };
 
-export function PlaceFormDialog({
+export function VenueFormDialog({
   open,
   onOpenChange,
-  place,
+  venue,
   onSaved,
-}: PlaceFormDialogProps) {
+}: VenueFormDialogProps) {
   const { t } = useLocale();
   const busy = useRef(false);
 
@@ -79,13 +79,13 @@ export function PlaceFormDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {place ? t.places.formEdit : t.places.formNew}
+            {venue ? t.venues.formEdit : t.venues.formNew}
           </DialogTitle>
-          <DialogDescription>{t.places.formHint}</DialogDescription>
+          <DialogDescription>{t.venues.formHint}</DialogDescription>
         </DialogHeader>
 
-        <PlaceForm
-          place={place ?? null}
+        <VenueForm
+          venue={venue ?? null}
           onBusyChange={(value) => (busy.current = value)}
           onDone={(saved) => {
             if (saved) onSaved?.(saved);
@@ -97,33 +97,33 @@ export function PlaceFormDialog({
   );
 }
 
-function PlaceForm({
-  place,
+function VenueForm({
+  venue,
   onBusyChange,
   onDone,
 }: {
-  place: Place | null;
+  venue: Venue | null;
   onBusyChange: (busy: boolean) => void;
-  onDone: (saved?: Place) => void;
+  onDone: (saved?: Venue) => void;
 }) {
   const { t } = useLocale();
-  const { createPlace, updatePlace } = usePichanga();
+  const { createVenue, updateVenue } = usePichanga();
 
   // Google-only data that has no field of its own in the form.
   const meta = useRef({
-    googlePlaceId: place?.googlePlaceId ?? null,
-    lat: place?.lat ?? null,
-    lng: place?.lng ?? null,
+    googlePlaceId: venue?.googlePlaceId ?? null,
+    lat: venue?.lat ?? null,
+    lng: venue?.lng ?? null,
   });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: place?.name ?? "",
-      address: place?.address ?? "",
-      mapsUrl: place?.mapsUrl ?? "",
-      price: place?.price != null ? String(place.price) : "",
-      format: place?.format != null ? String(place.format) : "",
+      name: venue?.name ?? "",
+      address: venue?.address ?? "",
+      mapsUrl: venue?.mapsUrl ?? "",
+      price: venue?.price != null ? String(venue.price) : "",
+      format: venue?.format != null ? String(venue.format) : "",
     },
   });
 
@@ -142,10 +142,10 @@ function PlaceForm({
         lng: meta.current.lng,
       };
 
-      return place ? updatePlace(place.id, payload) : createPlace(payload);
+      return venue ? updateVenue(venue.id, payload) : createVenue(payload);
     },
     {
-      success: place ? t.places.updated : t.places.created,
+      success: venue ? t.venues.updated : t.venues.created,
       onSuccess: (saved) => saved && onDone(saved),
     },
   );
@@ -161,7 +161,7 @@ function PlaceForm({
         onBusyChange(false);
       })}
     >
-      <PlaceSearchField
+      <VenueSearchField
         disabled={pending}
         onPicked={(details) => {
           meta.current = {
@@ -175,9 +175,9 @@ function PlaceForm({
         }}
       />
 
-      <Field label={t.places.name} error={problem(t, errors.name?.message)}>
+      <Field label={t.venues.name} error={problem(t, errors.name?.message)}>
         <Input
-          placeholder={t.places.namePlaceholder}
+          placeholder={t.venues.namePlaceholder}
           autoComplete="off"
           disabled={pending}
           aria-invalid={!!errors.name}
@@ -186,11 +186,11 @@ function PlaceForm({
       </Field>
 
       <Field
-        label={t.places.address}
+        label={t.venues.address}
         error={problem(t, errors.address?.message)}
       >
         <Input
-          placeholder={t.places.addressPlaceholder}
+          placeholder={t.venues.addressPlaceholder}
           autoComplete="off"
           disabled={pending}
           {...form.register("address")}
@@ -198,9 +198,9 @@ function PlaceForm({
       </Field>
 
       <Field
-        label={`Rental price (${CURRENCY})`}
+        label={fill(t.venues.priceLabel, { currency: CURRENCY })}
         error={problem(t, errors.price?.message)}
-        hint={t.places.priceHint}
+        hint={t.venues.priceHint}
       >
         <Input
           type="number"
@@ -216,9 +216,9 @@ function PlaceForm({
       </Field>
 
       <Field
-        label={t.places.formatLabel}
+        label={t.venues.formatLabel}
         error={problem(t, errors.format?.message)}
-        hint={t.places.formatHint}
+        hint={t.venues.formatHint}
       >
         <Controller
           control={form.control}
@@ -230,12 +230,12 @@ function PlaceForm({
               disabled={pending}
             >
               <SelectTrigger aria-invalid={!!errors.format}>
-                <SelectValue placeholder={t.places.notSet} />
+                <SelectValue placeholder={t.venues.notSet} />
               </SelectTrigger>
               <SelectContent>
                 {PITCH_FORMATS.map((format) => (
                   <SelectItem key={format} value={String(format)}>
-                    {format} a side
+                    {fill(t.venues.side, { count: format })}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -245,12 +245,12 @@ function PlaceForm({
       </Field>
 
       <Field
-        label={t.places.mapsLink}
+        label={t.venues.mapsLink}
         error={problem(t, errors.mapsUrl?.message)}
-        hint={t.places.mapsHint}
+        hint={t.venues.mapsHint}
       >
         <Input
-          placeholder={t.places.mapsPlaceholder}
+          placeholder={t.venues.mapsPlaceholder}
           autoComplete="off"
           disabled={pending}
           aria-invalid={!!errors.mapsUrl}
@@ -269,7 +269,7 @@ function PlaceForm({
         </Button>
         <Button type="submit" disabled={pending}>
           {pending ? <Spinner /> : null}
-          {place ? t.places.saveChanges : t.places.createPlace}
+          {venue ? t.venues.saveChanges : t.venues.createVenue}
         </Button>
       </DialogFooter>
     </form>

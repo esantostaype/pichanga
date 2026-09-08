@@ -51,14 +51,14 @@ export const playerInputSchema = z.object({
 
 export type PlayerInput = z.infer<typeof playerInputSchema>;
 
-export const placeInputSchema = z.object({
-  name: z.string().trim().min(2, "places.nameTooShort").max(80),
+export const venueInputSchema = z.object({
+  name: z.string().trim().min(2, "venues.nameTooShort").max(80),
   address: z.string().trim().max(200).nullable().optional(),
   googlePlaceId: z.string().trim().max(200).nullable().optional(),
-  mapsUrl: z.string().url("places.badUrl").nullable().optional(),
+  mapsUrl: z.string().url("venues.badUrl").nullable().optional(),
   price: z
     .number()
-    .nonnegative("places.negative")
+    .nonnegative("venues.negative")
     .max(1_000_000)
     .nullable()
     .optional(),
@@ -79,13 +79,15 @@ export const placeInputSchema = z.object({
   isDemo: z.boolean().optional(),
 });
 
-export type PlaceInput = z.infer<typeof placeInputSchema>;
+export type VenueInput = z.infer<typeof venueInputSchema>;
 
 export const matchInputSchema = z
   .object({
     playedAt: z.coerce.number().int().positive("matches.pickDate"),
     endsAt: z.coerce.number().int().positive("matches.pickEnd"),
-    placeId: z.string().min(1).nullable().optional(),
+    venueId: z.string().min(1).nullable().optional(),
+    /** Which pitch inside it, free text: `Cancha 4 - F7`. */
+    pitch: z.string().trim().max(60).nullable().optional(),
     organizerId: z.string().min(1).nullable().optional(),
     /** `null` for a one-off fixture. */
     recurrence: z.literal("weekly").nullable().optional(),
@@ -167,14 +169,14 @@ export const teamDrawInputSchema = z.object({
  */
 const cloudinaryUrl = z
   .string()
-  .url("places.badUrl")
+  .url("venues.badUrl")
   .refine((value) => {
     try {
       return new URL(value).host === "res.cloudinary.com";
     } catch {
       return false;
     }
-  }, "places.badUrl");
+  }, "venues.badUrl");
 
 export const mediaInputSchema = z.object({
   publicId: z.string().trim().min(1).max(300),

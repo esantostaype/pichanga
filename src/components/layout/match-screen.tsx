@@ -7,19 +7,19 @@ import {
   getMatchBySlug,
   getNextMatch,
   listMatches,
-  listPlaces,
+  listVenues,
   listPlayers,
 } from "@/db/queries";
 import { getDictionary } from "@/i18n/server";
 import { getRole, isAuthConfigured } from "@/lib/session";
-import type { Match, MatchSummary, Place, Player } from "@/types";
+import type { Match, MatchSummary, Player, Venue } from "@/types";
 import { AppShell } from "./app-shell";
 import { SetupNotice } from "./setup-notice";
 
 export type ScreenState = {
   nextMatch: Match | null;
   players: Player[];
-  places: Place[];
+  venues: Venue[];
   matches: MatchSummary[];
   isAdmin: boolean;
   isSuperAdmin: boolean;
@@ -65,10 +65,10 @@ export async function loadScreenState(
      */
     if (demo) await ensureDemo();
 
-    const [role, players, places, matches, active, homeId] = await Promise.all([
+    const [role, players, venues, matches, active, homeId] = await Promise.all([
       getRole(),
       listPlayers(demo),
-      listPlaces(demo),
+      listVenues(demo),
       listMatches(demo),
       slug && !demo ? getMatchBySlug(slug) : getNextMatch(demo),
       slug && !demo ? getHomeMatchId() : Promise.resolve(null),
@@ -80,7 +80,7 @@ export async function loadScreenState(
       data: {
         nextMatch: active,
         players,
-        places,
+        venues,
         matches,
         isAdmin: role !== null,
         isSuperAdmin: role === "superadmin",

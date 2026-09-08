@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  * Proxies the Google Places autocomplete so the API key stays on the server.
  *
  * `GET ?q=eureka&session=<uuid>`          -> suggestions
- * `GET ?placeId=<id>&session=<uuid>`      -> full details for one suggestion
+ * `GET ?googlePlaceId=<id>&session=<uuid>` -> full details for one suggestion
  */
 export async function GET(request: Request) {
   return route(async () => {
@@ -25,8 +25,10 @@ export async function GET(request: Request) {
 
     if (!session) return fail((await messages()).missingSession);
 
-    const placeId = searchParams.get("placeId")?.trim();
-    if (placeId) return json(await getPlaceDetails(placeId, session));
+    const googlePlaceId = searchParams.get("googlePlaceId")?.trim();
+    if (googlePlaceId) {
+      return json(await getPlaceDetails(googlePlaceId, session));
+    }
 
     const query = searchParams.get("q")?.trim();
     if (!query || query.length < 3) return json([]);

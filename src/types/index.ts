@@ -15,7 +15,8 @@ export type Player = {
   createdAt: number;
 };
 
-export type Place = {
+/** A venue: the business you ring up. `DeporPlaza Jockey Club`. */
+export type Venue = {
   id: string;
   name: string;
   address: string | null;
@@ -23,7 +24,7 @@ export type Place = {
   mapsUrl: string | null;
   /** Rental price for one match, split across whoever plays. */
   price: number | null;
-  /** How many a side the pitch takes, null until somebody fills it in. */
+  /** How many a side, null until somebody fills it in. */
   format: number | null;
   lat: number | null;
   lng: number | null;
@@ -37,7 +38,12 @@ export type MatchSummary = {
   id: string;
   playedAt: number;
   endsAt: number;
-  place: Place | null;
+  venue: Venue | null;
+  /**
+   * Which pitch inside the venue: `Cancha 4 - F7`, free text, null until
+   * somebody knows. It changes week to week; the venue does not.
+   */
+  pitch: string | null;
   /** Player running the match; their token wears the crown. */
   organizerId: string | null;
   recurrence: Recurrence | null;
@@ -72,7 +78,12 @@ export type Match = {
   endsAt: number;
   /** Minutes each game runs before the sides change, agreed for the night. */
   gameMinutes: number;
-  place: Place | null;
+  venue: Venue | null;
+  /**
+   * Which pitch inside the venue: `Cancha 4 - F7`, free text, null until
+   * somebody knows. It changes week to week; the venue does not.
+   */
+  pitch: string | null;
   organizerId: string | null;
   recurrence: Recurrence | null;
   seriesId: string | null;
@@ -125,7 +136,7 @@ export type MatchMedia = {
 };
 
 /** A venue suggestion coming from the Google Places autocomplete. */
-export type PlaceSuggestion = {
+export type VenueSuggestion = {
   googlePlaceId: string;
   title: string;
   subtitle: string;

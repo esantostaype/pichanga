@@ -1,9 +1,12 @@
 {
-  "place": {
-    "name": "Demo pitch",
+  "venue": {
+    "name": "Demo venue",
     "address": "Wherever you like",
     "price": 210,
     "format": 7
+  },
+  "match": {
+    "pitch": "Pitch 1"
   },
   "squad": [
     {

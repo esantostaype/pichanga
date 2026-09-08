@@ -52,11 +52,11 @@ export const players = sqliteTable(
 );
 
 /* -------------------------------------------------------------------------- */
-/*                                   places                                   */
+/*                                   venues                                   */
 /* -------------------------------------------------------------------------- */
 
-export const places = sqliteTable(
-  "places",
+export const venues = sqliteTable(
+  "venues",
   {
     id: id(),
     name: text("name").notNull(),
@@ -75,7 +75,7 @@ export const places = sqliteTable(
     isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
   },
-  (t) => [index("places_name_idx").on(t.name)],
+  (t) => [index("venues_name_idx").on(t.name)],
 );
 
 /* -------------------------------------------------------------------------- */
@@ -100,9 +100,19 @@ export const matches = sqliteTable(
      * fall back to `DEFAULT_GAME_MINUTES`.
      */
     gameMinutes: integer("game_minutes"),
-    placeId: text("place_id").references(() => places.id, {
+    venueId: text("venue_id").references(() => venues.id, {
       onDelete: "set null",
     }),
+    /**
+     * Which pitch inside the venue, as the venue writes it: `Cancha 4 - F7`.
+     *
+     * On the match and not on the venue: whichever one they manage to book
+     * changes week to week, and the venue is the part that does not. Free text
+     * on purpose -- a venue names its pitches however it likes, so there is
+     * nothing to validate and nothing worth a table of its own. What the
+     * office needs from it is the line that says which gate to walk to.
+     */
+    pitch: text("pitch"),
     /** Whoever is running this one. Their token wears the crown. */
     organizerId: text("organizer_id").references(() => players.id, {
       onDelete: "set null",
@@ -309,7 +319,7 @@ export const playersRelations = relations(players, ({ many }) => ({
   matchPlayers: many(matchPlayers),
 }));
 
-export const placesRelations = relations(places, ({ many }) => ({
+export const venuesRelations = relations(venues, ({ many }) => ({
   matches: many(matches),
 }));
 
@@ -317,9 +327,9 @@ export const matchesRelations = relations(matches, ({ many, one }) => ({
   matchPlayers: many(matchPlayers),
   media: many(matchMedia),
   teams: many(matchTeams),
-  place: one(places, {
-    fields: [matches.placeId],
-    references: [places.id],
+  venue: one(venues, {
+    fields: [matches.venueId],
+    references: [venues.id],
   }),
 }));
 
@@ -347,7 +357,7 @@ export const matchPlayersRelations = relations(matchPlayers, ({ one }) => ({
 }));
 
 export type PlayerRow = typeof players.$inferSelect;
-export type PlaceRow = typeof places.$inferSelect;
+export type VenueRow = typeof venues.$inferSelect;
 export type MatchRow = typeof matches.$inferSelect;
 export type MatchPlayerRow = typeof matchPlayers.$inferSelect;
 export type MatchTeamRow = typeof matchTeams.$inferSelect;

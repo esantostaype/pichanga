@@ -27,12 +27,12 @@ import { Icon } from "@/components/ui/icon";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
 
-export type PanelName = "matches" | "players" | "places" | "stats";
+export type PanelName = "matches" | "players" | "venues" | "stats";
 
 const PANELS: Array<{ name: PanelName; icon: typeof Calendar03Icon }> = [
   { name: "matches", icon: Calendar03Icon },
   { name: "players", icon: UserGroupIcon },
-  { name: "places", icon: Location01Icon },
+  { name: "venues", icon: Location01Icon },
   { name: "stats", icon: ChartLineData01Icon },
 ];
 

@@ -25,6 +25,7 @@ import {
 } from "@/lib/date";
 import { fill } from "@/i18n/dictionaries";
 import { formatMoney, perPlayer } from "@/lib/money";
+import { whereLabel } from "@/lib/venue";
 import { cn } from "@/lib/utils";
 import type { MatchSummary } from "@/types";
 import { LiveBadge } from "./live-badge";
@@ -73,7 +74,7 @@ export function MatchCard({
 }) {
   const { t, locale } = useLocale();
   const live = now !== null && isLive(match.playedAt, match.endsAt, now);
-  const share = perPlayer(match.place?.price, match.playerCount);
+  const share = perPlayer(match.venue?.price, match.playerCount);
 
   return (
     <article
@@ -129,26 +130,26 @@ export function MatchCard({
         </header>
 
         <dl className="space-y-2 text-[0.9375rem] text-muted-foreground">
-          {match.place ? (
-            match.place.mapsUrl ? (
+          {match.venue ? (
+            match.venue.mapsUrl ? (
               <AppLink
-                href={match.place.mapsUrl}
+                href={match.venue.mapsUrl}
                 external
                 icon={Location01Icon}
                 className="relative z-20 flex w-fit"
               >
-                {match.place.name}
+                {whereLabel(match)}
               </AppLink>
             ) : (
               <div className="flex items-center gap-2">
                 <Icon icon={Location01Icon} size={15} />
-                <span className="min-w-0 truncate">{match.place.name}</span>
+                <span className="min-w-0 truncate">{whereLabel(match)}</span>
               </div>
             )
           ) : (
             <div className="flex items-center gap-2 opacity-50">
               <Icon icon={Location01Icon} size={15} />
-              <span>{t.matches.noPlaceYet}</span>
+              <span>{t.matches.noVenueYet}</span>
             </div>
           )}
 

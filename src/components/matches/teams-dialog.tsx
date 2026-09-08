@@ -443,7 +443,7 @@ export function TeamsDialog({
  * compare it with another. The screen caps all of it: the box is `w-full`
  * underneath, so on a phone every one of these is the same width.
  */
-function widthFor(teams: number) {
+export function widthFor(teams: number) {
   if (teams <= 2) return "max-w-2xl";
   if (teams === 3) return "max-w-5xl";
   return "max-w-7xl";

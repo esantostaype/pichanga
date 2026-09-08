@@ -50,7 +50,7 @@ console.log(`database: ${name}`);
 const before = {
   matches: await count("matches"),
   players: await count("players"),
-  places: await count("places"),
+  venues: await count("venues"),
   lineup: await owned("match_players"),
   teams: await owned("match_teams"),
   games: await owned("match_games"),
@@ -68,7 +68,7 @@ console.log(
   [
     `  matches ${before.matches}`,
     `  players ${before.players}`,
-    `  places  ${before.places}`,
+    `  venues  ${before.venues}`,
     `  lineup  ${before.lineup}`,
     `  teams   ${before.teams}`,
     `  games   ${before.games}`,
@@ -92,10 +92,10 @@ if (!write) {
 // the lineup is what points at the players.
 await db.execute("delete from matches where is_demo = 1");
 await db.execute("delete from players where is_demo = 1");
-await db.execute("delete from places where is_demo = 1");
+await db.execute("delete from venues where is_demo = 1");
 
 const left =
-  (await count("matches")) + (await count("players")) + (await count("places"));
+  (await count("matches")) + (await count("players")) + (await count("venues"));
 
 console.log(
   left === 0

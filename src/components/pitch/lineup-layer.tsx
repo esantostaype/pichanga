@@ -41,7 +41,7 @@ type LineupLayerProps = {
 };
 
 /**
- * Places the tokens on the pitch and animates every change: new players are
+ * Venues the tokens on the pitch and animates every change: new players are
  * born in the center circle and travel to their spot while the rest shuffle to
  * keep the formation symmetric.
  *

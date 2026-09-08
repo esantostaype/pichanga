@@ -412,6 +412,29 @@ export function pickNames(count: number, seed: number) {
   });
 }
 
+/**
+ * The short form for a team name, for its crest.
+ *
+ * Taken from the pool when the name is in it, so `Los 404` reads `404` rather
+ * than `L4`. A name from outside the pool -- an older match, a rename -- falls
+ * back to its initials, which is never wrong even when it is dull.
+ *
+ * Here rather than on the crest component because a crest is drawn in two
+ * places now: as an svg on screen, and with a canvas path on the shared card.
+ */
+export function badgeFor(name: string) {
+  const known = TEAM_NAMES.find((team) => team.name === name);
+  if (known) return known.badge;
+
+  return name
+    .split(/s+/)
+    .filter((word) => !/^(los|las|the|fc)$/i.test(word))
+    .slice(0, 2)
+    .map((word) => word.charAt(0))
+    .join("")
+    .toUpperCase();
+}
+
 /** One side, as far as evening them up is concerned. */
 export type SideCount = {
   id: string;

@@ -76,7 +76,7 @@ export function PaymentsDialog({
 
   const players = match?.players ?? [];
   const paid = new Set(match?.paidPlayerIds ?? []);
-  const share = perPlayer(match?.place?.price, players.length);
+  const share = perPlayer(match?.venue?.price, players.length);
 
   const collected = share === null ? null : share * paid.size;
   const pending = share === null ? null : share * (players.length - paid.size);

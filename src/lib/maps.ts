@@ -1,4 +1,4 @@
-import type { Place } from "@/types";
+import type { Venue } from "@/types";
 
 /**
  * The link to send for a venue: whatever Google gave us, in full.
@@ -10,15 +10,15 @@ import type { Place } from "@/types";
  * not follow. The long link is what draws the venue's photo, name and rating in
  * the chat, and that card is the whole point of sending it.
  */
-export function placeMapsUrl(place: Place | null | undefined) {
-  if (!place) return null;
-  if (place.mapsUrl) return place.mapsUrl;
+export function venueMapsUrl(venue: Venue | null | undefined) {
+  if (!venue) return null;
+  if (venue.mapsUrl) return venue.mapsUrl;
 
-  if (place.googlePlaceId) {
-    return `https://www.google.com/maps/place/?q=place_id:${place.googlePlaceId}`;
+  if (venue.googlePlaceId) {
+    return `https://www.google.com/maps/place/?q=place_id:${venue.googlePlaceId}`;
   }
 
-  return place.name
-    ? `https://maps.google.com/?q=${encodeURIComponent(place.name)}`
+  return venue.name
+    ? `https://maps.google.com/?q=${encodeURIComponent(venue.name)}`
     : null;
 }

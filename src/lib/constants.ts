@@ -161,7 +161,7 @@ export const TEAM_NAMES = [
  */
 export const TEAMS_OPEN_MS = 2 * 60 * 60 * 1000;
 
-/** Teams for a place that never said how big it is. */
+/** Teams for a venue that never said how big it is. */
 export const DEFAULT_PITCH_FORMAT = 7;
 
 /**
@@ -251,7 +251,7 @@ export const REALTIME = {
   events: {
     matchesChanged: "matches:changed",
     playersChanged: "players:changed",
-    placesChanged: "places:changed",
+    venuesChanged: "venues:changed",
     lineupChanged: "lineup:changed",
     mediaChanged: "media:changed",
     /** A game started, ended, or a goal went in or came off the board. */

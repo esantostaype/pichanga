@@ -54,8 +54,8 @@ export const en = {
     requestFailed: "The request could not be completed",
     noActiveMatch: "There is no active match",
     partlyDeleted: "{done} of {total} deleted, {failed} failed",
-    place: "place",
-    placesPlural: "places",
+    venue: "venue",
+    venuesPlural: "venues",
     file: "file",
     files: "files",
     date: "date",
@@ -103,8 +103,8 @@ export const en = {
     missingSession: "Missing session token",
     playerGone: "One of the selected players no longer exists",
     noClockThreeSides: "Only two sides can play without a clock",
-    placeNotFound: "Place not found",
-    searchNotConfigured: "Place search is not configured",
+    venueNotFound: "Venue not found",
+    searchNotConfigured: "Venue search is not configured",
     playerNotFound: "Player not found",
     authNotConfigured: "Sign-in is not configured on this server",
     fileNotHere: "That file does not belong to this gallery",
@@ -117,7 +117,7 @@ export const en = {
     notKickedOff: "The match has not kicked off yet",
     nightStarted: "The night has started; the sides stand",
     organizerSettled: "The organizer's share is always settled",
-    placeGone: "The selected place no longer exists",
+    venueGone: "The selected venue no longer exists",
     teamsWindow: "The teams are drawn two hours before kick-off",
     notEnoughPlayers: "There are not enough players for two sides",
     superAdminOnly: "This is only for the super admin",
@@ -151,8 +151,8 @@ export const en = {
     matchesHint: "Dates and lineups",
     players: "Players",
     playersHint: "Office profiles",
-    places: "Places",
-    placesHint: "Pitches you play at",
+    venues: "Venues",
+    venuesHint: "Where you play",
     stats: "Stats",
     statsHint: "Goals, games and records",
     signIn: "Sign in",
@@ -162,7 +162,7 @@ export const en = {
     resetDemoHint: "Fresh squad, fresh match",
     demoRebuilt: "Demo rebuilt",
     guest:
-      "You can manage players and the lineup. Changing matches and places needs the password.",
+      "You can manage players and the lineup. Changing matches and venues needs the password.",
     tour: "What this does",
   },
 
@@ -197,7 +197,7 @@ export const en = {
   login: {
     title: "Sign in",
     description:
-      "Managing matches, players and places needs the office password.",
+      "Managing matches, players and venues needs the office password.",
     password: "Password",
     signedIn: "Signed in",
   },
@@ -218,6 +218,7 @@ export const en = {
     addPlayers: "Add players to the match",
     teams: "Teams",
     drawTeams: "Draw the teams",
+    previewTeams: "See how the teams might come out",
     matchNight: "Match night",
     playerRemoved: "Player removed from the lineup",
     teamsDrawn: "Teams drawn",
@@ -255,6 +256,19 @@ export const en = {
     shuffle: "Shuffle again",
     shuffled: "Teams drawn again",
     matchNight: "Match night",
+    previewTitle: "Lineup preview",
+    previewLine:
+      "{count} sides from the {players} in so far, drawn the same way the real ones will be. Nothing here is saved.",
+    previewOpens: "The teams are drawn for real {when}.",
+    previewMoving:
+      "Whoever signs up between now and then changes this, so take it as a look and not as a lineup.",
+    previewTag: "Provisional",
+    previewAgain: "Another draw",
+    previewShare: "Share the preview",
+    previewShareLine:
+      "The picture says it is a guess, on every side and across the top, because the picture is what gets forwarded.",
+    previewCardAlt: "The preview card",
+    previewClose: "Got it",
   },
 
   live: {
@@ -354,7 +368,7 @@ export const en = {
   matches: {
     title: "Matches",
     onPitch: "On pitch",
-    noPlaceYet: "No place yet",
+    noVenueYet: "No venue yet",
     paidSuffix: " · {count} paid",
     openDate: "Open {date}",
     selectDate: "Select the {date} match",
@@ -372,12 +386,15 @@ export const en = {
       "{count} dates and their lineups will be removed. Player profiles are kept.",
     starts: "Starts",
     ends: "Ends",
-    pickPlace: "Pick a place",
+    pickVenue: "Pick a venue",
+    pitchPlaceholder: "Cancha 4 - F7",
+    pitchHint:
+      "Which pitch inside it, as the venue writes it. Goes out with the date on the share card.",
     pickOrganizer: "Pick the organizer",
     noOrganizerYet: "No organizer",
     repeatWeekly: "Repeat weekly",
     repeatWeeklyLine:
-      "Same weekday, time and place. The next date appears on its own with the same lineup.",
+      "Same weekday, time and venue. The next date appears on its own with the same lineup, and its pitch left blank.",
     datesCreated: "{count} {dates} created. The closest one owns the pitch.",
     saveChanges: "Save changes",
     createMatch: "Create match",
@@ -401,10 +418,10 @@ export const en = {
     date: "Date",
     from: "From",
     to: "To",
-    place: "Place",
+    venue: "Venue",
     organizer: "Organizer",
     repeat: "Repeats weekly",
-    noPlace: "No place",
+    noVenue: "No venue",
     noOrganizer: "Nobody yet",
   },
 
@@ -475,29 +492,33 @@ export const en = {
       "Plays as {position}. The shape is what the balancer reads when it draws the teams.",
   },
 
-  places: {
-    title: "Places",
-    deletedMany: "Places deleted",
-    deleteOne: "Delete place",
-    deleteMany: "Delete {count} places",
-    deleteOneLine: "Matches played there keep the date and lose the pitch.",
+  venues: {
+    title: "Venues",
+    deletedMany: "Venues deleted",
+    deleteOne: "Delete venue",
+    deleteMany: "Delete {count} venues",
+    deleteOneLine:
+      "Its pitches go with it. Matches played there keep the date and lose the venue.",
     deleteManyLine:
-      "{count} pitches go. Matches played at them keep the date and lose the pitch.",
-    emptyLineGuest: "Signing in is needed to save a pitch.",
-    emptyLineAdmin: "Save the pitches you usually play at.",
-    selectAll: "Select every place",
+      "{count} venues go, with their pitches. Matches played at them keep the date and lose the venue.",
+    emptyLineGuest: "Signing in is needed to save a venue.",
+    emptyLineAdmin: "Save the venues you usually play at.",
+    selectAll: "Select every venue",
+    priceLabel: "Rental price ({currency})",
     priceHint: "Split across whoever plays. Leave empty if it is free.",
     formatLabel: "Players a side",
     formatHint:
       "Decides the size of the teams, and whether a big turnout plays a triangular.",
+    /** One option of the format select: "7 a side". */
+    side: "{count} a side",
     notSet: "Not set",
     mapsLink: "Maps link",
     searchMaps: "Search on Google Maps...",
     saveChanges: "Save changes",
-    createPlace: "Create place",
+    createVenue: "Create venue",
     formHint:
       "Search it on Google Maps to fill everything in, or type it by hand.",
-    savedCount: "{count} {places} saved.",
+    savedCount: "{count} {venues} saved.",
     namePlaceholder: "Eureka El Polo",
     addressPlaceholder: "Av. El Polo 505, Santiago de Surco",
     mapsPlaceholder: "https://maps.google.com/...",
@@ -509,19 +530,19 @@ export const en = {
     selectName: "Select {name}",
     editName: "Edit {name}",
     deleteName: "Delete {name}",
-    newPlace: "New place",
-    emptyTitle: "No pitches yet",
+    newVenue: "New venue",
+    emptyTitle: "No venues yet",
     emptyLine: "Add the one you rent and the split works itself out.",
-    formNew: "New place",
-    formEdit: "Edit place",
+    formNew: "New venue",
+    formEdit: "Edit venue",
     name: "Name",
     address: "Address",
     price: "Price",
     format: "Players a side",
     maps: "Open in Google Maps",
-    created: "Place created",
-    updated: "Place updated",
-    deleted: "Place deleted",
+    created: "Venue created",
+    updated: "Venue updated",
+    deleted: "Venue deleted",
   },
 
   stats: {
@@ -623,7 +644,7 @@ export const en = {
 
     shareTitle: "One image to the group",
     shareLine:
-      "Date, place, lineup and the split, as a card built for WhatsApp. The maps link comes with it.",
+      "Date, venue, lineup and the split, as a card built for WhatsApp. The maps link comes with it.",
 
     seasonTitle: "The season keeps score",
     seasonLine:
@@ -688,8 +709,8 @@ export const es: Dictionary = {
     requestFailed: "No se pudo completar la petición",
     noActiveMatch: "No hay ningún partido activo",
     partlyDeleted: "{done} de {total} eliminados, {failed} fallaron",
-    place: "cancha",
-    placesPlural: "canchas",
+    venue: "complejo",
+    venuesPlural: "complejos",
     file: "archivo",
     files: "archivos",
     date: "fecha",
@@ -734,8 +755,8 @@ export const es: Dictionary = {
     missingSession: "Falta el token de sesión",
     playerGone: "Uno de los jugadores seleccionados ya no existe",
     noClockThreeSides: "Solo dos equipos pueden jugar sin reloj",
-    placeNotFound: "No se encontró la cancha",
-    searchNotConfigured: "La búsqueda de canchas no está configurada",
+    venueNotFound: "No se encontró el complejo",
+    searchNotConfigured: "La búsqueda de complejos no está configurada",
     playerNotFound: "No se encontró al jugador",
     authNotConfigured:
       "El inicio de sesión no está configurado en este servidor",
@@ -749,7 +770,7 @@ export const es: Dictionary = {
     notKickedOff: "El partido todavía no empieza",
     nightStarted: "El partido ya empezó; los equipos quedan como están",
     organizerSettled: "La parte del organizador siempre está saldada",
-    placeGone: "La cancha seleccionada ya no existe",
+    venueGone: "El complejo seleccionado ya no existe",
     teamsWindow: "Los equipos se arman dos horas antes del partido",
     notEnoughPlayers: "No hay jugadores suficientes para dos equipos",
     superAdminOnly: "Esto es solo para el super admin",
@@ -783,8 +804,8 @@ export const es: Dictionary = {
     matchesHint: "Fechas y alineaciones",
     players: "Jugadores",
     playersHint: "Perfiles de la oficina",
-    places: "Canchas",
-    placesHint: "Dónde juegan",
+    venues: "Complejos",
+    venuesHint: "Dónde juegan",
     stats: "Estadísticas",
     statsHint: "Goles, partidos y récords",
     signIn: "Iniciar sesión",
@@ -794,7 +815,7 @@ export const es: Dictionary = {
     resetDemoHint: "Plantel nuevo, partido nuevo",
     demoRebuilt: "Demo rehecho",
     guest:
-      "Puedes manejar jugadores y la alineación. Cambiar partidos y canchas necesita la clave.",
+      "Puedes manejar jugadores y la alineación. Cambiar partidos y complejos necesita la clave.",
     tour: "Qué hace esto",
   },
 
@@ -829,7 +850,7 @@ export const es: Dictionary = {
   login: {
     title: "Iniciar sesión",
     description:
-      "Manejar partidos, jugadores y canchas necesita la clave de la oficina.",
+      "Manejar partidos, jugadores y complejos necesita la clave de la oficina.",
     password: "Contraseña",
     signedIn: "Sesión iniciada",
   },
@@ -850,6 +871,7 @@ export const es: Dictionary = {
     addPlayers: "Agregar jugadores al partido",
     teams: "Equipos",
     drawTeams: "Armar los equipos",
+    previewTeams: "Ver cómo podrían quedar los equipos",
     matchNight: "Partido en vivo",
     playerRemoved: "Jugador sacado de la alineación",
     teamsDrawn: "Equipos armados",
@@ -888,6 +910,19 @@ export const es: Dictionary = {
     shuffle: "Armar de nuevo",
     shuffled: "Equipos armados de nuevo",
     matchNight: "Partido en vivo",
+    previewTitle: "Alineación previa",
+    previewLine:
+      "{count} equipos con los {players} anotados hasta ahora, armados igual que los de verdad. Nada de esto se guarda.",
+    previewOpens: "Los equipos se arman en serio {when}.",
+    previewMoving:
+      "Cada uno que se anote de acá a entonces cambia esto, así que tómalo como una idea y no como la alineación.",
+    previewTag: "Provisional",
+    previewAgain: "Otro sorteo",
+    previewShare: "Compartir la previa",
+    previewShareLine:
+      "La imagen avisa que es un tanteo, en cada equipo y arriba del todo, porque lo que se reenvía es la imagen.",
+    previewCardAlt: "La tarjeta de la previa",
+    previewClose: "Listo",
   },
 
   live: {
@@ -987,7 +1022,7 @@ export const es: Dictionary = {
   matches: {
     title: "Partidos",
     onPitch: "En cancha",
-    noPlaceYet: "Sin cancha todavía",
+    noVenueYet: "Sin complejo todavía",
     paidSuffix: " · {count} pagaron",
     openDate: "Abrir {date}",
     selectDate: "Seleccionar el partido del {date}",
@@ -1005,12 +1040,15 @@ export const es: Dictionary = {
       "Se eliminan {count} fechas y sus alineaciones. Los perfiles de los jugadores quedan.",
     starts: "Empieza",
     ends: "Termina",
-    pickPlace: "Elige una cancha",
+    pickVenue: "Elige un complejo",
+    pitchPlaceholder: "Cancha 4 - F7",
+    pitchHint:
+      "Cuál cancha dentro del complejo, tal como la llaman ellos. Sale junto a la fecha en la tarjeta que se comparte.",
     pickOrganizer: "Elige al organizador",
     noOrganizerYet: "Sin organizador",
     repeatWeekly: "Repetir cada semana",
     repeatWeeklyLine:
-      "Mismo día, hora y cancha. La siguiente fecha aparece sola, con la misma alineación.",
+      "Mismo día, hora y complejo. La siguiente fecha aparece sola, con la misma alineación y sin cancha puesta.",
     datesCreated:
       "{count} {dates} creadas. La más cercana se queda con la cancha.",
     saveChanges: "Guardar cambios",
@@ -1035,10 +1073,10 @@ export const es: Dictionary = {
     date: "Fecha",
     from: "Desde",
     to: "Hasta",
-    place: "Cancha",
+    venue: "Complejo",
     organizer: "Organizador",
     repeat: "Se repite cada semana",
-    noPlace: "Sin cancha",
+    noVenue: "Sin complejo",
     noOrganizer: "Todavía nadie",
   },
 
@@ -1109,33 +1147,35 @@ export const es: Dictionary = {
       "Juega de {position}. La forma es lo que lee el balanceador cuando arma los equipos.",
   },
 
-  places: {
-    title: "Canchas",
-    deletedMany: "Canchas eliminadas",
-    deleteOne: "Eliminar cancha",
-    deleteMany: "Eliminar {count} canchas",
+  venues: {
+    title: "Complejos",
+    deletedMany: "Complejos eliminados",
+    deleteOne: "Eliminar complejo",
+    deleteMany: "Eliminar {count} complejos",
     deleteOneLine:
-      "Los partidos jugados ahí conservan la fecha y pierden la cancha.",
+      "Se van también sus canchas. Los partidos jugados ahí conservan la fecha y pierden el complejo.",
     deleteManyLine:
-      "Se van {count} canchas. Los partidos jugados ahí conservan la fecha y pierden la cancha.",
-    emptyLineGuest: "Hay que iniciar sesión para guardar una cancha.",
-    emptyLineAdmin: "Guarda las canchas donde suelen jugar.",
-    selectAll: "Seleccionar todas las canchas",
+      "Se van {count} complejos, con sus canchas. Los partidos jugados ahí conservan la fecha y pierden el complejo.",
+    emptyLineGuest: "Hay que iniciar sesión para guardar un complejo.",
+    emptyLineAdmin: "Guarda los complejos donde suelen jugar.",
+    selectAll: "Seleccionar todos los complejos",
+    priceLabel: "Precio del alquiler ({currency})",
     priceHint: "Se divide entre los que juegan. Déjalo vacío si es gratis.",
     formatLabel: "Jugadores por lado",
     formatHint:
       "Define el tamaño de los equipos, y si una asistencia grande juega triangular.",
+    side: "Fútbol {count}",
     notSet: "Sin definir",
     mapsLink: "Link del mapa",
     searchMaps: "Buscar en Google Maps...",
     saveChanges: "Guardar cambios",
-    createPlace: "Crear cancha",
-    formHint: "Búscala en Google Maps para llenar todo, o escríbelo a mano.",
-    savedCount: "{count} {places} guardadas.",
+    createVenue: "Crear complejo",
+    formHint: "Búscalo en Google Maps para llenar todo, o escríbelo a mano.",
+    savedCount: "{count} {venues} guardados.",
     namePlaceholder: "Eureka El Polo",
     addressPlaceholder: "Av. El Polo 505, Santiago de Surco",
     mapsPlaceholder: "https://maps.google.com/...",
-    mapsHint: "Abre la cancha en Google Maps.",
+    mapsHint: "Abre el complejo en Google Maps.",
     nameTooShort: "Al menos 2 caracteres",
     badUrl: "Tiene que ser un URL válido",
     notANumber: "Tiene que ser un número",
@@ -1143,19 +1183,19 @@ export const es: Dictionary = {
     selectName: "Seleccionar {name}",
     editName: "Editar {name}",
     deleteName: "Eliminar {name}",
-    newPlace: "Nueva cancha",
-    emptyTitle: "Todavía no hay canchas",
-    emptyLine: "Agrega la que alquilan y la división se resuelve sola.",
-    formNew: "Nueva cancha",
-    formEdit: "Editar cancha",
+    newVenue: "Nuevo complejo",
+    emptyTitle: "Todavía no hay complejos",
+    emptyLine: "Agrega el que alquilan y la división se resuelve sola.",
+    formNew: "Nuevo complejo",
+    formEdit: "Editar complejo",
     name: "Nombre",
     address: "Dirección",
     price: "Precio",
     format: "Jugadores por lado",
     maps: "Abrir en Google Maps",
-    created: "Cancha creada",
-    updated: "Cancha actualizada",
-    deleted: "Cancha eliminada",
+    created: "Complejo creado",
+    updated: "Complejo actualizado",
+    deleted: "Complejo eliminado",
   },
 
   stats: {
@@ -1319,7 +1359,7 @@ export function skillLabel(t: Dictionary, id: string): string {
  * What a validator complained about, in the reader's language.
  *
  * The schemas are built once when the module loads, long before anybody has a
- * language, so what they carry is the key -- "places.badUrl" -- and the form
+ * language, so what they carry is the key -- "venues.badUrl" -- and the form
  * looks it up when it draws the error. Anything that is not a key it has comes
  * back untouched, which covers the messages zod writes itself.
  */

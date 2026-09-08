@@ -1,8 +1,8 @@
 import "server-only";
 
 import { env } from "@/lib/env";
-import type { PlaceInput } from "@/lib/validators";
-import type { PlaceSuggestion } from "@/types";
+import type { VenueInput } from "@/lib/validators";
+import type { VenueSuggestion } from "@/types";
 
 const BASE = "https://places.googleapis.com/v1";
 
@@ -66,7 +66,7 @@ async function call<T>(
 export async function searchPlaces(
   input: string,
   sessionToken: string,
-): Promise<PlaceSuggestion[]> {
+): Promise<VenueSuggestion[]> {
   const data = await call<AutocompleteResponse>("/places:autocomplete", {
     method: "POST",
     body: JSON.stringify({ input, sessionToken }),
@@ -89,11 +89,11 @@ export async function searchPlaces(
   });
 }
 
-/** Full record for a suggestion, shaped as the place form expects it. */
+/** Full record for a suggestion, shaped as the venue form expects it. */
 export async function getPlaceDetails(
   googlePlaceId: string,
   sessionToken: string,
-): Promise<PlaceInput> {
+): Promise<VenueInput> {
   const data = await call<PlaceDetailsResponse>(
     `/places/${encodeURIComponent(googlePlaceId)}?sessionToken=${encodeURIComponent(sessionToken)}`,
     {
@@ -115,7 +115,7 @@ export async function getPlaceDetails(
   };
 }
 
-/** Fallback link when a place was typed by hand. */
+/** Fallback link when a venue was typed by hand. */
 export function mapsSearchUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
