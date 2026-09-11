@@ -37,6 +37,7 @@ import { fill } from "@/i18n/dictionaries";
 import { TEAMS_OPEN_MS } from "@/lib/constants";
 import { matchSlug } from "@/lib/date";
 import { EASE } from "@/lib/ease";
+import { isSettled } from "@/lib/money";
 import type { Player } from "@/types";
 import { AppHeader } from "./app-header";
 import { type PanelName } from "./app-menu";
@@ -93,6 +94,23 @@ export function AppShell() {
 
   // The button turns up two hours before kick-off, so the shell needs a clock.
   const now = useNow(60_000);
+
+  /*
+   * Everybody has paid and the whistle has gone: the ledger is closed, so the
+   * paid marks and the split stop being controls and go back to being a
+   * record of what happened. The same line the server draws when it decides
+   * this date no longer owns the front page.
+   */
+  const settled = nextMatch
+    ? isSettled(
+        {
+          endsAt: nextMatch.endsAt,
+          players: nextMatch.players.length,
+          paid: nextMatch.paidPlayerIds.length,
+        },
+        now,
+      )
+    : false;
   const { go } = useScene();
 
   /*
@@ -216,10 +234,15 @@ export function AppShell() {
         onViewPlayer={viewPlayer}
         onSetKeeper={hasTeams ? handOver : undefined}
         keeperPending={handing}
-        // The mark stays read-only for everyone else: the server refuses it
-        // anyway, and a button that always fails is worse than no button.
+        /*
+          The mark stays read-only for everyone else: the server refuses it
+          anyway, and a button that always fails is worse than no button.
+
+          And for everybody once the date is settled -- the whole lineup has
+          paid, so the marks are a receipt and there is nothing left to tick.
+        */
         onTogglePaid={
-          isAdmin
+          isAdmin && !settled
             ? (player, paid) => void settle.run({ player, paid })
             : undefined
         }
@@ -229,7 +252,8 @@ export function AppShell() {
       <AppHeader
         match={nextMatch}
         hudRef={setHud}
-        onOpenPayments={() => setPaymentsOpen(true)}
+        // Settled: the split is the receipt, not the way into the ledger.
+        onOpenPayments={settled ? undefined : () => setPaymentsOpen(true)}
         onShare={() => setShareOpen(true)}
         onGallery={() => setGalleryOpen(true)}
         onSelectPanel={setPanel}

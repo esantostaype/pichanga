@@ -404,7 +404,14 @@ export function PichangaProvider({
         try {
           const saved = await api.matches.setPaid(target, playerId, paid);
           syncNextMatch(saved);
-          await refreshMatches();
+          /*
+           * The next match is re-read, not just the list: the last person to
+           * be ticked off settles the ledger, and a settled match hands the
+           * screen to the following fixture. Every other screen hears that
+           * through Pusher; this one has to ask, because `broadcast` tells
+           * the others and the tick may be the one that moves the page.
+           */
+          await Promise.all([refreshMatches(), refreshNextMatch()]);
         } catch (error) {
           if (onScreen && before) applyPaid(target, before);
           throw error;

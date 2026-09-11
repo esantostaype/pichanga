@@ -24,7 +24,7 @@ import {
   relativeLabel,
 } from "@/lib/date";
 import { fill } from "@/i18n/dictionaries";
-import { formatMoney, perPlayer } from "@/lib/money";
+import { formatMoney, isSettled, perPlayer } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { MatchSummary } from "@/types";
 import { LiveBadge } from "./live-badge";
@@ -74,6 +74,25 @@ export function MatchCard({
   const { t, locale } = useLocale();
   const live = now !== null && isLive(match.playedAt, match.endsAt, now);
   const share = perPlayer(match.venue?.price, match.playerCount);
+
+  /*
+   * A settled date is a record, not a ledger: everybody has paid, so the
+   * counts have nothing left to edit and a link would offer a job that is
+   * already done. They stay on the card as the summary they always were.
+   */
+  const settled = isSettled(
+    { endsAt: match.endsAt, players: match.playerCount, paid: match.paidCount },
+    now,
+  );
+
+  const counts = (
+    <>
+      {match.playerCount} {match.playerCount === 1 ? "player" : "players"}
+      {match.paidCount > 0
+        ? fill(t.matches.paidSuffix, { count: match.paidCount })
+        : ""}
+    </>
+  );
 
   return (
     <article
@@ -174,18 +193,22 @@ export function MatchCard({
             </div>
           ) : null}
 
-          {/* The lineup is a click away: the counts are the summary of it. */}
-          <AppLink
-            onClick={onLineup}
-            icon={UserGroupIcon}
-            className="relative z-20 flex w-fit"
-            labelClassName="tabular-nums"
-          >
-            {match.playerCount} {match.playerCount === 1 ? "player" : "players"}
-            {match.paidCount > 0
-              ? fill(t.matches.paidSuffix, { count: match.paidCount })
-              : ""}
-          </AppLink>
+          {/* The lineup is a click away, until there is nothing left to tick. */}
+          {settled ? (
+            <div className="flex items-center gap-2">
+              <Icon icon={UserGroupIcon} size={15} className="shrink-0" />
+              <span className="min-w-0 truncate tabular-nums">{counts}</span>
+            </div>
+          ) : (
+            <AppLink
+              onClick={onLineup}
+              icon={UserGroupIcon}
+              className="relative z-20 flex w-fit"
+              labelClassName="tabular-nums"
+            >
+              {counts}
+            </AppLink>
+          )}
 
           {share !== null ? (
             <p className="text-primary">

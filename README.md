@@ -155,21 +155,52 @@ enforces them, so a hidden button is never the only thing standing in the way.
 
 ## After the whistle
 
-A finished match keeps the pitch for **three days** (`MATCH_GRACE_MS`), because
-the rental gets collected afterwards and the lineup is the list of who owes
-what. Only then does the next fixture take over. `getNextMatch()` picks in this
-order:
+A finished match keeps the pitch while somebody still owes, because the rental
+gets collected afterwards and the lineup is the list of who owes what.
+`getNextMatch()` picks in this order:
 
 1. A match being played right now.
-2. One that finished less than three days ago.
+2. One that finished recently and has not been paid off.
 3. The closest one still to come.
 4. Failing that, the last one played, so the pitch is never empty.
+
+**Step 2 ends the moment the ledger is clear.** Ticking off the last share
+hands the screen to the next fixture there and then -- the grace window is for
+the collecting, so it has no reason to outlast it. `MATCH_GRACE_MS` (**three
+days**) is only the ceiling, for the lineup where somebody never pays up.
+
+The organizer is settled by definition: they pay the venue, so they are not
+counted among the people who owe. A match nobody signed up for owes nothing
+either, and hands over as soon as it ends.
+
+None of it is stored. Being settled is derived from the paid marks on every
+read, so a mis-tap is not written into the schema. Archiving it for good would
+need a column and a way to undo it; this needs neither.
+
+**A settled date reads as a record.** `isSettled()` in `src/lib/money.ts` draws
+the same line on the client, and the three ways into the ledger close with it:
+the counts on the fixture card stop being a link, the paid marks on the pitch
+become plain badges, and the split in the HUD stops opening the payments
+dialog. Nothing is hidden -- the figures all stay on screen -- they just no
+longer offer a job that is done.
+
+The one way back is `/match/<slug>/live`, whose HUD is not gated: match night
+assumes a match in progress. Ticking somebody off there un-settles the date and
+it returns to the front page.
 
 A live match jumps the queue on purpose: if the next fixture kicks off while
 the previous one is still settling up, the ball beats the bookkeeping. The next
 occurrence of a weekly fixture is still created the moment the previous one
 ends, so it is in the Matches drawer the whole time -- it just does not own the
 screen yet.
+
+**A rolled-forward fixture arrives empty.** It repeats the slot in the
+calendar, not the night that filled it: the weekday, the time, the length and
+the organizer carry over, and the venue, the pitch and the lineup do not. Where
+they get in and who turns up are settled again every week, and a fixture that
+arrived already looking booked and full is one nobody thinks to check. The
+organizer is put in the lineup alone, the same first slot `withOrganizerFirst`
+gives them on a match made by hand.
 
 **The last whistle puts the match back to being a notice.** Finishing the
 night sets `ends_at` to now and returns to the match's own screen: the sides

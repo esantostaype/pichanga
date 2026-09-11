@@ -195,9 +195,13 @@ export const SUGGESTED_MATCH_LENGTH_MS = 60 * 60 * 1000;
 export const DEFAULT_MATCH_DURATION_MS = 90 * 60 * 1000;
 
 /**
- * How long a finished match keeps the pitch. The rental is collected after the
- * whistle, so the lineup has to stay visible while somebody still owes money;
- * only then does the next fixture take over.
+ * The longest a finished match keeps the pitch.
+ *
+ * The rental is collected after the whistle, so the lineup stays visible while
+ * somebody still owes money. That is the rule; this is only its ceiling, for
+ * the lineup where somebody never pays up. Once the last share is ticked off
+ * the match hands the screen over straight away -- see `settlingUp` in
+ * `src/db/queries.ts`.
  */
 export const MATCH_GRACE_MS = 3 * 24 * 60 * 60 * 1000;
 

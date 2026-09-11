@@ -187,9 +187,37 @@ const endsAtSql = sql`coalesce(${matches.endsAt}, ${matches.playedAt} + ${DEFAUL
 /** Not over yet: being played right now, or still to come. */
 const stillRunning = (at: number) => sql`${endsAtSql} > ${at}`;
 
-/** Over, but recently enough that the rental may still be outstanding. */
-const withinGrace = (at: number) =>
-  sql`${endsAtSql} <= ${at} and ${endsAtSql} > ${at - MATCH_GRACE_MS}`;
+/**
+ * Somebody in this lineup still owes their share.
+ *
+ * The organizer never does -- they pay the venue, so their share is settled by
+ * definition, the same rule `toMatch` applies when it builds `paidPlayerIds`.
+ * The `organizer_id is null` arm is not decoration: without it a match with no
+ * organizer compares every player against NULL, which is never true, and the
+ * whole lineup would read as settled.
+ */
+const owedOn = sql`exists (
+  select 1
+  from ${matchPlayers}
+  where ${matchPlayers.matchId} = ${matches.id}
+    and ${matchPlayers.paidAt} is null
+    and (
+      ${matches.organizerId} is null
+      or ${matchPlayers.playerId} <> ${matches.organizerId}
+    )
+)`;
+
+/**
+ * Over, and the money is not in yet.
+ *
+ * The grace window exists for the collecting, so it ends the moment there is
+ * nothing left to collect: the last person to be ticked off hands the screen
+ * to the next fixture there and then, and the three days are only the ceiling
+ * for a lineup that never finishes paying. Untick somebody and it comes back,
+ * which is what makes a mis-tap harmless.
+ */
+const settlingUp = (at: number) =>
+  sql`${endsAtSql} <= ${at} and ${endsAtSql} > ${at - MATCH_GRACE_MS} and ${owedOn}`;
 
 /* -------------------------------------------------------------------------- */
 /*                                   venues                                   */
@@ -382,10 +410,17 @@ async function _materializeRecurringMatches(): Promise<void> {
         .values({
           playedAt: new Date(next),
           endsAt: new Date(next + duration),
-          venueId: source.venueId,
-          // Deliberately not carried forward. Which pitch they get is settled
-          // week by week, and last week's number on a fresh date sends people
-          // to the wrong gate with more confidence than a blank does.
+          /*
+           * Neither the venue nor the pitch is carried forward, and the
+           * lineup below is not either.
+           *
+           * A weekly fixture repeats the slot in the calendar, not the night
+           * that filled it: where they get in and who turns up are settled
+           * again every week. Copying last week's answers does not save the
+           * work, it hides it -- a fixture that arrives already looking booked
+           * and full is one nobody thinks to check, and the wrong gate stated
+           * confidently is worse than a blank.
+           */
           organizerId: source.organizerId,
           recurrence: source.recurrence,
           seriesId: source.seriesId,
@@ -395,20 +430,20 @@ async function _materializeRecurringMatches(): Promise<void> {
         })
         .returning();
 
-      const lineup = await db
-        .select({ playerId: matchPlayers.playerId, slot: matchPlayers.slot })
-        .from(matchPlayers)
-        .where(eq(matchPlayers.matchId, source.id))
-        .orderBy(asc(matchPlayers.slot));
-
-      if (lineup.length) {
-        await db.insert(matchPlayers).values(
-          lineup.map((entry) => ({
-            matchId: created.id,
-            playerId: entry.playerId,
-            slot: entry.slot,
-          })),
-        );
+      /*
+       * The organizer, and nobody else. They are the one thing about the
+       * fixture that does not change week to week, and every match made by
+       * hand puts them in the lineup first -- see `withOrganizerFirst` -- so a
+       * rolled-forward one that left them out would be a shape nothing else
+       * in the app produces. `organizer_id` is already null if their profile
+       * was deleted, so there is nothing here to point at a ghost.
+       */
+      if (source.organizerId) {
+        await db.insert(matchPlayers).values({
+          matchId: created.id,
+          playerId: source.organizerId,
+          slot: 0,
+        });
       }
     } catch (error) {
       // Another request won the race and already created this occurrence.
@@ -552,9 +587,10 @@ export async function getNextMatch(demo = false): Promise<Match | null> {
 
   /*
    * The grace window is for real money: the rental gets collected after the
-   * whistle, so a finished match holds the screen for three days. The sandbox
-   * owes nobody anything, and holding it there would leave the one screen it
-   * has showing a match that is over.
+   * whistle, so a finished match holds the screen until everybody has settled,
+   * and three days at the outside. The sandbox owes nobody anything, and
+   * holding it there would leave the one screen it has showing a match that is
+   * over.
    */
   const settling =
     live.length || demo
@@ -562,7 +598,7 @@ export async function getNextMatch(demo = false): Promise<Match | null> {
       : await db
           .select()
           .from(matches)
-          .where(and(world, withinGrace(now)))
+          .where(and(world, settlingUp(now)))
           .orderBy(desc(matches.playedAt))
           .limit(1);
 
@@ -728,7 +764,7 @@ export async function getHomeMatchId(): Promise<string | null> {
   const settling = await db
     .select(id)
     .from(matches)
-    .where(withinGrace(now))
+    .where(settlingUp(now))
     .orderBy(desc(matches.playedAt))
     .limit(1);
   if (settling[0]) return settling[0].id;

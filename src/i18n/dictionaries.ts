@@ -394,7 +394,7 @@ export const en = {
     noOrganizerYet: "No organizer",
     repeatWeekly: "Repeat weekly",
     repeatWeeklyLine:
-      "Same weekday, time and venue. The next date appears on its own with the same lineup, and its pitch left blank.",
+      "Same weekday, time and organizer. The next date appears on its own and empty: venue, pitch and lineup are filled in again every week.",
     datesCreated: "{count} {dates} created. The closest one owns the pitch.",
     saveChanges: "Save changes",
     createMatch: "Create match",
@@ -1048,7 +1048,7 @@ export const es: Dictionary = {
     noOrganizerYet: "Sin organizador",
     repeatWeekly: "Repetir cada semana",
     repeatWeeklyLine:
-      "Mismo día, hora y complejo. La siguiente fecha aparece sola, con la misma alineación y sin cancha puesta.",
+      "Mismo día, hora y organizador. La siguiente fecha aparece sola y vacía: complejo, cancha y jugadores se vuelven a llenar cada semana.",
     datesCreated:
       "{count} {dates} creadas. La más cercana se queda con la cancha.",
     saveChanges: "Guardar cambios",

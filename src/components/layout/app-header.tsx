@@ -45,7 +45,8 @@ export function AppHeader({
    * header that scrolls away takes the way out with it.
    */
   fixed?: boolean;
-  onOpenPayments: () => void;
+  /** Absent once the ledger is closed: the split becomes a plain figure. */
+  onOpenPayments?: () => void;
   onShare: () => void;
   onGallery: () => void;
   onSelectPanel: (panel: PanelName) => void;
