@@ -41,6 +41,7 @@ import { useRowSelection } from "@/hooks/use-row-selection";
 import { normalize } from "@/lib/utils";
 import type { Player } from "@/types";
 import { AreaBadge } from "./area-badge";
+import { SkillAverage } from "./skill-average";
 import { PlayerAvatar } from "./player-avatar";
 import { PlayerCardDialog } from "./player-card-dialog";
 import { PlayerFormDialog } from "./player-form-dialog";
@@ -128,13 +129,13 @@ export function PlayersDrawer({
           <SheetBody className="flex flex-col gap-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Button size="sm" onClick={openCreate} className="self-start">
-                <Icon icon={UserAdd01Icon} size={16} />
+                <Icon icon={UserAdd01Icon} />
                 {t.players.newPlayer}
               </Button>
 
               <div className="relative sm:w-64">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  <Icon icon={Search01Icon} size={16} />
+                  <Icon icon={Search01Icon} />
                 </span>
                 <Input
                   value={query}
@@ -157,7 +158,7 @@ export function PlayersDrawer({
                 action={
                   players.length ? null : (
                     <Button size="sm" onClick={openCreate}>
-                      <Icon icon={UserAdd01Icon} size={16} />
+                      <Icon icon={UserAdd01Icon} />
                       {t.players.newPlayer}
                     </Button>
                   )
@@ -223,7 +224,10 @@ export function PlayersDrawer({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <AreaBadge area={player.area} />
+                          <span className="flex items-center gap-2">
+                            <AreaBadge area={player.area} />
+                            <SkillAverage player={player} />
+                          </span>
                         </TableCell>
                         <TableCell>
                           <div className="flex justify-end gap-1">
@@ -238,7 +242,7 @@ export function PlayersDrawer({
                                 setCardOpen(true);
                               }}
                             >
-                              <Icon icon={ViewIcon} size={15} />
+                              <Icon icon={ViewIcon} />
                             </Button>
                             <Button
                               variant="ghost"
@@ -248,7 +252,7 @@ export function PlayersDrawer({
                               })}
                               onClick={() => openEdit(player)}
                             >
-                              <Icon icon={PencilEdit02Icon} size={15} />
+                              <Icon icon={PencilEdit02Icon} />
                             </Button>
                             <Button
                               variant="ghost"
@@ -259,7 +263,7 @@ export function PlayersDrawer({
                               className="text-muted-foreground hover:text-destructive"
                               onClick={() => setPendingDelete([player.id])}
                             >
-                              <Icon icon={Delete02Icon} size={15} />
+                              <Icon icon={Delete02Icon} />
                             </Button>
                           </div>
                         </TableCell>

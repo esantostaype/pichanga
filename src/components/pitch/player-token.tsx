@@ -9,6 +9,7 @@ import {
 import { memo, useEffect, useRef, useState } from "react";
 
 import { areaColor } from "@/components/players/area-badge";
+import { SkillAverage } from "@/components/players/skill-average";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -301,12 +302,22 @@ function PlayerTokenBase({
           >
             {shortName(player.firstName, player.lastName)}
           </p>
-          <p
-            className="mt-1 truncate font-display uppercase leading-none tracking-widest text-foreground"
-            style={{ fontSize: areaSize, color }}
-          >
-            {areaLabel(player.area)}
-          </p>
+          {/*
+            Area and number on one line, because the plate is as wide as the
+            token and a second stacked row eats the space the name needs.
+          */}
+          <span className="mt-1 flex items-center justify-center gap-1">
+            <span
+              className="truncate font-display uppercase leading-none tracking-widest text-foreground"
+              style={{ fontSize: areaSize, color }}
+            >
+              {areaLabel(player.area)}
+            </span>
+            <SkillAverage
+              player={player}
+              accent={color}
+            />
+          </span>
         </Plate>
       </div>
     </div>

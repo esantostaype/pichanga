@@ -8,6 +8,7 @@ import {
 } from "@hugeicons/core-free-icons";
 
 import { AreaBadge } from "@/components/players/area-badge";
+import { SkillAverage } from "@/components/players/skill-average";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import {
@@ -213,7 +214,10 @@ export function PaymentsDialog({
                     <span className="truncate text-sm font-medium">
                       {player.firstName} {player.lastName}
                     </span>
-                    <AreaBadge area={player.area} />
+                    <span className="flex items-center gap-2">
+                      <AreaBadge area={player.area} />
+                      <SkillAverage player={player} />
+                    </span>
                   </span>
 
                   {isOrganizer ? (
@@ -221,7 +225,7 @@ export function PaymentsDialog({
                       className="ml-auto flex items-center gap-1.5 text-xs text-primary"
                       title={t.ledger.organizerNote}
                     >
-                      <Icon icon={CrownIcon} size={14} />
+                      <Icon icon={CrownIcon} />
                       {t.ledger.organizer}
                     </span>
                   ) : isAdmin ? (
@@ -247,7 +251,6 @@ export function PaymentsDialog({
                         icon={
                           hasPaid ? PaymentSuccess01Icon : MoneyNotFound01Icon
                         }
-                        size={16}
                       />
                       {hasPaid ? t.ledger.paid : t.ledger.pending}
                     </span>

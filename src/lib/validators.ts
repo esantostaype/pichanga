@@ -151,6 +151,23 @@ export const keeperInputSchema = z.object({
   playerId: z.string().min(1, "form.pickPlayer"),
 });
 
+/**
+ * The sides as somebody arranged them: every side, in order, with the ids it
+ * holds. The whole arrangement rather than a diff -- the server checks that
+ * every player in the match appears exactly once, which a diff cannot.
+ */
+export const teamsManualInputSchema = z.object({
+  sides: z
+    .array(z.array(z.string().min(1)))
+    .min(2, "teams.needTwoSides")
+    .max(6),
+});
+
+/** Which player is being moved onto the side in the route. */
+export const teamPlayerInputSchema = z.object({
+  playerId: z.string().min(1, "form.pickPlayer"),
+});
+
 export const teamDrawInputSchema = z.object({
   seed: z
     .number()
@@ -159,6 +176,13 @@ export const teamDrawInputSchema = z.object({
     .max(2 ** 31 - 1),
   /** Spread the floors across the sides as well as the strength. */
   mixAreas: z.boolean().optional(),
+  /**
+   * How many sides. Absent means the turnout decides, which is what it did
+   * before anybody could ask for a number -- six on a seven-a-side pitch is
+   * two threes either way, and this is for the week they want one duel out of
+   * a turnout the app would have split into three.
+   */
+  teams: z.number().int().min(2).max(6).optional(),
 });
 
 /**

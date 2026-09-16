@@ -49,6 +49,7 @@ import { useElementSize } from "@/hooks/use-element-size";
 import { useNow } from "@/hooks/use-now";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useGoalSound } from "@/hooks/use-goal-sound";
+import { SkillAverage } from "@/components/players/skill-average";
 import { areaLabel, fill } from "@/i18n/dictionaries";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useWakeLock } from "@/hooks/use-wake-lock";
@@ -652,7 +653,6 @@ export function LiveScreen({
                           <TeamCrest
                             name={team.name}
                             accent={team.accent}
-                            size={18}
                           />
                         ) : null}
                         <span className="truncate">{team?.name}</span>
@@ -690,7 +690,7 @@ export function LiveScreen({
           disabled={busy}
           onClick={() => setFinishing(true)}
         >
-          {busy ? <Spinner /> : <Icon icon={CheckmarkCircle02Icon} size={22} />}
+          {busy ? <Spinner /> : <Icon icon={CheckmarkCircle02Icon} />}
         </Button>
       </div>
 
@@ -839,7 +839,7 @@ function Board({
           href={backHref}
           className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wider text-muted-foreground no-underline transition-colors hover:text-foreground"
         >
-          <Icon icon={ArrowLeft01Icon} size={14} />
+          <Icon icon={ArrowLeft01Icon} />
           {t.live.lineup}
         </a>
 
@@ -856,11 +856,11 @@ function Board({
           <div className="flex items-center justify-center gap-3 sm:gap-5">
             <Digit value={score?.home ?? 0} accent={home.accent} />
             <div className="flex flex-col items-center gap-1">
-              <TeamCrest name={home.name} accent={home.accent} size={26} />
+              <TeamCrest name={home.name} accent={home.accent} />
               <span className="font-display text-[0.625rem] uppercase tracking-[0.2em] text-muted-foreground">
                 {t.common.versus}
               </span>
-              <TeamCrest name={away.name} accent={away.accent} size={26} />
+              <TeamCrest name={away.name} accent={away.accent} />
             </div>
             <Digit value={score?.away ?? 0} accent={away.accent} />
           </div>
@@ -913,7 +913,7 @@ function Board({
               disabled={goals === 0}
               onClick={onGoals}
             >
-              <Icon icon={FootballIcon} size={18} />
+              <Icon icon={FootballIcon} />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">{t.live.goalsTitle}</TooltipContent>
@@ -921,12 +921,12 @@ function Board({
 
         {playing ? (
           <Button variant="secondary" disabled={busy} onClick={onFullTime}>
-            {busy ? <Spinner /> : <Icon icon={StopIcon} size={16} />}
+            {busy ? <Spinner /> : <Icon icon={StopIcon} />}
             {t.live.fullTime}
           </Button>
         ) : (
           <Button disabled={busy || !canKickOff} onClick={onKickOff}>
-            {busy ? <Spinner /> : <Icon icon={PlayIcon} size={16} />}
+            {busy ? <Spinner /> : <Icon icon={PlayIcon} />}
             {t.live.kickOff}
           </Button>
         )}
@@ -940,7 +940,7 @@ function Board({
               disabled={!hasTable}
               onClick={onTable}
             >
-              <Icon icon={ChartLineData01Icon} size={18} />
+              <Icon icon={ChartLineData01Icon} />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">{t.live.tableTitle}</TooltipContent>
@@ -968,7 +968,7 @@ function Board({
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Icon icon={soundOn ? VolumeHighIcon : VolumeOffIcon} size={15} />
+              <Icon icon={soundOn ? VolumeHighIcon : VolumeOffIcon} />
               {soundOn ? t.live.soundOn : t.live.muted}
             </button>
           </TooltipTrigger>
@@ -1070,7 +1070,7 @@ function TeamSheet({
         }}
       >
         <header className="mb-3 flex items-center gap-2.5">
-          <TeamCrest name={team.name} accent={team.accent} size={30} />
+          <TeamCrest name={team.name} accent={team.accent} />
           <p
             className="min-w-0 flex-1 truncate font-display text-lg uppercase tracking-[0.04em]"
             style={{ color: team.accent }}
@@ -1125,8 +1125,14 @@ function TeamSheet({
                     <span className="block truncate text-sm font-medium leading-tight">
                       {player.firstName} {player.lastName}
                     </span>
-                    <span className="block truncate font-display text-[0.8125rem] uppercase leading-tight tracking-widest text-muted-foreground">
-                      {areaLabel(player.area)}
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate font-display text-[0.8125rem] uppercase leading-tight tracking-widest text-muted-foreground">
+                        {areaLabel(player.area)}
+                      </span>
+                      <SkillAverage
+                        player={player}
+                        accent={team.accent}
+                      />
                     </span>
                   </span>
 
@@ -1138,7 +1144,7 @@ function TeamSheet({
                         backgroundColor: `${team.accent}1f`,
                       }}
                     >
-                      <Icon icon={FootballIcon} size={13} />
+                      <Icon icon={FootballIcon} />
                       {scored}
                     </span>
                   ) : null}
@@ -1164,7 +1170,7 @@ function TeamSheet({
                       backgroundColor: `color-mix(in oklab, ${team.accent} 22%, var(--background))`,
                     }}
                   >
-                    <Icon icon={GloveIcon} size={16} strokeWidth={2} />
+                    <Icon icon={GloveIcon} strokeWidth={2} />
                   </span>
                 ) : onSetKeeper ? (
                   <button
@@ -1183,9 +1189,9 @@ function TeamSheet({
                     )}
                   >
                     {keeperPending === player.id ? (
-                      <Spinner size={16} />
+                      <Spinner />
                     ) : (
-                      <Icon icon={GloveIcon} size={16} />
+                      <Icon icon={GloveIcon} />
                     )}
                   </button>
                 ) : null}
@@ -1252,7 +1258,7 @@ function Timeline({
                 title={t.live.undoGoal}
                 className="shrink-0 cursor-pointer text-muted-foreground/40 transition-colors hover:text-destructive"
               >
-                <Icon icon={Delete02Icon} size={14} />
+                <Icon icon={Delete02Icon} />
               </button>
             ) : null}
 
@@ -1263,7 +1269,7 @@ function Timeline({
             </span>
 
             <span className="shrink-0" style={{ color: team?.accent }}>
-              <Icon icon={FootballIcon} size={16} />
+              <Icon icon={FootballIcon} />
             </span>
           </div>
         );

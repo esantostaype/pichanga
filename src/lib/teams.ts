@@ -507,3 +507,29 @@ export function balanceMoves(sides: SideCount[]): Transfer[] {
 
   return moves;
 }
+
+/**
+ * Who goes in goal for a squad picked by hand.
+ *
+ * The same rule the draw follows -- a volunteer first, then whoever keeps best,
+ * with a nudge for defenders because when nobody wants the gloves it is the
+ * back line that ends up wearing them. Without the random tiebreak: a hand-made
+ * side should name the same keeper every time it is saved.
+ */
+export function pickKeeper(squad: Player[]): string | null {
+  if (!squad.length) return null;
+
+  const score = (player: Player) =>
+    (player.skills.goalkeeping ?? SKILL_DEFAULT) +
+    (player.position === "def" ? 0.25 : 0);
+
+  const best = (pool: Player[]) =>
+    pool.length
+      ? pool.reduce((left, right) => (score(right) > score(left) ? right : left))
+      : null;
+
+  return (
+    best(squad.filter((player) => player.position === "gk")) ??
+    best(squad)
+  )?.id ?? null;
+}

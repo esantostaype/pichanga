@@ -41,7 +41,13 @@ import type {
 import { db } from "./index";
 import { buildStats } from "@/lib/stats";
 import type { Stats } from "@/lib/stats";
-import { balanceMoves, pickNames, planTeams, strengthOf } from "@/lib/teams";
+import {
+  balanceMoves,
+  pickKeeper,
+  pickNames,
+  planTeams,
+  strengthOf,
+} from "@/lib/teams";
 import {
   matchGames,
   matchGoals,
@@ -991,6 +997,8 @@ export async function drawTeams(
   matchId: string,
   seed: number,
   mixAreas = false,
+  /** How many sides, when the squad has asked for a number of its own. */
+  teamCount?: number,
 ): Promise<Match | null> {
   const [match] = await db
     .select()
@@ -1006,7 +1014,7 @@ export async function drawTeams(
 
   const plan = planTeams(
     lineup.map((entry) => toPlayer(entry.player)),
-    { teamSize, seed, mixAreas },
+    { teamSize, teamCount, seed, mixAreas },
   );
 
   const names = pickNames(plan.teams.length, seed);
@@ -1039,6 +1047,111 @@ export async function drawTeams(
           and(
             eq(matchPlayers.matchId, matchId),
             eq(matchPlayers.playerId, player.id),
+          ),
+        );
+    }
+  }
+
+  return hydrate(match);
+}
+
+/**
+ * The sides as somebody arranged them by hand.
+ *
+ * `sides` is the whole arrangement, in order: every player in the match must
+ * appear exactly once, because a lineup that is half-assigned has nowhere to
+ * draw the rest -- the pitch groups by side and anybody left out of one would
+ * simply not be on it.
+ *
+ * Names and colours survive where they can. A side keeps the identity the slot
+ * already had, so rearranging two teams leaves them as the same two teams, and
+ * only a count that grows reaches into the name pool for the new ones.
+ */
+export async function setTeamsManually(
+  matchId: string,
+  sides: string[][],
+): Promise<Match | null> {
+  const [match] = await db
+    .select()
+    .from(matches)
+    .where(eq(matches.id, matchId));
+  if (!match) return null;
+
+  const lineup = await loadLineup(matchId);
+  const squad = new Map(lineup.map((entry) => [entry.player.id, entry.player]));
+
+  const assigned = sides.flat();
+  const unique = new Set(assigned);
+
+  // Every player, once each, and nobody from outside the match.
+  if (
+    assigned.length !== unique.size ||
+    unique.size !== squad.size ||
+    assigned.some((id) => !squad.has(id))
+  ) {
+    return null;
+  }
+
+  const existing = await db
+    .select()
+    .from(matchTeams)
+    .where(eq(matchTeams.matchId, matchId))
+    .orderBy(asc(matchTeams.slot));
+
+  /*
+   * Names for the sides that did not exist before, skipping the ones that did.
+   * The pool is walked with a stride and knows nothing about what is already on
+   * the table, so going from two sides to three drew a third name that was
+   * sometimes the second one again -- two teams called Code FC, in the same
+   * match, telling nobody apart. Asked for more than needed, so there is
+   * something left after the collisions are dropped.
+   */
+  const taken = new Set(
+    existing.slice(0, sides.length).map((team) => team.name),
+  );
+
+  const spare = pickNames(sides.length * 2, Date.now() % 2 ** 31).filter(
+    (one) => !taken.has(one.name),
+  );
+
+  await releaseTeams(matchId);
+
+  const rows = await db
+    .insert(matchTeams)
+    .values(
+      sides.map((_, index) => {
+        const kept = existing[index];
+        // Only reached for a side that is new, so the spares last.
+        const made = kept ? null : spare.shift();
+
+        return {
+          matchId,
+          slot: index,
+          name: kept?.name ?? made?.name ?? `${index + 1}`,
+          accent: kept?.accent ?? made?.accent ?? "#9ae600",
+        };
+      }),
+    )
+    .returning();
+
+  const bySlot = new Map(rows.map((row) => [row.slot, row.id]));
+
+  for (const [index, playerIds] of sides.entries()) {
+    const teamId = bySlot.get(index);
+    if (!teamId) continue;
+
+    const keeperId = pickKeeper(
+      playerIds.map((id) => toPlayer(squad.get(id)!)),
+    );
+
+    for (const playerId of playerIds) {
+      await db
+        .update(matchPlayers)
+        .set({ teamId, isKeeper: playerId === keeperId })
+        .where(
+          and(
+            eq(matchPlayers.matchId, matchId),
+            eq(matchPlayers.playerId, playerId),
           ),
         );
     }
@@ -1698,6 +1811,57 @@ export async function setKeeper(
   await db
     .update(matchPlayers)
     .set({ isKeeper: true })
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    );
+
+  return getMatch(matchId);
+}
+
+/**
+ * Moves one player to another side, by hand.
+ *
+ * The draw is a starting point, not a verdict: it balances on numbers and
+ * cannot know that these two have to be split up or that those three came
+ * together. Everything it produced stays -- the sides, their names and their
+ * colours -- and only who stands in which one changes.
+ *
+ * The gloves do not travel. Somebody moved out of a side stops being that
+ * side's keeper, because they are not in it any more, and the side they join
+ * keeps the keeper it already had. Handing them over is its own decision, made
+ * in the same dialog.
+ */
+export async function setPlayerTeam(
+  matchId: string,
+  teamId: string,
+  playerId: string,
+): Promise<Match | null> {
+  const [side] = await db
+    .select({ id: matchTeams.id })
+    .from(matchTeams)
+    .where(and(eq(matchTeams.matchId, matchId), eq(matchTeams.id, teamId)));
+
+  // A side from another match, or one that has since been put away.
+  if (!side) return null;
+
+  const [entry] = await db
+    .select({ teamId: matchPlayers.teamId })
+    .from(matchPlayers)
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    );
+
+  if (!entry) return null;
+
+  await db
+    .update(matchPlayers)
+    .set({ teamId, isKeeper: false })
     .where(
       and(
         eq(matchPlayers.matchId, matchId),

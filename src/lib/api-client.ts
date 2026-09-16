@@ -162,10 +162,22 @@ export const api = {
         method: "DELETE",
       }),
     /** Draws the sides. The same seed always draws the same ones. */
-    drawTeams: (id: string, seed: number, mixAreas = false) =>
+    drawTeams: (
+      id: string,
+      seed: number,
+      mixAreas = false,
+      /** Absent lets the turnout decide, which is what it always did. */
+      teams?: number,
+    ) =>
       request<Match>(`/api/matches/${id}/teams`, {
         method: "POST",
-        body: body({ seed, mixAreas }),
+        body: body({ seed, mixAreas, teams }),
+      }),
+    /** The whole arrangement at once, as somebody built it by hand. */
+    setTeamsManually: (id: string, sides: string[][]) =>
+      request<Match>(`/api/matches/${id}/teams/manual`, {
+        method: "POST",
+        body: body({ sides }),
       }),
     clearTeams: (id: string) =>
       request<Match>(`/api/matches/${id}/teams`, { method: "DELETE" }),
@@ -194,6 +206,12 @@ export const api = {
     /** Puts somebody in goal for one side, by hand. */
     setKeeper: (id: string, teamId: string, playerId: string) =>
       request<Match>(`/api/matches/${id}/teams/${teamId}/keeper`, {
+        method: "POST",
+        body: body({ playerId }),
+      }),
+    /** Moves one player onto that side, off whichever they were on. */
+    setPlayerTeam: (id: string, teamId: string, playerId: string) =>
+      request<Match>(`/api/matches/${id}/teams/${teamId}/players`, {
         method: "POST",
         body: body({ playerId }),
       }),

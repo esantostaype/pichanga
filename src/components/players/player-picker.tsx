@@ -15,6 +15,7 @@ import { areaLabel } from "@/i18n/dictionaries";
 import { cn, normalize } from "@/lib/utils";
 import type { Player } from "@/types";
 import { AreaBadge } from "./area-badge";
+import { SkillAverage } from "./skill-average";
 import { PlayerAvatar } from "./player-avatar";
 
 type PlayerPickerProps = {
@@ -55,7 +56,7 @@ export function PlayerPicker({
     <div className={cn("flex min-h-0 flex-col gap-3", className)}>
       <div className="relative">
         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-          <Icon icon={Search01Icon} size={16} />
+          <Icon icon={Search01Icon} />
         </span>
         <Input
           value={query}
@@ -102,8 +103,9 @@ export function PlayerPicker({
                       <span className="block truncate text-sm font-medium">
                         {player.firstName} {player.lastName}
                       </span>
-                      <span className="mt-0.5 block">
+                      <span className="mt-0.5 flex items-center gap-2">
                         <AreaBadge area={player.area} />
+                        <SkillAverage player={player} />
                       </span>
                     </span>
 
@@ -115,7 +117,7 @@ export function PlayerPicker({
                           : "border-border",
                       )}
                     >
-                      {isChecked ? <Icon icon={Tick02Icon} size={12} /> : null}
+                      {isChecked ? <Icon icon={Tick02Icon} /> : null}
                     </span>
                   </button>
                 </li>

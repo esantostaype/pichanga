@@ -4,6 +4,7 @@ import { Cancel01Icon, CrownIcon, GloveIcon } from "@hugeicons/core-free-icons";
 
 import { TeamCrest } from "@/components/matches/team-crest";
 import { areaColor } from "@/components/players/area-badge";
+import { SkillAverage } from "@/components/players/skill-average";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
@@ -92,7 +93,7 @@ export function LineupList({
           drawn.map((team) => (
             <section key={team.id}>
               <header className="mb-2 flex items-center gap-2">
-                <TeamCrest name={team.name} accent={team.accent} size={30} />
+                <TeamCrest name={team.name} accent={team.accent} />
                 <span
                   className="min-w-0 truncate font-display text-lg uppercase tracking-[0.04em]"
                   style={{ color: team.accent }}
@@ -177,7 +178,7 @@ function Row({
             aria-label={t.pitch.organizer}
             className="absolute -right-1 -top-1 grid size-4 place-items-center rounded-full bg-primary text-primary-foreground"
           >
-            <Icon icon={CrownIcon} size={9} strokeWidth={2} />
+            <Icon icon={CrownIcon} strokeWidth={2} />
           </span>
         ) : null}
       </span>
@@ -192,11 +193,14 @@ function Row({
         <span className="truncate text-sm font-medium leading-tight">
           {player.firstName} {player.lastName}
         </span>
-        <span
-          className="truncate font-display text-xs uppercase leading-tight tracking-widest"
-          style={{ color: area }}
-        >
-          {areaLabel(player.area)}
+        <span className="flex items-center gap-1.5">
+          <span
+            className="truncate font-display text-xs uppercase leading-tight tracking-widest"
+            style={{ color: area }}
+          >
+            {areaLabel(player.area)}
+          </span>
+          <SkillAverage player={player} accent={ring} />
         </span>
       </button>
 
@@ -212,7 +216,7 @@ function Row({
               backgroundColor: `color-mix(in oklab, ${accent ?? area} 22%, var(--background))`,
             }}
           >
-            <Icon icon={GloveIcon} size={12} strokeWidth={2} />
+            <Icon icon={GloveIcon} strokeWidth={2} />
           </span>
         ) : onMakeKeeper ? (
           <button
@@ -224,9 +228,9 @@ function Row({
             className="grid size-6 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default"
           >
             {keeperPending ? (
-              <Spinner size={12} />
+              <Spinner />
             ) : (
-              <Icon icon={GloveIcon} size={12} />
+              <Icon icon={GloveIcon} />
             )}
           </button>
         ) : null}
@@ -249,7 +253,7 @@ function Row({
             })}
             className="grid size-7 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
           >
-            <Icon icon={Cancel01Icon} size={14} />
+            <Icon icon={Cancel01Icon} />
           </button>
         ) : null}
       </span>

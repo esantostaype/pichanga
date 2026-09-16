@@ -960,6 +960,42 @@ a team would be down to one player -- which is the only case where a side can
 still come out bigger than the pitch, and by then the pitch was never the
 problem.
 
+The number of sides can be overridden from the Teams dialog -- **Auto** unless
+somebody picks one -- which is the week they want a single duel out of a
+turnout the app would have split into three. Auto is the default and stays the
+default: adding two players to a six-a-side night is meant to move it from two
+sides to three on its own.
+
+Once the sides exist, **anybody in them can be moved to another**. The draw
+balances on numbers, which is most of the job and never all of it: it cannot
+know that those two have to be split up. Moving somebody leaves the sides
+themselves alone -- same names, same colours -- and only their shirt changes.
+The gloves do not travel with them: a player moved out of a side stops being
+its keeper, and the side they join keeps the one it had.
+
+The Teams dialog has two tabs. **Auto** is what the button already did and
+where it opens. **By hand** stages an arrangement -- how many sides, and who is
+on each -- and writes the whole thing in one request when it is saved. Staged
+rather than live for two reasons: a half-built arrangement leaves people on no
+side at all, and the pitch groups by side, so anybody unassigned would vanish
+from it mid-decision. And backing out of it has to cost nothing, because
+arranging by hand means trying it a couple of ways. Saving is refused until
+every side has somebody in it and nobody is left on the bench.
+
+Sides keep their identity where they can: rearranging two teams leaves them as
+the same two teams, and only a count that grows reaches into the name pool --
+skipping the names already on the table, which is how a match briefly ended up
+with two teams both called Code FC.
+
+Both are the organizer's: pressing **draw** is public, because it happens with
+everyone standing around and somebody has to press it, but overriding what it
+produced is not. A squad that can rearrange until it likes the look of a team
+has not been given teams at all. The proxy holds that line, not just the UI.
+
+Neither is offered once a game has been played. The table is kept on these
+sides, and a player who changes shirt halfway through makes the standings a
+record of nothing.
+
 ### The balancer
 
 `planTeams` runs three passes, in an order where each one only makes sense

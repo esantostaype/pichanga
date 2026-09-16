@@ -7,6 +7,7 @@ import {
   InfinityCircleIcon,
   StopWatchIcon,
   UserStar01Icon,
+  UserSwitchIcon,
 } from "@hugeicons/core-free-icons";
 
 import { useCallback, useEffect, useState } from "react";
@@ -14,6 +15,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useScene } from "@/components/layout/scene-transition";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { PlayerAvatar } from "@/components/players/player-avatar";
+import {
+  SkillAverage,
+  TeamAverage,
+} from "@/components/players/skill-average";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,9 +28,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { Tabs } from "@/components/ui/tabs";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useAction } from "@/hooks/use-action";
 import { fill } from "@/i18n/dictionaries";
@@ -34,9 +47,10 @@ import { api } from "@/lib/api-client";
 import { GAME_MINUTES_CHOICES, INDEFINITE_GAME } from "@/lib/constants";
 import { matchSlug } from "@/lib/date";
 import { currentGame } from "@/lib/live";
-import { strengthOf } from "@/lib/teams";
+
 import { cn } from "@/lib/utils";
 import type { Match } from "@/types";
+import { ManualTeams } from "./manual-teams";
 import { TeamCrest } from "./team-crest";
 
 /**
@@ -56,8 +70,15 @@ export function TeamsDialog({
   onOpenChange: (open: boolean) => void;
   match: Match | null;
 }) {
-  const { isAdmin, drawTeams, clearTeams, setGameMinutes, setKeeper, demo } =
-    usePichanga();
+  const {
+    isAdmin,
+    drawTeams,
+    clearTeams,
+    setGameMinutes,
+    setKeeper,
+    setPlayerTeam,
+    demo,
+  } = usePichanga();
   const { t } = useLocale();
 
   /*
@@ -106,9 +127,45 @@ export function TeamsDialog({
    */
   const [mixAreas, setMixAreas] = useState(false);
 
-  const shuffle = useAction(async () => drawTeams(newSeed(), mixAreas), {
-    success: t.teams.shuffled,
-  });
+  /*
+   * How many sides the next shuffle should make. Null is the turnout deciding,
+   * which is what it always did and what it should keep doing while nobody has
+   * an opinion: adding two players to a six-a-side night is meant to move it
+   * from two sides to three on its own.
+   */
+  const [sides, setSides] = useState<number | null>(null);
+
+  /*
+   * Auto is where this opens and stays: pressing the button already drew the
+   * sides, and the balancer is right most weeks. Manual is the second answer,
+   * for the week it is not -- and it is a tab rather than a mode so that
+   * leaving it costs nothing.
+   */
+  const [tab, setTab] = useState<"auto" | "manual">("auto");
+
+
+  const shuffle = useAction(
+    async () => drawTeams(newSeed(), mixAreas, sides ?? undefined),
+    { success: t.teams.shuffled },
+  );
+
+  /*
+   * Moving one player, which leaves the sides themselves alone: same names,
+   * same colours, one different shirt. The draw balances on numbers and cannot
+   * know that these two have to be split up.
+   */
+  const [moving, setMoving] = useState<string | null>(null);
+
+  const move = useAction(
+    async ({ teamId, playerId }: { teamId: string; playerId: string }) =>
+      setPlayerTeam(teamId, playerId),
+    { success: t.teams.moved },
+  );
+
+  const moveTo = (teamId: string, playerId: string) => {
+    setMoving(playerId);
+    void move.run({ teamId, playerId }).finally(() => setMoving(null));
+  };
 
   const length = useAction(async (minutes: number) => setGameMinutes(minutes), {
     success: t.teams.lengthAgreed,
@@ -154,10 +211,39 @@ export function TeamsDialog({
       ? [...GAME_MINUTES_CHOICES, INDEFINITE_GAME]
       : [...GAME_MINUTES_CHOICES];
   const byId = new Map((match?.players ?? []).map((one) => [one.id, one]));
-  const busy = shuffle.pending || clear.pending;
+  const busy = shuffle.pending || clear.pending || move.pending;
+
+  /*
+   * Two sides at least, and never more than there are pairs to fill them: six
+   * people cannot be four teams of anything worth playing. Capped at six,
+   * which is already more sides than a pitch has room to rotate.
+   */
+  /*
+   * The same shape for both forms of the control, so a row with two sides and
+   * a row with three do not look like different features.
+   */
+  const moveChip = cn(
+    "grid size-6 shrink-0 cursor-pointer place-items-center rounded-full border border-border/70 bg-background/50 text-muted-foreground transition-colors",
+    "hover:border-border hover:bg-background hover:text-foreground disabled:cursor-default disabled:opacity-50",
+  );
+
+  const squad = match?.players.length ?? 0;
+  const sideChoices = Array.from(
+    { length: Math.max(0, Math.min(6, Math.floor(squad / 2)) - 1) },
+    (_, index) => index + 2,
+  );
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        // Closed on Manual, reopened on Auto. A dialog that comes back on the
+        // tab somebody walked away from comes back halfway through an
+        // arrangement they had already abandoned.
+        if (!next) setTab("auto");
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className={widthFor(teams.length)}>
         <DialogHeader>
           <DialogTitle>{t.teams.title}</DialogTitle>
@@ -167,8 +253,39 @@ export function TeamsDialog({
               : fill(started ? t.teams.started : t.teams.drawn, {
                   count: teams.length,
                 })}
+            {/*
+              Said out loud, because the two controls on a player's row are
+              13px glyphs and nobody goes looking for a feature they cannot
+              see. It costs one line and saves the question.
+            */}
+            {teams.length > 1 && isAdmin && !started
+              ? ` ${t.teams.moveHint}`
+              : ""}
           </DialogDescription>
         </DialogHeader>
+
+        {/*
+          Auto is what the button already did; Manual is the other way of
+          answering the same question. Only offered where it can be acted on:
+          a guest cannot rearrange anything, and once a game has been played
+          neither can anybody else.
+        */}
+        {isAdmin && !started && teams.length > 0 ? (
+          <Tabs
+            items={[
+              { value: "auto", label: t.teams.tabAuto },
+              { value: "manual", label: t.teams.tabManual },
+            ]}
+            value={tab}
+            onChange={(next) => setTab(next as "auto" | "manual")}
+            ariaLabel={t.teams.title}
+          />
+        ) : null}
+
+        {tab === "manual" && match ? (
+          <ManualTeams match={match} onDone={() => setTab("auto")} />
+        ) : (
+          <>
 
         {/*
           As many sides across as the width allows, and the rest underneath.
@@ -182,6 +299,10 @@ export function TeamsDialog({
               .map((id) => byId.get(id))
               .filter((one) => one !== undefined);
 
+            /* Where this player could go, and whether anyone may send them. */
+            const others = teams.filter((side) => side.id !== team.id);
+            const canMove = isAdmin && !started && others.length > 0;
+
             return (
               <section
                 key={team.id}
@@ -192,8 +313,8 @@ export function TeamsDialog({
                 }}
               >
                 <header className="flex items-center gap-3">
-                  <TeamCrest name={team.name} accent={team.accent} size={36} />
-                  <div className="min-w-0">
+                  <TeamCrest name={team.name} accent={team.accent} />
+                  <div className="min-w-0 flex-1">
                     <p className="truncate font-display text-lg uppercase tracking-[0.04em]">
                       {team.name}
                     </p>
@@ -205,6 +326,13 @@ export function TeamsDialog({
                         : ""}
                     </p>
                   </div>
+
+                  {/*
+                    What the two sides are actually being compared on. Two
+                    circles reading 3.1 and 3.2 are a fair draw; 2.4 against
+                    3.9 is the argument nobody was having out loud.
+                  */}
+                  <TeamAverage players={squad} accent={team.accent} />
                 </header>
 
                 <ul className="mt-3 space-y-1.5">
@@ -218,6 +346,91 @@ export function TeamsDialog({
                       <span className="min-w-0 flex-1 truncate text-sm">
                         {player.firstName} {player.lastName}
                       </span>
+
+                      {/*
+                        Moving somebody is an admin's call, and only until the
+                        first whistle: the table is kept on these sides, and a
+                        player who changes shirt halfway through makes the
+                        standings a record of nothing. The server holds the
+                        same rule.
+
+                        Bordered rather than bare. It began as a naked glyph
+                        beside the glove and the first person to look for it
+                        asked where it was: at 13px, two grey outlines in a row
+                        are one grey smudge, and neither of them looks like
+                        something you can press.
+                      */}
+                      {canMove ? (
+                        others.length === 1 ? (
+                          /*
+                            One other side is not a menu. Two teams is the
+                            common case and the answer is never in doubt, so
+                            the tap does the thing instead of asking which.
+                          */
+                          <button
+                            type="button"
+                            disabled={move.pending}
+                            aria-label={fill(t.teams.moveToTeam, {
+                              name: player.firstName,
+                              team: others[0].name,
+                            })}
+                            title={fill(t.teams.moveToTeam, {
+                              name: player.firstName,
+                              team: others[0].name,
+                            })}
+                            onClick={() => moveTo(others[0].id, player.id)}
+                            className={moveChip}
+                          >
+                            {moving === player.id ? (
+                              <Spinner />
+                            ) : (
+                              <Icon icon={UserSwitchIcon} />
+                            )}
+                          </button>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
+                              disabled={move.pending}
+                              aria-label={fill(t.teams.moveName, {
+                                name: player.firstName,
+                              })}
+                              title={fill(t.teams.moveName, {
+                                name: player.firstName,
+                              })}
+                              className={moveChip}
+                            >
+                              {moving === player.id ? (
+                                <Spinner />
+                              ) : (
+                                <Icon icon={UserSwitchIcon} />
+                              )}
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>
+                                {t.teams.moveTo}
+                              </DropdownMenuLabel>
+                              {others.map((side) => (
+                                <DropdownMenuItem
+                                  key={side.id}
+                                  onSelect={() => moveTo(side.id, player.id)}
+                                >
+                                  <TeamCrest
+                                    name={side.name}
+                                    accent={side.accent}
+                                  />
+                                  <span className="min-w-0 flex-1 truncate">
+                                    {side.name}
+                                  </span>
+                                  <span className="text-xs tabular-nums text-muted-foreground">
+                                    {side.playerIds.length}
+                                  </span>
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )
+                      ) : null}
 
                       {player.id === team.keeperId ? (
                         <span
@@ -257,9 +470,9 @@ export function TeamsDialog({
                           className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground/60 transition-colors hover:text-foreground disabled:cursor-default"
                         >
                           {handing === player.id ? (
-                            <Spinner size={13} />
+                            <Spinner />
                           ) : (
-                            <Icon icon={GloveIcon} size={13} />
+                            <Icon icon={GloveIcon} />
                           )}
                         </button>
                       )}
@@ -267,17 +480,15 @@ export function TeamsDialog({
                       {player.id === match?.organizerId ? (
                         <Icon
                           icon={UserStar01Icon}
-                          size={13}
+                         
                           className="text-primary"
                         />
                       ) : null}
 
-                      <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
-                        {strengthOf(
-                          player,
-                          player.id === team.keeperId ? "gk" : undefined,
-                        ).toFixed(1)}
-                      </span>
+                      <SkillAverage
+                        player={player}
+                        accent={team.accent}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -341,7 +552,7 @@ export function TeamsDialog({
                       )}
                     >
                       {forever ? (
-                        <Icon icon={InfinityCircleIcon} size={18} />
+                        <Icon icon={InfinityCircleIcon} />
                       ) : (
                         minutes
                       )}
@@ -352,6 +563,53 @@ export function TeamsDialog({
             </div>
           </>
         )}
+
+        {isAdmin && !started ? (
+          /*
+            Sits with the shuffle it feeds, not with the sides above it: it
+            changes nothing on screen until the draw is run again, and a
+            control that looks like it edits what you are looking at but only
+            takes effect on the next press is a control that lies.
+          */
+          <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3 md:flex-row md:items-center md:gap-4">
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="text-sm font-medium">{t.teams.sidesTitle}</span>
+              <span className="text-xs text-muted-foreground">
+                {t.teams.sidesLine}
+              </span>
+            </span>
+
+            <span className="-mx-1 flex flex-wrap items-center gap-1">
+              {[null, ...sideChoices].map((count) => {
+                const picked = count === sides;
+                const label =
+                  count === null
+                    ? t.teams.sidesAuto
+                    : fill(t.teams.sidesOne, { count });
+
+                return (
+                  <button
+                    key={count ?? "auto"}
+                    type="button"
+                    disabled={busy}
+                    aria-pressed={picked}
+                    aria-label={label}
+                    title={label}
+                    onClick={() => setSides(count)}
+                    className={cn(
+                      "grid h-9 shrink-0 cursor-pointer place-items-center rounded-full px-3 font-display text-sm tabular-nums transition-colors disabled:cursor-default",
+                      picked
+                        ? "bg-primary/15 font-semibold text-primary"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {count ?? t.teams.sidesAuto}
+                  </button>
+                );
+              })}
+            </span>
+          </div>
+        ) : null}
 
         {isAdmin && !started ? (
           <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
@@ -387,7 +645,7 @@ export function TeamsDialog({
                   {clear.pending ? (
                     <Spinner />
                   ) : (
-                    <Icon icon={Delete02Icon} size={16} />
+                    <Icon icon={Delete02Icon} />
                   )}
                   {t.teams.putAway}
                 </Button>
@@ -399,7 +657,7 @@ export function TeamsDialog({
                   {shuffle.pending ? (
                     <Spinner />
                   ) : (
-                    <Icon icon={ArrowDataTransferHorizontalIcon} size={16} />
+                    <Icon icon={ArrowDataTransferHorizontalIcon} />
                   )}
                   {t.teams.shuffle}
                 </Button>
@@ -425,11 +683,13 @@ export function TeamsDialog({
                 );
               }}
             >
-              <Icon icon={StopWatchIcon} size={16} />
+              <Icon icon={StopWatchIcon} />
               {t.teams.matchNight}
             </Button>
           </DialogFooter>
         ) : null}
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

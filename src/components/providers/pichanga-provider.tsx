@@ -70,7 +70,15 @@ type PichangaContextValue = PichangaState & {
    * again" is a new draw every time, while the same seed always lands on the
    * same teams.
    */
-  drawTeams: (seed: number, mixAreas?: boolean) => Promise<void>;
+  drawTeams: (
+    seed: number,
+    mixAreas?: boolean,
+    teams?: number,
+  ) => Promise<void>;
+  /** Moves one player onto another side, leaving the sides themselves alone. */
+  setPlayerTeam: (teamId: string, playerId: string) => Promise<void>;
+  /** Replaces every side at once, with the arrangement somebody built. */
+  setTeamsManually: (sides: string[][]) => Promise<void>;
   /** Puts the drawn sides away, back to one squad. */
   clearTeams: () => Promise<void>;
   /** Agrees how long each game runs on the night. */
@@ -326,10 +334,29 @@ export function PichangaProvider({
         }
       },
 
-      drawTeams: async (seed, mixAreas = false) => {
+      drawTeams: async (seed, mixAreas = false, teams) => {
         if (!state.nextMatch) throw new Error("common.noActiveMatch");
         syncNextMatch(
-          await api.matches.drawTeams(state.nextMatch.id, seed, mixAreas),
+          await api.matches.drawTeams(
+            state.nextMatch.id,
+            seed,
+            mixAreas,
+            teams,
+          ),
+        );
+      },
+
+      setPlayerTeam: async (teamId, playerId) => {
+        if (!state.nextMatch) throw new Error("common.noActiveMatch");
+        syncNextMatch(
+          await api.matches.setPlayerTeam(state.nextMatch.id, teamId, playerId),
+        );
+      },
+
+      setTeamsManually: async (sides) => {
+        if (!state.nextMatch) throw new Error("common.noActiveMatch");
+        syncNextMatch(
+          await api.matches.setTeamsManually(state.nextMatch.id, sides),
         );
       },
 
