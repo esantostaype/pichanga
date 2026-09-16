@@ -263,11 +263,16 @@ function PlayerForm({
         The numbers behind the balancing. They are nobody's business but the
         team sheet's, so they live here and never on the pitch.
       */}
-      <div className="grid gap-3 rounded-2xl border border-border/60 bg-muted/20 p-4">
+      <div className="grid gap-1 rounded-2xl border border-border/60 bg-muted/20 p-4">
         <p className="text-xs uppercase tracking-wider text-muted-foreground">
           {t.players.skills}
         </p>
 
+        {/*
+          Goalkeeping sits below the break on purpose: it is weighted zero in
+          every position, so it is not part of the number the balancer works
+          from. What it decides on its own is who ends up in goal.
+        */}
         {SKILLS.map((skill) => (
           <Controller
             key={skill.id}
@@ -279,6 +284,7 @@ function PlayerForm({
                 value={field.value}
                 onChange={field.onChange}
                 disabled={pending}
+                className={skill.id === "goalkeeping" ? "mt-4" : undefined}
               />
             )}
           />

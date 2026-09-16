@@ -80,17 +80,25 @@ export const SKILL_DEFAULT = 3;
  * What each position is worth, as weights over the six skills.
  *
  * They sum to 1 per position, so every player's strength lands on the same 1-5
- * scale however they play. The keeper's row is the reason the goalkeeping skill
- * exists at all: everybody has it, and it decides who goes in goal on the day
- * nobody volunteers.
+ * scale however they play.
+ *
+ * **Goalkeeping is weighted zero in every row, the keeper's included.** It is
+ * not a measure of how good somebody is at football, it is the answer to one
+ * question -- who goes in goal when nobody volunteers -- and letting it into
+ * the average made a strong keeper read as a strong player and swung the
+ * balancer with it. It is read on its own, by `pickKeeper`, and nowhere else.
+ *
+ * Which leaves the keeper's row judging them on the rest of their game, the
+ * same 1-5 as everybody, so a side does not look weaker for having put its
+ * best outfielder in goal.
  */
 export const POSITION_WEIGHTS: Record<PositionId, Record<SkillId, number>> = {
   gk: {
-    goalkeeping: 0.6,
-    pace: 0.1,
-    stamina: 0.1,
-    passing: 0.1,
-    defending: 0.1,
+    goalkeeping: 0,
+    defending: 0.3,
+    passing: 0.3,
+    stamina: 0.2,
+    pace: 0.2,
     finishing: 0,
   },
   def: {

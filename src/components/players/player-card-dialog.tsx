@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
+import { cn } from "@/lib/utils";
 import { SKILLS, SKILL_MAX, SKILL_MIN } from "@/lib/constants";
 import { strengthOf } from "@/lib/teams";
 import type { Player } from "@/types";
@@ -126,12 +127,23 @@ export function PlayerCardDialog({
           <div className="mt-6 flex items-center gap-5">
             <SkillWeb player={player} color={color} />
 
-            <ul className="min-w-0 flex-1 space-y-2">
+            {/*
+              Tighter than it was, so the gap under the fifth row is the only
+              space in the list and reads as the break it is: goalkeeping is
+              not one of the five, it is the answer to who goes in goal.
+            */}
+            <ul className="min-w-0 flex-1 space-y-1">
               {SKILLS.map((skill, index) => {
                 const value = player.skills[skill.id] ?? SKILL_MIN;
 
                 return (
-                  <li key={skill.id} className="flex items-center gap-2">
+                  <li
+                    key={skill.id}
+                    className={cn(
+                      "flex items-center gap-2",
+                      skill.id === "goalkeeping" && "mt-4",
+                    )}
+                  >
                     <span className="w-20 shrink-0 truncate text-xs uppercase tracking-wider text-muted-foreground">
                       {skillLabel(t, skill.id)}
                     </span>

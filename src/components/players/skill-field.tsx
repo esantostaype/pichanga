@@ -16,11 +16,14 @@ export function SkillField({
   value,
   onChange,
   disabled,
+  className,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   disabled?: boolean;
+  /** For the one row that is set apart from the rest. */
+  className?: string;
 }) {
   const steps = Array.from(
     { length: SKILL_MAX - SKILL_MIN + 1 },
@@ -28,7 +31,7 @@ export function SkillField({
   );
 
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className={cn("flex items-center justify-between gap-3", className)}>
       <span className="text-sm text-muted-foreground">{label}</span>
 
       <div
