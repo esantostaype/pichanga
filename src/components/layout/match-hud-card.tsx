@@ -13,7 +13,7 @@ import { AppLink } from "@/components/ui/app-link";
 import { Icon } from "@/components/ui/icon";
 import { useNow } from "@/hooks/use-now";
 import { fill } from "@/i18n/dictionaries";
-import { formatMoney, perPlayer } from "@/lib/money";
+import { formatMoney, rentalShare } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import {
   formatLongDate,
@@ -53,7 +53,8 @@ export function MatchHudCard({
   }
 
   const live = now !== null && isLive(match.playedAt, match.endsAt, now);
-  const share = perPlayer(match.venue?.price, match.players.length);
+  // Net of the no-shows' penalties, which go to the pitch.
+  const share = rentalShare(match);
 
   /**
    * Played and finished. The pitch keeps the match for three days after the

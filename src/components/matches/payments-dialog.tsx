@@ -26,7 +26,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { useAction } from "@/hooks/use-action";
 import { fill } from "@/i18n/dictionaries";
 import { formatLongDate } from "@/lib/date";
-import { formatMoney, perPlayer } from "@/lib/money";
+import { formatMoney, rentalShare } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/types";
 
@@ -77,7 +77,7 @@ export function PaymentsDialog({
 
   const players = match?.players ?? [];
   const paid = new Set(match?.paidPlayerIds ?? []);
-  const share = perPlayer(match?.venue?.price, players.length);
+  const share = match ? rentalShare(match) : null;
 
   const collected = share === null ? null : share * paid.size;
   const pending = share === null ? null : share * (players.length - paid.size);

@@ -317,6 +317,35 @@ describe("planTeams with mixAges", () => {
   });
 });
 
+describe("two uneven sides", () => {
+  it("gives the side a player short the better players", () => {
+    const squad = Array.from({ length: 13 }, (_, index) =>
+      player(`p${index}`, "mid", {
+        pace: 1 + (index % 5),
+        stamina: 1 + ((index * 2) % 5),
+        passing: 1 + ((index * 3) % 5),
+        finishing: 1 + ((index * 4) % 5),
+      }),
+    );
+
+    const plan = planTeams(squad, { teamSize: 7, teamCount: 2 });
+    const [six, seven] = [...plan.teams].sort(
+      (left, right) => left.players.length - right.players.length,
+    );
+
+    const average = (players: typeof squad) =>
+      players.reduce((total, one) => total + strengthOf(one), 0) /
+      players.length;
+    const total = (players: typeof squad) =>
+      players.reduce((sum, one) => sum + strengthOf(one), 0);
+
+    expect(six.players).toHaveLength(6);
+    expect(average(six.players)).toBeGreaterThan(average(seven.players));
+    // And the two weigh about the same in all.
+    expect(Math.abs(total(six.players) - total(seven.players))).toBeLessThan(1);
+  });
+});
+
 describe("age in the balance", () => {
   it("weighs a veteran and a kid below the same ratings in their prime", () => {
     const prime = player("prime", "mid");

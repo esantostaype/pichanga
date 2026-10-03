@@ -22,15 +22,15 @@ export const THEME = "#08090a";
 export const SITE = {
   url: resolveSiteUrl(),
   name: "Pichangapp",
-  title: "Pichangapp - Office lineup",
+  title: "Pichangapp - The Friday kickabout",
   description:
-    "Build the lineup for the office match: create the date, add players and watch them appear on the pitch in real time.",
+    "Build the lineup for the Friday kickabout: create the date, add players and watch them appear on the pitch in real time.",
   /** Open Graph expects 1200x630 (1.91:1). */
   cover: {
     path: "/images/cover.webp",
     width: 1200,
     height: 630,
     type: "image/webp",
-    alt: "Pichangapp - the office match lineup on a football pitch",
+    alt: "Pichangapp - the Friday kickabout lineup on a football pitch",
   },
 } as const;

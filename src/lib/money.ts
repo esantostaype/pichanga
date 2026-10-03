@@ -28,6 +28,41 @@ export function perPlayer(price: number | null | undefined, players: number) {
 }
 
 /**
+ * Each player's share of the pitch once the no-shows have paid their penalty.
+ *
+ * Whoever signed up and never came owes the bet as a penalty, and that money
+ * goes to the pitch: the rental left over is what the players who did come
+ * split. Never below zero -- a night with more penalties than pitch does not
+ * pay anybody to have played.
+ */
+export function rentalShare(match: {
+  venue: { price: number | null } | null;
+  players: unknown[];
+  noShows: unknown[];
+  bet: number;
+}) {
+  const price = match.venue?.price ?? 0;
+  if (price <= 0 || match.players.length === 0) return null;
+
+  const penalties = Math.max(0, match.bet) * match.noShows.length;
+  return Math.max(0, price - penalties) / match.players.length;
+}
+
+/**
+ * Whether money may change hands yet.
+ *
+ * Not before the night is over: until then somebody can still sign up at the
+ * last minute, which changes everybody's share of the pitch, and the pot is
+ * not won yet. So the collecting -- the pitch, the penalties and the prize --
+ * all happens together once the night is closed, or once its time is up for a
+ * match that never had a night kept.
+ */
+export const canSettle = (
+  match: { closedAt: number | null; endsAt: number },
+  now: number,
+) => match.closedAt !== null || match.endsAt <= now;
+
+/**
  * Whether the ledger is closed: the match is over and nobody still owes.
  *
  * The same line the server draws in `settlingUp` to decide whether a finished

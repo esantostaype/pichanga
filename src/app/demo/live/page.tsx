@@ -34,7 +34,12 @@ export default async function DemoLivePage() {
 
   return (
     <PichangaProvider initial={state.data}>
-      <LiveScreen match={match} backHref="/demo" initial={live} />
+      <LiveScreen
+        match={match}
+        backHref="/demo"
+        resultsHref="/demo/results"
+        initial={live}
+      />
     </PichangaProvider>
   );
 }

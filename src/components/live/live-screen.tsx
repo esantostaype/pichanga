@@ -9,6 +9,8 @@ import {
   FootballIcon,
   PlayIcon,
   StopIcon,
+  UserAdd01Icon,
+  UserRemove01Icon,
   VolumeHighIcon,
   VolumeOffIcon,
 } from "@hugeicons/core-free-icons";
@@ -74,7 +76,15 @@ import type {
   Player,
 } from "@/types";
 import { GOL_MS, GolOverlay } from "./gol-overlay";
+import { nightProgress } from "@/lib/schedule";
+import { blowWhistle, notifyFullTime, prepareFullTime } from "@/lib/full-time";
 import { categoryLabel, categoryOf } from "@/lib/age";
+import {
+  LOAN_CHOICES,
+  loanCandidates,
+  shortBy,
+  sideFor,
+} from "@/lib/loans";
 
 /** How often an unsaved goal tries again. The pitch has bad signal. */
 const RETRY_MS = 5_000;
@@ -112,11 +122,14 @@ const ECHO_MS = 8_000;
 export function LiveScreen({
   match: served,
   backHref,
+  resultsHref,
   initial,
 }: {
   match: Match;
   /** Where the arrow goes: this match's own screen. */
   backHref: string;
+  /** The podium and the pot, where the night is closed for good. */
+  resultsHref: string;
   initial: MatchLive;
 }) {
   const { t } = useLocale();
@@ -155,6 +168,8 @@ export function LiveScreen({
   const [endingEarly, setEndingEarly] = useState(false);
   /** Whose gloves are on their way from the server. */
   const [handing, setHanding] = useState<string | null>(null);
+  /** The short side picking somebody to borrow, while the list is open. */
+  const [borrowingFor, setBorrowingFor] = useState<string | null>(null);
   /** Which game's goals are being read. Null follows whatever is on. */
   const [goalsGame, setGoalsGame] = useState<string | null>(null);
 
@@ -340,6 +355,10 @@ export function LiveScreen({
     if (!pairing) return;
     setBusy(true);
 
+    // From inside the tap: the only moment a browser lets the page unlock the
+    // whistle and ask whether it may notify.
+    void prepareFullTime(match.id);
+
     void api.matches
       .startGame(match.id, pairing.homeTeamId, pairing.awayTeamId)
       .then(setLive)
@@ -347,16 +366,23 @@ export function LiveScreen({
       .finally(() => setBusy(false));
   };
 
+  /*
+   * Off to the results. The game being played is whistled off on the way, so
+   * the table the podium reads is the final one -- but the night itself stays
+   * open until somebody closes it from there, after the pot has been shared
+   * out in front of everybody.
+   */
   const finish = () => {
+    if (!game) {
+      go(resultsHref);
+      return;
+    }
+
     setBusy(true);
 
     void api.matches
-      .finishNight(match.id)
-      .then(() => {
-        // There is no night left to keep: the match goes back to being the
-        // notice it was, and this screen has nothing more to show.
-        go(backHref);
-      })
+      .endGame(match.id, game.id)
+      .then(() => go(resultsHref))
       .catch(() => setBusy(false));
   };
 
@@ -410,20 +436,154 @@ export function LiveScreen({
   const nextAway = pairing ? teamById.get(pairing.awayTeamId) : undefined;
 
   /*
+   * Time up: the game ends on the clock, not on somebody's thumb. Every phone
+   * watching asks for it -- ending a game is a no-op once it has ended -- and
+   * the server closes it at the minute it was due on its own anyway, for the
+   * night nobody has the page open.
+   */
+  const autoEnded = useRef<string | null>(null);
+  useEffect(() => {
+    if (!game || !timed || remaining > 0) return;
+    if (autoEnded.current === game.id) return;
+    autoEnded.current = game.id;
+
+    void api.matches
+      .endGame(match.id, game.id)
+      .then(setLive)
+      .catch(() => undefined);
+  }, [game, timed, remaining, match.id]);
+
+  /*
+   * However a game ended -- the clock, a thumb, another phone -- this one blows
+   * the whistle and puts up a notification, which is what reaches somebody
+   * whose phone is in their pocket or on another tab.
+   */
+  const lastRunning = useRef<string | null>(null);
+  const runningId = game?.id ?? null;
+  useEffect(() => {
+    const was = lastRunning.current;
+    lastRunning.current = runningId;
+    if (!was || was === runningId) return;
+
+    const ended = live.games.find((one) => one.id === was && one.endedAt !== null);
+    if (!ended) return;
+
+    if (sound.enabled) blowWhistle();
+
+    const score = gameScore(live.goals, ended);
+    void notifyFullTime({
+      title: fill(t.live.fullTimeTitle, { number: ended.slot + 1 }),
+      body: fill(t.live.fullTimeBody, {
+        home: teams.find((team) => team.id === ended.homeTeamId)?.name ?? "",
+        away: teams.find((team) => team.id === ended.awayTeamId)?.name ?? "",
+        homeGoals: score.home,
+        awayGoals: score.away,
+      }),
+      tag: `full-time-${ended.id}`,
+      url: window.location.pathname,
+    });
+  }, [runningId, live.games, live.goals, sound.enabled, teams, t]);
+
+  /*
    * Whether the gloves may move: between games always, and during one only
    * when two sides are playing -- with three there is a side waiting to come
    * on and a table being kept on the result.
    */
   const glovesMove = !game || teams.length === 2;
 
+  /*
+   * How far through the night's fair plan they are: six games for an hour
+   * with three or four sides, twelve for two hours. Past it, the screen says
+   * so -- as a suggestion, since the pitch is theirs until the hour is up.
+   */
+  const playedCount = live.games.filter((one) => one.endedAt !== null).length;
+  const progress = nightProgress(
+    playedCount,
+    match.endsAt - match.playedAt,
+    teams.length,
+  );
+
   /** The two sides on the pitch, or the two about to be. */
   const left = home ?? nextHome;
   const right = away ?? nextAway;
 
+  /*
+   * The game loans are for: the one being played, or the one about to start --
+   * which has no row yet, so it is the pairing with the next slot. Sorting out
+   * who borrows whom happens before kick-off, with everybody standing there.
+   */
+  const loanGame: MatchGame | null =
+    game ??
+    (pairing && match.closedAt === null
+      ? {
+          id: "next",
+          slot: live.games.length,
+          homeTeamId: pairing.homeTeamId,
+          awayTeamId: pairing.awayTeamId,
+          startedAt: 0,
+          endedAt: null,
+        }
+      : null);
+
+  /** A side as it lines up: its own, plus anybody lent to it for this game. */
   const squadOf = (team: MatchTeam | undefined) =>
-    (team?.playerIds ?? [])
+    (team ? (loanGame ? sideFor(team, loanGame, live.loans) : team.playerIds) : [])
       .map((id) => byId.get(id))
       .filter((player) => player !== undefined);
+
+  /** Who is on loan for this game, and to which side. */
+  const lentTo = new Map(
+    loanGame
+      ? live.loans
+          .filter((loan) => loan.slot === loanGame.slot)
+          .map((loan) => [loan.playerId, loan.teamId])
+      : [],
+  );
+
+  /** How many a side is down against the one it faces, loans counted. */
+  const shortOf = (team: MatchTeam | undefined, other: MatchTeam | undefined) => {
+    if (!team || !other) return 0;
+    if (loanGame) return shortBy(team, loanGame, teams, live.loans);
+    return Math.max(0, other.playerIds.length - team.playerIds.length);
+  };
+
+  const homeOf = (playerId: string) =>
+    teams.find((team) => team.playerIds.includes(playerId));
+
+  const lend = (teamId: string, playerId: string) => {
+    if (!loanGame) return;
+    setBorrowingFor(null);
+
+    void api.matches
+      .lendPlayer(match.id, loanGame.slot, teamId, playerId)
+      .then(setLive)
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : String(error));
+      });
+  };
+
+  const giveBack = (playerId: string) => {
+    if (!loanGame) return;
+
+    void api.matches
+      .returnPlayer(match.id, loanGame.slot, playerId)
+      .then(setLive)
+      .catch(() => undefined);
+  };
+
+  const borrowingTeam = teams.find((team) => team.id === borrowingFor);
+  const candidates =
+    loanGame && borrowingTeam
+      ? loanCandidates({
+          team: borrowingTeam,
+          game: loanGame,
+          teams,
+          loans: live.loans,
+          players: match.players,
+          games: live.games,
+          goals: live.goals,
+        }).slice(0, LOAN_CHOICES)
+      : [];
 
   const goalsOf = (team: MatchTeam | undefined) =>
     game && team
@@ -464,7 +624,9 @@ export function LiveScreen({
         fixed
         match={match}
         hudRef={hudNode}
-        onOpenPayments={() => setPaymentsOpen(true)}
+        // No collecting during the night: the accounts are settled together
+        // once it is over, from the lineup.
+        onOpenPayments={undefined}
         onShare={() => setShareOpen(true)}
         onGallery={() => setGalleryOpen(true)}
         onSelectPanel={setPanel}
@@ -498,6 +660,51 @@ export function LiveScreen({
           them, which at that width leaves each side about a hundred pixels.
           From 768 the board moves into the middle where it belongs.
         */}
+        {/*
+          The fair plan is done. Said, not enforced: the pitch is theirs until
+          the hour is up, and they may want one more. What it does say is where
+          the table is fair, so whoever presses on knows what they are doing to
+          the pot.
+        */}
+        {teams.length > 1 && progress.done ? (
+          <div
+            role="status"
+            className={cn(
+              "mx-auto mb-3 flex max-w-3xl flex-col gap-3 rounded-2xl border px-4 py-3 backdrop-blur-md sm:flex-row sm:items-center",
+              progress.balanced
+                ? "border-primary/40 bg-primary/10"
+                : "border-amber-400/40 bg-amber-400/10",
+            )}
+          >
+            <span className="min-w-0 flex-1">
+              <span
+                className={cn(
+                  "block font-display text-sm uppercase tracking-[0.1em]",
+                  progress.balanced ? "text-primary" : "text-amber-400",
+                )}
+              >
+                {progress.balanced
+                  ? fill(t.live.balancedTitle, { count: playedCount })
+                  : fill(t.live.unevenTitle, { count: playedCount })}
+              </span>
+              <span className="block text-xs text-foreground/80">
+                {progress.balanced
+                  ? fill(t.live.balancedLine, { next: progress.nextStop })
+                  : fill(t.live.unevenLine, { next: progress.nextStop })}
+              </span>
+            </span>
+            {progress.balanced && !game ? (
+              <Button
+                size="sm"
+                className="self-start sm:self-auto"
+                onClick={() => setFinishing(true)}
+              >
+                {t.live.seeResults}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="grid items-start gap-3 xs:grid-cols-2 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
           {/* The board first on a phone, in the middle on a screen. */}
           {/*
@@ -514,6 +721,7 @@ export function LiveScreen({
               score={running}
               elapsed={elapsed}
               gameNumber={game ? game.slot + 1 : null}
+              planned={teams.length > 1 ? progress.planned : null}
               playing={!!game}
               canKickOff={kickedOff && !!pairing}
               busy={busy}
@@ -538,6 +746,12 @@ export function LiveScreen({
               team={left}
               players={squadOf(left)}
               goals={goalsOf(left)}
+              short={shortOf(left, right)}
+              lentFrom={(playerId) =>
+                lentTo.get(playerId) === left.id ? homeOf(playerId) : undefined
+              }
+              onBorrow={loanGame ? () => setBorrowingFor(left.id) : undefined}
+              onGiveBack={loanGame ? giveBack : undefined}
               onScore={game ? score : undefined}
               onSetKeeper={
                 glovesMove
@@ -557,6 +771,12 @@ export function LiveScreen({
               team={right}
               players={squadOf(right)}
               goals={goalsOf(right)}
+              short={shortOf(right, left)}
+              lentFrom={(playerId) =>
+                lentTo.get(playerId) === right.id ? homeOf(playerId) : undefined
+              }
+              onBorrow={loanGame ? () => setBorrowingFor(right.id) : undefined}
+              onGiveBack={loanGame ? giveBack : undefined}
               onScore={game ? score : undefined}
               onSetKeeper={
                 glovesMove
@@ -725,6 +945,80 @@ export function LiveScreen({
         }}
       />
 
+      {/* Who could be lent to the short side, best fit first. */}
+      <Dialog
+        open={!!borrowingTeam}
+        onOpenChange={(open) => !open && setBorrowingFor(null)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {fill(t.live.loanTitle, { team: borrowingTeam?.name ?? "" })}
+            </DialogTitle>
+            <DialogDescription>{t.live.loanLine}</DialogDescription>
+          </DialogHeader>
+
+          {candidates.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              {t.live.noCandidates}
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-1.5">
+              {candidates.map(({ player, from, behind }, index) => (
+                <li key={player.id}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      borrowingTeam && lend(borrowingTeam.id, player.id)
+                    }
+                    className="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-border/60 px-3 py-2 text-left transition-colors hover:bg-accent"
+                  >
+                    <PlayerAvatar
+                      player={player}
+                      className="size-10 shrink-0"
+                      style={{
+                        outline: `2px solid ${from.accent}`,
+                        outlineOffset: "-2px",
+                      }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate font-medium">
+                          {player.firstName} {player.lastName}
+                        </span>
+                        {index === 0 ? (
+                          <span className="shrink-0 rounded bg-primary/15 px-1.5 text-[0.625rem] uppercase tracking-wider text-primary">
+                            {t.live.bestFit}
+                          </span>
+                        ) : null}
+                        {behind > 0 ? (
+                          <span className="shrink-0 text-[0.625rem] uppercase tracking-wider text-muted-foreground">
+                            {fill(t.live.behind, { points: behind })}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <TeamCrest name={from.name} accent={from.accent} size={14} />
+                        <span className="truncate">{from.name}</span>
+                        <span>·</span>
+                        <span>{categoryLabel(player.birthDate)}</span>
+                        <span>·</span>
+                        <span>
+                          {fill(t.live.stamina, {
+                            value: player.skills.stamina,
+                          })}
+                        </span>
+                      </span>
+                    </span>
+                    <SkillAverage player={player} accent={from.accent} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} match={match} />
 
       <GalleryDialog
@@ -794,6 +1088,7 @@ function Board({
   score,
   elapsed,
   gameNumber,
+  planned,
   playing,
   canKickOff,
   busy,
@@ -814,6 +1109,8 @@ function Board({
   score: { home: number; away: number } | null;
   elapsed: number;
   gameNumber: number | null;
+  /** How many games the fair plan has for the night. */
+  planned: number | null;
   playing: boolean;
   canKickOff: boolean;
   busy: boolean;
@@ -889,7 +1186,12 @@ function Board({
 
           <p className="mt-1.5 font-display text-sm uppercase tracking-[0.2em] text-muted-foreground">
             {playing
-              ? fill(t.live.gameNumber, { number: gameNumber ?? 0 })
+              ? planned
+                ? fill(
+                    (gameNumber ?? 0) > planned ? t.live.gameExtra : t.live.gameOf,
+                    { number: gameNumber ?? 0, total: planned },
+                  )
+                : fill(t.live.gameNumber, { number: gameNumber ?? 0 })
               : gameNumber === null
                 ? t.live.nextUp
                 : t.live.betweenGames}
@@ -1035,6 +1337,10 @@ function TeamSheet({
   team,
   players,
   goals,
+  short = 0,
+  lentFrom,
+  onBorrow,
+  onGiveBack,
   onScore,
   onSetKeeper,
   keeperPending,
@@ -1043,6 +1349,14 @@ function TeamSheet({
   team: MatchTeam;
   players: Player[];
   goals: MatchGoal[];
+  /** How many the side is down against the one it is facing. */
+  short?: number;
+  /** The side a player was borrowed from, when they are on loan here. */
+  lentFrom?: (playerId: string) => MatchTeam | undefined;
+  /** Opens the list of who could be lent. Absent between games. */
+  onBorrow?: () => void;
+  /** Sends a lent player back. Absent between games. */
+  onGiveBack?: (playerId: string) => void;
   /** Absent between games: there is nothing to score in. */
   onScore?: (player: Player) => void;
   /** Absent while a game is on with three sides drawn. */
@@ -1105,6 +1419,7 @@ function TeamSheet({
         <ul className="grid [&>li:not(:last-child)]:border-b [&>li:not(:last-child)]:border-white/[0.06] [&>li:not(:first-child)]:pt-2.5 [&>li:not(:last-child)]:pb-2.5">
           {players.map((player) => {
             const scored = tally.get(player.id) ?? 0;
+            const lender = lentFrom?.(player.id);
 
             return (
               <li key={player.id} className="flex items-center gap-1">
@@ -1141,6 +1456,22 @@ function TeamSheet({
                         accent={team.accent}
                       />
                     </span>
+                    {/*
+                      On a line of its own, under everything else: beside the
+                      category it widened the row and pushed the buttons on the
+                      right out of the card.
+                    */}
+                    {lender ? (
+                      <span
+                        className="mt-1 block w-fit max-w-full truncate rounded px-1 text-[0.625rem] uppercase tracking-wider"
+                        style={{
+                          color: lender.accent,
+                          backgroundColor: `${lender.accent}1f`,
+                        }}
+                      >
+                        {fill(t.live.lentFrom, { team: lender.name })}
+                      </span>
+                    ) : null}
                   </span>
 
                   {scored > 0 ? (
@@ -1166,7 +1497,17 @@ function TeamSheet({
                   Beside the row rather than inside it: the row is already a
                   button, and one cannot hold another.
                 */}
-                {player.id === team.keeperId ? (
+                {lender && onGiveBack ? (
+                  <button
+                    type="button"
+                    onClick={() => onGiveBack(player.id)}
+                    aria-label={fill(t.live.giveBack, { name: player.firstName })}
+                    title={fill(t.live.giveBack, { name: player.firstName })}
+                    className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <Icon icon={UserRemove01Icon} />
+                  </button>
+                ) : player.id === team.keeperId ? (
                   <span
                     aria-label={t.pitch.inGoal}
                     title={t.pitch.inGoal}
@@ -1205,6 +1546,35 @@ function TeamSheet({
               </li>
             );
           })}
+
+          {/*
+            The empty place, for as many as the side is down. A side never plays
+            a player short: during a game it opens the list of who could come
+            over; before it, it says so, so nobody is surprised at kick-off.
+          */}
+          {Array.from({ length: short }, (_, index) => (
+            <li key={`short-${index}`}>
+              <button
+                type="button"
+                disabled={!onBorrow}
+                onClick={onBorrow}
+                className="flex w-full items-center gap-2.5 rounded-xl border border-dashed px-2 py-2 text-left text-sm transition-colors enabled:cursor-pointer enabled:hover:bg-white/5 disabled:cursor-default"
+                style={{ borderColor: `${team.accent}66`, color: team.accent }}
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-full border border-dashed border-current">
+                  <Icon icon={UserAdd01Icon} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium leading-tight">
+                    {onBorrow ? t.live.borrow : t.live.borrowAtKickOff}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {t.live.borrowLine}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
         </ul>
       </div>
     </section>

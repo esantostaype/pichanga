@@ -48,6 +48,8 @@ export type MatchSummary = {
    * somebody knows. It changes week to week; the venue does not.
    */
   pitch: string | null;
+  /** What each player puts into the night's pot. Zero is no bet. */
+  bet: number;
   /** Player running the match; their token wears the crown. */
   organizerId: string | null;
   recurrence: Recurrence | null;
@@ -88,15 +90,22 @@ export type Match = {
    * somebody knows. It changes week to week; the venue does not.
    */
   pitch: string | null;
+  /** What each player puts into the night's pot. Zero is no bet. */
+  bet: number;
   organizerId: string | null;
   recurrence: Recurrence | null;
   seriesId: string | null;
   createdAt: number;
+  /** Everybody who is playing: signed up and turned up. */
   players: Player[];
+  /** Signed up and never came. They owe the bet as a penalty. */
+  noShows: Player[];
   /** Ids of the players who already paid their share. */
   paidPlayerIds: string[];
   /** Empty until somebody draws the sides, which is the usual state. */
   teams: MatchTeam[];
+  /** When the night was closed from the results. Null while it is open. */
+  closedAt: number | null;
   /** A sandbox match, where the clock is not a rule. */
   isDemo: boolean;
 };
@@ -121,9 +130,20 @@ export type MatchGoal = {
 };
 
 /** Everything that happened on the night, which no other screen needs. */
+/** Somebody lent to a short side for one game, agreed before or during it. */
+export type MatchLoan = {
+  id: string;
+  /** Which game of the night, by order -- the game's own `slot`. */
+  slot: number;
+  /** The side they play for in that game. */
+  teamId: string;
+  playerId: string;
+};
+
 export type MatchLive = {
   games: MatchGame[];
   goals: MatchGoal[];
+  loans: MatchLoan[];
 };
 
 /** One photo or clip in a match gallery. */

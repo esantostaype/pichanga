@@ -1,12 +1,12 @@
 {
   "venue": {
-    "name": "Demo venue",
-    "address": "Wherever you like",
+    "name": "Cancha demo",
+    "address": "Donde quieras",
     "price": 210,
     "format": 7
   },
   "match": {
-    "pitch": "Pitch 1"
+    "pitch": "Cancha 1"
   },
   "squad": [
     {
@@ -295,6 +295,150 @@
         "passing": 1,
         "defending": 2,
         "goalkeeping": 3
+      }
+    },
+    {
+      "firstName": "Gonzalo",
+      "lastName": "Vargas",
+      "turns": 34,
+      "birthdayIn": 140,
+      "position": "gk",
+      "photoUrl": "/api/demo/avatar/men-18",
+      "skills": {
+        "pace": 2,
+        "stamina": 3,
+        "finishing": 1,
+        "passing": 3,
+        "defending": 3,
+        "goalkeeping": 4
+      }
+    },
+    {
+      "firstName": "Renzo",
+      "lastName": "Paredes",
+      "turns": 26,
+      "birthdayIn": 200,
+      "position": "mid",
+      "photoUrl": "/api/demo/avatar/men-19",
+      "skills": {
+        "pace": 4,
+        "stamina": 4,
+        "finishing": 3,
+        "passing": 4,
+        "defending": 2,
+        "goalkeeping": 1
+      }
+    },
+    {
+      "firstName": "Kevin",
+      "lastName": "Huaman",
+      "turns": 21,
+      "birthdayIn": 10,
+      "position": "fwd",
+      "photoUrl": "/api/demo/avatar/men-20",
+      "skills": {
+        "pace": 5,
+        "stamina": 5,
+        "finishing": 4,
+        "passing": 3,
+        "defending": 1,
+        "goalkeeping": 1
+      }
+    },
+    {
+      "firstName": "Jorge",
+      "lastName": "Salinas",
+      "turns": 48,
+      "birthdayIn": 330,
+      "position": "def",
+      "photoUrl": null,
+      "skills": {
+        "pace": 2,
+        "stamina": 2,
+        "finishing": 1,
+        "passing": 3,
+        "defending": 4,
+        "goalkeeping": 2
+      }
+    },
+    {
+      "firstName": "Andres",
+      "lastName": "Chavez",
+      "turns": 37,
+      "birthdayIn": 85,
+      "position": "mid",
+      "photoUrl": "/api/demo/avatar/men-22",
+      "skills": {
+        "pace": 3,
+        "stamina": 4,
+        "finishing": 3,
+        "passing": 5,
+        "defending": 3,
+        "goalkeeping": 2
+      }
+    },
+    {
+      "firstName": "Fernando",
+      "lastName": "Rios",
+      "turns": 30,
+      "birthdayIn": 260,
+      "position": "fwd",
+      "photoUrl": "/api/demo/avatar/men-23",
+      "skills": {
+        "pace": 4,
+        "stamina": 3,
+        "finishing": 5,
+        "passing": 3,
+        "defending": 1,
+        "goalkeeping": 1
+      }
+    },
+    {
+      "firstName": "Raul",
+      "lastName": "Mendoza",
+      "turns": 56,
+      "birthdayIn": 175,
+      "position": "def",
+      "photoUrl": "/api/demo/avatar/men-24",
+      "skills": {
+        "pace": 1,
+        "stamina": 1,
+        "finishing": 1,
+        "passing": 2,
+        "defending": 4,
+        "goalkeeping": 3
+      }
+    },
+    {
+      "firstName": "Oscar",
+      "lastName": "Delgado",
+      "turns": 23,
+      "birthdayIn": 50,
+      "position": "mid",
+      "photoUrl": null,
+      "skills": {
+        "pace": 4,
+        "stamina": 5,
+        "finishing": 2,
+        "passing": 4,
+        "defending": 4,
+        "goalkeeping": 1
+      }
+    },
+    {
+      "firstName": "Martin",
+      "lastName": "Soto",
+      "turns": 28,
+      "birthdayIn": 305,
+      "position": "fwd",
+      "photoUrl": "/api/demo/avatar/men-26",
+      "skills": {
+        "pace": 3,
+        "stamina": 4,
+        "finishing": 4,
+        "passing": 2,
+        "defending": 2,
+        "goalkeeping": 2
       }
     }
   ]

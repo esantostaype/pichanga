@@ -111,6 +111,8 @@ export const matchInputSchema = z
     /** Which pitch inside it, free text: `Cancha 4 - F7`. */
     pitch: z.string().trim().max(60).nullable().optional(),
     organizerId: z.string().min(1).nullable().optional(),
+    /** Each player's stake for the night's pot. Absent keeps what is there. */
+    bet: z.number().min(0, "matches.badBet").max(10_000, "matches.badBet").optional(),
     /** `null` for a one-off fixture. */
     recurrence: z.literal("weekly").nullable().optional(),
     /** No upper bound: a match takes as many players as sign up. */
@@ -131,6 +133,19 @@ export const lineupInputSchema = z.object({
 
 export const paymentInputSchema = z.object({ paid: z.boolean() });
 
+/** What `PushSubscription.toJSON()` hands over, plus the match it follows. */
+export const pushSubscriptionSchema = z.object({
+  endpoint: z.string().url().max(1000),
+  keys: z.object({
+    p256dh: z.string().min(1).max(200),
+    auth: z.string().min(1).max(100),
+  }),
+  matchId: z.string().min(1).nullable(),
+});
+
+/** Signed up and did not turn up: true marks it, false takes it back. */
+export const noShowInputSchema = z.object({ noShow: z.boolean() });
+
 /**
  * Drawing the sides. The seed is what makes "shuffle again" a different draw
  * and the same draw repeatable, so it comes from the caller.
@@ -146,6 +161,14 @@ export const gameInputSchema = z.object({
  * lineup, because a goal credited to a team the player is not on is a mistake
  * nobody would notice until the table looked wrong.
  */
+/** Somebody lent to a short side, for the game on or the one about to start. */
+export const loanInputSchema = z.object({
+  /** Which game of the night, by order. */
+  slot: z.number().int().min(0),
+  teamId: z.string().min(1),
+  playerId: z.string().min(1),
+});
+
 export const goalInputSchema = z.object({
   gameId: z.string().min(1),
   playerId: z.string().min(1),

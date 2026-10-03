@@ -167,17 +167,24 @@ function PlayerTokenBase({
                 Focusable on purpose: the crown is the only hint that this
                 player runs the match, so it has to reach the keyboard and a
                 screen reader too, not just the pointer.
+
+                On the left edge, halfway down the photo, where the paid mark
+                used to be: money left the pitch for the night's accounts, and
+                this is the spot the eye already goes to for a badge.
               */}
               <span
                 tabIndex={0}
                 aria-label={t.pitch.organizer}
-                className="absolute -top-1 left-1/2 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                style={{ width: size * 0.48, height: size * 0.48 }}
+                className="absolute -left-1 top-1/2 z-10 grid -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                style={{
+                  width: Math.max(18, size * 0.36),
+                  height: Math.max(18, size * 0.36),
+                }}
               >
                 <Icon
                   icon={CrownIcon}
-                  size={Math.max(9, size * 0.28)}
-                  strokeWidth={1.5}
+                  size={Math.max(10, size * 0.22)}
+                  strokeWidth={1.75}
                 />
               </span>
             </TooltipTrigger>

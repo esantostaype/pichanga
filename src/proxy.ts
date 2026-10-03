@@ -28,6 +28,12 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
   // what separates this from deleting the match itself.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/players\/?$/ },
   { method: "DELETE", pattern: /^\/api\/matches\/[^/]+\/players\/[^/]+\/?$/ },
+  // Somebody who signed up and did not come: the same people who drop players
+  // from the lineup know who never turned up.
+  {
+    method: "POST",
+    pattern: /^\/api\/matches\/[^/]+\/players\/[^/]+\/no-show\/?$/,
+  },
   // "This tab is open." Anyone visiting is counted, so anyone may say it.
   { method: "POST", pattern: /^\/api\/presence\/?$/ },
   // Drawing the sides, which is the same kind of act as adding a player: it
@@ -58,6 +64,17 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
     method: "DELETE",
     pattern: /^\/api\/matches\/[^/]+\/live\/goals\/[^/]+\/?$/,
   },
+  // Lending somebody to the short side, and sending them back: the same
+  // standing-around decision as who goes in goal.
+  { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/loans\/?$/ },
+  {
+    method: "DELETE",
+    pattern: /^\/api\/matches\/[^/]+\/live\/loans\/\d+\/[^/]+\/?$/,
+  },
+  // Phones asking to be told when a game ends, and QStash telling them: the
+  // second checks its own signature, since nobody has a session to show.
+  { method: "POST", pattern: /^\/api\/push\/subscribe\/?$/ },
+  { method: "POST", pattern: /^\/api\/push\/full-time\/?$/ },
   // The last whistle: the same hands that keep score end the night.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/finish\/?$/ },
   // The match gallery: anyone may add a photo or a clip. Deleting one is not

@@ -37,7 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
-import { SUGGESTED_MATCH_LENGTH_MS } from "@/lib/constants";
+import { DEFAULT_BET, SUGGESTED_MATCH_LENGTH_MS } from "@/lib/constants";
 import { suggestedMatchDate, toDateInput, toTimeInput } from "@/lib/date";
 import { toEpoch } from "@/lib/validators";
 import type { MatchSummary } from "@/types";
@@ -55,6 +55,11 @@ const formSchema = z
     /** Which pitch inside it. Free text: nothing here to validate. */
     pitch: z.string().trim().max(60, "form.tooLong"),
     organizerId: z.string(),
+    /** Each player's stake, as typed. Empty is no bet. */
+    bet: z
+      .string()
+      .trim()
+      .regex(/^(\d{1,5}([.,]\d{1,2})?)?$/, "matches.badBet"),
     recurring: z.boolean(),
   })
   .refine(
@@ -136,6 +141,8 @@ function MatchForm({
       venueId: match?.venue?.id ?? NO_VENUE,
       pitch: match?.pitch ?? "",
       organizerId: match?.organizerId ?? NO_ORGANIZER,
+      // Five a head unless somebody says otherwise: what the group always puts in.
+      bet: String(match?.bet ?? DEFAULT_BET),
       recurring: match?.recurrence === "weekly",
     },
   });
@@ -175,6 +182,7 @@ function MatchForm({
         organizerId:
           values.organizerId === NO_ORGANIZER ? null : values.organizerId,
         recurrence: values.recurring ? ("weekly" as const) : null,
+        bet: Number(values.bet.replace(",", ".") || 0),
         playerIds: selected,
       };
 
@@ -374,6 +382,23 @@ function MatchForm({
             )}
           />
         </div>
+
+        <Field
+          label={t.matches.bet}
+          error={problem(t, errors.bet?.message)}
+        >
+          <Input
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder={String(DEFAULT_BET)}
+            disabled={pending}
+            aria-invalid={!!errors.bet}
+            {...form.register("bet")}
+          />
+          <p className="text-xs text-muted-foreground/70">
+            {t.matches.betHint}
+          </p>
+        </Field>
 
         <Controller
           control={form.control}

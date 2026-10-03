@@ -79,9 +79,65 @@ describe("gameScore", () => {
   });
 });
 
+describe("nextPairing with three sides", () => {
+  const three = [A, B, C];
+
+  /** Plays out `count` games of the fixed order, results irrelevant. */
+  const playOut = (count: number) => {
+    const games: ReturnType<typeof game>[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const next = nextPairing(three, games, [])!;
+      games.push(game(`t${index}`, index, next.homeTeamId, next.awayTeamId));
+    }
+    return games;
+  };
+
+  it("cycles A-B, B-C, C-A whoever wins", () => {
+    const pairs = playOut(6).map((one) =>
+      [one.homeTeamId, one.awayTeamId].sort().join("-"),
+    );
+
+    expect(pairs).toEqual(["a-b", "b-c", "a-c", "a-b", "b-c", "a-c"]);
+    expect(nextPairing(three, playOut(1), [goal("t0", "a", "p1")])).toEqual(
+      nextPairing(three, playOut(1), [goal("t0", "b", "p1")]),
+    );
+  });
+
+  it("evens out the games after every three", () => {
+    const games = playOut(9);
+
+    for (const side of ["a", "b", "c"]) {
+      const count = games.filter(
+        (one) => one.homeTeamId === side || one.awayTeamId === side,
+      ).length;
+      expect(count).toBe(6);
+    }
+  });
+
+  it("never plays anybody three in a row", () => {
+    const games = playOut(12);
+    const on = (index: number) => [
+      games[index].homeTeamId,
+      games[index].awayTeamId,
+    ];
+
+    for (let index = 2; index < games.length; index += 1) {
+      for (const side of on(index)) {
+        expect(on(index - 1).includes(side) && on(index - 2).includes(side)).toBe(
+          false,
+        );
+      }
+    }
+  });
+});
+
+/* Five or six sides: winner stays, never three in a row. */
 describe("nextPairing", () => {
+  const D = team("d", 3);
+  const E = team("e", 4);
+
   it("opens with the first two sides drawn", () => {
-    expect(nextPairing([A, B, C], [], [])).toEqual({
+    expect(nextPairing([A, B, C, D, E], [], [])).toEqual({
       homeTeamId: "a",
       awayTeamId: "b",
     });
@@ -91,7 +147,7 @@ describe("nextPairing", () => {
     const one = game("g1", 0, "a", "b");
     const goals = [goal("g1", "b", "p1")];
 
-    expect(nextPairing([A, B, C], [one], goals)).toEqual({
+    expect(nextPairing([A, B, C, D, E], [one], goals)).toEqual({
       homeTeamId: "b",
       awayTeamId: "c",
     });
@@ -102,12 +158,12 @@ describe("nextPairing", () => {
     const two = game("g2", 1, "a", "b");
     const goals = [goal("g1", "a", "p1")];
 
-    const first = nextPairing([A, B, C], [one, two], goals);
-    const again = nextPairing([A, B, C], [one, two], goals);
+    const first = nextPairing([A, B, C, D, E], [one, two], goals);
+    const again = nextPairing([A, B, C, D, E], [one, two], goals);
 
-    // One of the two that drew stays; C, who has been waiting, comes on.
+    // One of the two that drew stays; D, who has waited longest, comes on.
     expect(["a", "b"]).toContain(first?.homeTeamId);
-    expect(first?.awayTeamId).toBe("c");
+    expect(first?.awayTeamId).toBe("d");
     // Read twice, decided once: two phones must not offer different games.
     expect(again).toEqual(first);
   });
@@ -118,7 +174,7 @@ describe("nextPairing", () => {
     const staying = new Set(
       ["d1", "d2", "d3", "d4", "d5", "d6"].map((id) => {
         const drawn: MatchGame = { ...game("x", 0, "a", "b"), id };
-        return nextPairing([A, B, C], [drawn], [])?.homeTeamId;
+        return nextPairing([A, B, C, D, E], [drawn], [])?.homeTeamId;
       }),
     );
 
@@ -130,9 +186,11 @@ describe("nextPairing", () => {
     const one = game("g1", 0, "a", "c");
     const two = game("g2", 1, "a", "b");
 
-    expect(nextPairing([A, B, C], [one, two], [goal("g1", "a", "p1")])).toEqual({
+    expect(
+      nextPairing([A, B, C, D, E], [one, two], [goal("g1", "a", "p1")]),
+    ).toEqual({
       homeTeamId: "b",
-      awayTeamId: "c",
+      awayTeamId: "d",
     });
   });
 
@@ -159,9 +217,9 @@ describe("nextPairing", () => {
     const two = game("g2", 1, "a", "c");
     const goals = [goal("g1", "a", "p1"), goal("g2", "a", "p1")];
 
-    expect(nextPairing([A, B, C], [one, two], goals)).toEqual({
+    expect(nextPairing([A, B, C, D, E], [one, two], goals)).toEqual({
       homeTeamId: "c",
-      awayTeamId: "b",
+      awayTeamId: "d",
     });
   });
 
@@ -170,7 +228,7 @@ describe("nextPairing", () => {
     const goals = [goal("g1", "a", "p1")];
 
     // One win: A stays.
-    expect(nextPairing([A, B, C], [one], goals)).toEqual({
+    expect(nextPairing([A, B, C, D, E], [one], goals)).toEqual({
       homeTeamId: "a",
       awayTeamId: "c",
     });
@@ -208,80 +266,68 @@ describe("nextPairing with four sides", () => {
     });
   });
 
-  it("puts the winners together, then the losers", () => {
-    const one = game("g1", 0, "a", "b");
-    const two = game("g2", 1, "c", "d");
-    const goals = [goal("g1", "b", "p1"), goal("g2", "c", "p2")];
+  /** Plays out `count` games of the fixed order, results irrelevant. */
+  const playOut = (count: number) => {
+    const games: ReturnType<typeof game>[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const next = nextPairing(four, games, [])!;
+      games.push(game(`g${index}`, index, next.homeTeamId, next.awayTeamId));
+    }
+    return games;
+  };
 
-    // B beat A; C beat D.
-    expect(nextPairing(four, [one, two], goals)).toEqual({
-      homeTeamId: "b",
-      awayTeamId: "c",
-    });
+  const pairOf = (one: { homeTeamId: string; awayTeamId: string }) =>
+    [one.homeTeamId, one.awayTeamId].sort().join("-");
 
-    const three = game("g3", 2, "b", "c");
+  const sides = (one: { homeTeamId: string; awayTeamId: string }) => [
+    one.homeTeamId,
+    one.awayTeamId,
+  ];
 
-    expect(nextPairing(four, [one, two, three], goals)).toEqual({
-      homeTeamId: "a",
-      awayTeamId: "d",
-    });
+  it("plays everybody against everybody in each hour of six", () => {
+    const pairs = playOut(12).map(pairOf);
+
+    expect(new Set(pairs.slice(0, 6)).size).toBe(6);
+    expect(new Set(pairs.slice(6)).size).toBe(6);
   });
 
-  it("starts the next round from the round just played", () => {
-    const one = game("g1", 0, "a", "b");
-    const two = game("g2", 1, "c", "d");
-    const three = game("g3", 2, "b", "c");
-    const four4 = game("g4", 3, "a", "d");
+  it("gives everybody one game in every pair of games", () => {
+    const games = playOut(12);
 
-    const goals = [
-      goal("g1", "b", "p1"),
-      goal("g2", "c", "p2"),
-      goal("g3", "b", "p1"),
-      goal("g4", "d", "p3"),
-    ];
-
-    // Round two was B beating C and D beating A: the winners meet again.
-    expect(nextPairing(four, [one, two, three, four4], goals)).toEqual({
-      homeTeamId: "b",
-      awayTeamId: "d",
-    });
+    for (let index = 0; index < games.length; index += 2) {
+      const round = [...sides(games[index]), ...sides(games[index + 1])];
+      expect(new Set(round).size).toBe(4);
+    }
   });
 
-  it("sends the winner against one of the pair that drew", () => {
+  it("never plays anybody three in a row, and two in a row once each", () => {
+    const games = playOut(12);
+    const doubles = new Map<string, number>();
+
+    for (let index = 1; index < games.length; index += 1) {
+      for (const side of sides(games[index])) {
+        if (!sides(games[index - 1]).includes(side)) continue;
+        doubles.set(side, (doubles.get(side) ?? 0) + 1);
+        if (index > 1) expect(sides(games[index - 2])).not.toContain(side);
+      }
+    }
+
+    expect(Math.max(...doubles.values())).toBeLessThanOrEqual(1);
+  });
+
+  it("does not care who won", () => {
     const one = game("g1", 0, "a", "b");
     const two = game("g2", 1, "c", "d");
 
-    // A and B drew; C won its game.
-    const goals = [goal("g2", "c", "p1")];
+    const bWins = [goal("g1", "b", "p1")];
+    const aWins = [goal("g1", "a", "p2")];
 
-    const next = nextPairing(four, [one, two], goals);
-    const drew = [next?.homeTeamId, next?.awayTeamId].filter(
-      (id) => id === "a" || id === "b",
-    );
-
-    expect(next?.awayTeamId).toBe("c");
-    expect(drew).toHaveLength(1);
-
-    // Whoever was not picked plays the other loser next.
-    const three = game("g3", 2, next!.homeTeamId, "c");
-    const after = nextPairing(four, [one, two, three], goals);
-
-    expect([after?.homeTeamId, after?.awayTeamId].sort()).toEqual(
-      [next?.homeTeamId === "a" ? "b" : "a", "d"].sort(),
+    expect(nextPairing(four, [one, two], bWins)).toEqual(
+      nextPairing(four, [one, two], aWins),
     );
   });
 
-  it("never leaves a side out for more than a game", () => {
-    const one = game("g1", 0, "a", "b");
-    const two = game("g2", 1, "c", "d");
-    const three = game("g3", 2, "a", "c");
-    const goals = [goal("g1", "a", "p1"), goal("g2", "c", "p2")];
 
-    const next = nextPairing(four, [one, two, three], goals);
-
-    // The two who lost the opening round are the two who have waited.
-    expect([next?.homeTeamId, next?.awayTeamId].sort()).toEqual(["b", "d"]);
-  });
 });
 
 describe("standings", () => {

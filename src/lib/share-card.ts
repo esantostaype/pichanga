@@ -1,7 +1,7 @@
 "use client";
 
 import { formatLongDate, formatTimeRange } from "./date";
-import { formatMoney, perPlayer } from "./money";
+import { formatMoney, rentalShare } from "./money";
 import { thumbUrl } from "./media-url";
 import { venueMapsUrl } from "./maps";
 import { whereLabel } from "./venue";
@@ -205,7 +205,7 @@ export async function renderMatchCard(
   y += 46;
 
   // What it costs each of them is the ledger's business, not the fixture's.
-  const share = perPlayer(match.venue?.price, players.length);
+  const share = rentalShare(match);
   if (paying) {
     const total = match.venue?.price ?? null;
 
@@ -433,7 +433,7 @@ export function matchShareText(
 ) {
   const paying = scope === "payments";
   const players = match.players;
-  const share = perPlayer(match.venue?.price, players.length);
+  const share = rentalShare(match);
 
   const where = whereLabel(match);
 

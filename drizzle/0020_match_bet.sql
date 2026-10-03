@@ -1,0 +1,1 @@
+ALTER TABLE `matches` ADD `bet` real DEFAULT 5 NOT NULL;

@@ -21,6 +21,9 @@ type ConfirmDialogProps = {
   confirmLabel?: string;
   pending?: boolean;
   onConfirm: () => void;
+  /** A second way out, beside the main one: "they never came", say. */
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 };
 
 /** Reusable confirmation for destructive actions. */
@@ -32,6 +35,8 @@ export function ConfirmDialog({
   confirmLabel,
   pending,
   onConfirm,
+  secondaryLabel,
+  onSecondary,
 }: ConfirmDialogProps) {
   const { t } = useLocale();
 
@@ -53,6 +58,11 @@ export function ConfirmDialog({
           >
             {t.common.cancel}
           </Button>
+          {secondaryLabel && onSecondary ? (
+            <Button variant="secondary" disabled={pending} onClick={onSecondary}>
+              {secondaryLabel}
+            </Button>
+          ) : null}
           <Button variant="destructive" disabled={pending} onClick={onConfirm}>
             {pending ? <Spinner /> : null}
             {confirmLabel ?? t.common.delete}

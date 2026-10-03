@@ -23,9 +23,13 @@ export async function PATCH(request: Request, { params }: Context) {
     const result = await setPlayerPaid(id, playerId, paid);
 
     if (!result.ok) {
-      return result.reason === "organizer"
-        ? fail((await messages()).organizerSettled, 422)
-        : fail((await messages()).notInMatch, 404);
+      if (result.reason === "organizer") {
+        return fail((await messages()).organizerSettled, 422);
+      }
+      if (result.reason === "tooEarly") {
+        return fail((await messages()).settleAfterNight, 409);
+      }
+      return fail((await messages()).notInMatch, 404);
     }
 
     const { match } = result;

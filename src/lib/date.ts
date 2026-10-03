@@ -150,16 +150,16 @@ export function toEpoch(date: string, time: string) {
 }
 
 /**
- * Default suggestion when creating a match: next Wednesday at 19:00 (today if
- * it is Wednesday and that time has not passed yet).
+ * Default suggestion when creating a match: next Friday at 19:00 (today if
+ * it is Friday and that time has not passed yet). It is the Friday kickabout.
  */
 export function suggestedMatchDate(now = Date.now()) {
   const DAY_MS = 24 * 60 * 60 * 1000;
 
-  // Walks the next week looking for the first Wednesday 19:00 still ahead.
+  // Walks the next week looking for the first Friday 19:00 still ahead.
   for (let offset = 0; offset <= 7; offset++) {
     const day = toDateInput(now + offset * DAY_MS);
-    if (weekdayName.format(toEpoch(day, "12:00")) !== "Wed") continue;
+    if (weekdayName.format(toEpoch(day, "12:00")) !== "Fri") continue;
 
     const kickOff = toEpoch(day, "19:00");
     if (kickOff > now) return kickOff;

@@ -36,6 +36,7 @@ const name = url.startsWith("file:")
 /* Children before parents, so it works with foreign keys on or off. */
 const TABLES = [
   "match_goals",
+  "match_loans",
   "match_games",
   "match_media",
   "match_players",
@@ -43,6 +44,7 @@ const TABLES = [
   "matches",
   "players",
   "venues",
+  "push_subscriptions",
   "visitors",
 ];
 

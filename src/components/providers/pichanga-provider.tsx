@@ -63,6 +63,8 @@ type PichangaContextValue = PichangaState & {
   deleteMatches: (ids: string[]) => Promise<void>;
   addPlayersToNextMatch: (playerIds: string[]) => Promise<void>;
   removePlayerFromNextMatch: (playerId: string) => Promise<void>;
+  /** Marks somebody on the match on screen as a no-show, or takes it back. */
+  setNoShow: (playerId: string, noShow: boolean) => Promise<void>;
   /**
    * Draws the sides for the match on screen, or draws them again.
    *
@@ -444,6 +446,17 @@ export function PichangaProvider({
           if (onScreen && before) applyPaid(target, before);
           throw error;
         }
+      },
+
+      setNoShow: async (playerId, noShow) => {
+        if (!state.nextMatch) throw new Error("common.noActiveMatch");
+        const match = await api.matches.setNoShow(
+          state.nextMatch.id,
+          playerId,
+          noShow,
+        );
+        syncNextMatch(match);
+        await refreshMatches();
       },
 
       removePlayerFromNextMatch: async (playerId) => {

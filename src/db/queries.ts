@@ -18,9 +18,11 @@ import {
   DEFAULT_MATCH_DURATION_MS,
   DEFAULT_PITCH_FORMAT,
   MATCH_GRACE_MS,
+  SUGGESTED_MATCH_LENGTH_MS,
 } from "@/lib/constants";
 import DEMO from "@/data/demo.json";
 import { matchSlug, toDateInput } from "@/lib/date";
+import { canSettle } from "@/lib/money";
 import type {
   MatchInput,
   MediaInput,
@@ -32,6 +34,7 @@ import type {
   MatchGame,
   MatchGoal,
   MatchLive,
+  MatchLoan,
   MatchMedia,
   MatchSummary,
   Player,
@@ -48,19 +51,25 @@ import {
   pickNames,
   planTeams,
 } from "@/lib/teams";
+import { shortBy, sideFor } from "@/lib/loans";
+import { nextPairing } from "@/lib/live";
+import { recommendedGamePlan } from "@/lib/schedule";
 import {
   matchGames,
   matchGoals,
+  matchLoans,
   matchMedia,
   matchPlayers,
   matchTeams,
   matches,
   players,
+  pushSubscriptions,
   venues,
 } from "./schema";
 import type {
   MatchGameRow,
   MatchGoalRow,
+  MatchLoanRow,
   MatchMediaRow,
   MatchRow,
   MatchTeamRow,
@@ -125,32 +134,42 @@ const toMedia = (row: MatchMediaRow): MatchMedia => ({
 const toMatch = (
   row: MatchRow,
   venue: VenueRow | null,
-  lineup: Array<{
+  everybody: Array<{
     player: PlayerRow;
     paidAt: Date | null;
     teamId: string | null;
     isKeeper: boolean;
+    noShow: boolean;
   }>,
   teams: MatchTeamRow[] = [],
-): Match => ({
+): Match => {
+  const lineup = everybody.filter((entry) => !entry.noShow);
+
+  return {
   id: row.id,
   playedAt: row.playedAt.getTime(),
   endsAt: endOf(row),
   gameMinutes: row.gameMinutes ?? DEFAULT_GAME_MINUTES,
   venue: toVenue(venue),
   pitch: row.pitch,
+  bet: row.bet,
+  closedAt: row.closedAt?.getTime() ?? null,
   organizerId: row.organizerId,
   recurrence: (row.recurrence as Recurrence | null) ?? null,
   seriesId: row.seriesId,
   createdAt: row.createdAt.getTime(),
   isDemo: row.isDemo,
   players: lineup.map((entry) => toPlayer(entry.player)),
+  noShows: everybody
+    .filter((entry) => entry.noShow)
+    .map((entry) => toPlayer(entry.player)),
   /**
    * The organizer is always in here. They pay the venue, so their share is
    * settled by definition -- and deriving it beats writing a `paid_at` that
    * would be left behind the day somebody else takes the match over.
    */
-  paidPlayerIds: lineup
+  // No-shows included: the penalty they owe is ticked off the same way.
+  paidPlayerIds: everybody
     .filter(
       (entry) => entry.paidAt !== null || entry.player.id === row.organizerId,
     )
@@ -171,7 +190,8 @@ const toMatch = (
       borrowedKeeper: !!keeper && keeper.player.position !== "gk",
     };
   }),
-});
+  };
+};
 
 /**
  * The organizer plays: they are forced into the lineup and put first, which is
@@ -207,6 +227,8 @@ const owedOn = sql`exists (
   from ${matchPlayers}
   where ${matchPlayers.matchId} = ${matches.id}
     and ${matchPlayers.paidAt} is null
+    -- A no-show only owes something when there was a bet to owe.
+    and (${matchPlayers.noShow} = 0 or ${matches.bet} > 0)
     and (
       ${matches.organizerId} is null
       or ${matchPlayers.playerId} <> ${matches.organizerId}
@@ -223,7 +245,27 @@ const owedOn = sql`exists (
  * which is what makes a mis-tap harmless.
  */
 const settlingUp = (at: number) =>
-  sql`${endsAtSql} <= ${at} and ${endsAtSql} > ${at - MATCH_GRACE_MS} and ${owedOn}`;
+  sql`${endsAtSql} <= ${at} and ${endsAtSql} > ${at - MATCH_GRACE_MS} and (${owedOn} or ${potOn})`;
+
+/**
+ * The night was closed with a pot on it.
+ *
+ * Then it keeps the front page for the whole grace window even once the pitch
+ * is paid: the prize still has to be handed over, and the results with
+ * everybody's account sit on the lineup until it has been.
+ */
+const potOn = sql`(${matches.closedAt} is not null and ${matches.bet} > 0)`;
+
+/**
+ * The sandbox's version: a night it closed with a pot stays up for an hour,
+ * so the results on the lineup can be seen there too, and then the next demo
+ * match takes the screen back. Three days would leave the sandbox stuck on a
+ * night nobody is going to settle.
+ */
+const DEMO_RESULTS_MS = 60 * 60 * 1000;
+
+const demoResultsUp = (at: number) =>
+  sql`${endsAtSql} <= ${at} and ${endsAtSql} > ${at - DEMO_RESULTS_MS} and ${potOn}`;
 
 /* -------------------------------------------------------------------------- */
 /*                                   venues                                   */
@@ -428,6 +470,8 @@ async function _materializeRecurringMatches(): Promise<void> {
            * confidently is worse than a blank.
            */
           organizerId: source.organizerId,
+          // The stake is the group's habit, unlike the pitch: it carries over.
+          bet: source.bet,
           recurrence: source.recurrence,
           seriesId: source.seriesId,
           // Whichever world it belongs to: a sandbox fixture that rolled
@@ -469,9 +513,10 @@ export async function listMatches(demo = false): Promise<MatchSummary[]> {
     .select({
       match: matches,
       venue: venues,
-      playerCount: sql<number>`count(${matchPlayers.playerId})`,
+      // The ones who came: a no-show is not a player on the night.
+      playerCount: sql<number>`count(case when ${matchPlayers.noShow} = 0 then 1 end)`,
       // Same rule as `toMatch`: the organizer is counted as settled.
-      paidCount: sql<number>`count(case when ${matchPlayers.paidAt} is not null or ${matchPlayers.playerId} = ${matches.organizerId} then 1 end)`,
+      paidCount: sql<number>`count(case when ${matchPlayers.noShow} = 0 and (${matchPlayers.paidAt} is not null or ${matchPlayers.playerId} = ${matches.organizerId}) then 1 end)`,
     })
     .from(matches)
     .leftJoin(venues, eq(venues.id, matches.venueId))
@@ -486,6 +531,7 @@ export async function listMatches(demo = false): Promise<MatchSummary[]> {
     endsAt: endOf(row.match),
     venue: toVenue(row.venue),
     pitch: row.match.pitch,
+    bet: row.match.bet,
     organizerId: row.match.organizerId,
     recurrence: (row.match.recurrence as Recurrence | null) ?? null,
     seriesId: row.match.seriesId,
@@ -495,7 +541,12 @@ export async function listMatches(demo = false): Promise<MatchSummary[]> {
   }));
 }
 
-async function loadLineup(matchId: string) {
+/**
+ * Who is in the lineup. No-shows are left out unless asked for: they are not
+ * on the pitch, in a side or in a draw, and only the match itself needs to
+ * know about them, for the penalty they owe.
+ */
+async function loadLineup(matchId: string, withNoShows = false) {
   return db
     .select({
       player: players,
@@ -503,10 +554,15 @@ async function loadLineup(matchId: string) {
       paidAt: matchPlayers.paidAt,
       teamId: matchPlayers.teamId,
       isKeeper: matchPlayers.isKeeper,
+      noShow: matchPlayers.noShow,
     })
     .from(matchPlayers)
     .innerJoin(players, eq(players.id, matchPlayers.playerId))
-    .where(eq(matchPlayers.matchId, matchId))
+    .where(
+      withNoShows
+        ? eq(matchPlayers.matchId, matchId)
+        : and(eq(matchPlayers.matchId, matchId), eq(matchPlayers.noShow, false)),
+    )
     .orderBy(asc(matchPlayers.slot), asc(matchPlayers.createdAt));
 }
 
@@ -522,7 +578,7 @@ async function loadTeams(matchId: string) {
 async function hydrate(row: MatchRow): Promise<Match> {
   const [venue, lineup, teams] = await Promise.all([
     loadVenue(row.venueId),
-    loadLineup(row.id),
+    loadLineup(row.id, true),
     loadTeams(row.id),
   ]);
 
@@ -596,17 +652,17 @@ export async function getNextMatch(demo = false): Promise<Match | null> {
    * whistle, so a finished match holds the screen until everybody has settled,
    * and three days at the outside. The sandbox owes nobody anything, and
    * holding it there would leave the one screen it has showing a match that is
-   * over.
+   * over -- except for an hour after it closes a night with a pot, so its
+   * results can be seen on the lineup like a real night's.
    */
-  const settling =
-    live.length || demo
-      ? []
-      : await db
-          .select()
-          .from(matches)
-          .where(and(world, settlingUp(now)))
-          .orderBy(desc(matches.playedAt))
-          .limit(1);
+  const settling = live.length
+    ? []
+    : await db
+        .select()
+        .from(matches)
+        .where(and(world, demo ? demoResultsUp(now) : settlingUp(now)))
+        .orderBy(desc(matches.playedAt))
+        .limit(1);
 
   const upcoming =
     live.length || settling.length
@@ -641,7 +697,9 @@ export type PaidResult =
   /** The player is not in this lineup. */
   | { ok: false; reason: "missing" }
   /** The organizer's share cannot be taken back. */
-  | { ok: false; reason: "organizer" };
+  | { ok: false; reason: "organizer" }
+  /** The night is not over: nothing is collected until it is. */
+  | { ok: false; reason: "tooEarly" };
 
 /**
  * Marks one player's share of the rental as settled, or unsettles it. Admin
@@ -658,6 +716,15 @@ export async function setPlayerPaid(
     .from(matches)
     .where(eq(matches.id, matchId));
   if (!match) return { ok: false, reason: "missing" };
+
+  if (
+    !canSettle(
+      { closedAt: match.closedAt?.getTime() ?? null, endsAt: endOf(match) },
+      Date.now(),
+    )
+  ) {
+    return { ok: false, reason: "tooEarly" };
+  }
 
   if (match.organizerId === playerId) {
     // Taking it back is refused outright, and granting it writes nothing: the
@@ -800,6 +867,7 @@ export async function createMatch(input: MatchInput): Promise<Match> {
       endsAt: new Date(input.endsAt),
       venueId: input.venueId ?? null,
       pitch: input.pitch?.trim() || null,
+      bet: input.bet ?? undefined,
       organizerId: input.organizerId ?? null,
       recurrence: input.recurrence ?? null,
       // A recurring fixture opens its own series; occurrences inherit the id.
@@ -843,6 +911,7 @@ export async function updateMatch(
       endsAt: new Date(input.endsAt),
       venueId: input.venueId ?? null,
       pitch: input.pitch?.trim() || null,
+      bet: input.bet ?? undefined,
       organizerId: input.organizerId ?? null,
       recurrence: input.recurrence ?? null,
       seriesId,
@@ -991,7 +1060,7 @@ async function placeNewcomers(matchId: string, playerIds: string[]) {
  *
  * Re-drawing replaces what was there. The names come from the pool in the same
  * order as the seed, so shuffling again gives new sides *and* new names -- last
- * week's Kernel Panic has nothing to do with this week's.
+ * week's Viejentus has nothing to do with this week's.
  */
 export async function drawTeams(
   matchId: string,
@@ -1052,7 +1121,30 @@ export async function drawTeams(
     }
   }
 
-  return hydrate(match);
+  return hydrate(await recommendMinutes(match, plan.teams.length));
+}
+
+/**
+ * Sets the night's game length to the fair one for this many sides.
+ *
+ * Done whenever the sides are made, since the number of sides is what decides
+ * it: six games of ten in an hour for three or four, so that every side has
+ * played the same number of games when the pot is shared out. See
+ * `recommendedGamePlan`. Anybody can still pick another length afterwards.
+ */
+async function recommendMinutes(match: MatchRow, teamCount: number) {
+  const { minutes } = recommendedGamePlan(
+    endOf(match) - match.playedAt.getTime(),
+    teamCount,
+  );
+
+  const [updated] = await db
+    .update(matches)
+    .set({ gameMinutes: minutes })
+    .where(eq(matches.id, match.id))
+    .returning();
+
+  return updated ?? match;
 }
 
 /**
@@ -1102,7 +1194,7 @@ export async function setTeamsManually(
    * Names for the sides that did not exist before, skipping the ones that did.
    * The pool is walked with a stride and knows nothing about what is already on
    * the table, so going from two sides to three drew a third name that was
-   * sometimes the second one again -- two teams called Code FC, in the same
+   * sometimes the second one again -- two teams called Viernes FC, in the same
    * match, telling nobody apart. Asked for more than needed, so there is
    * something left after the collisions are dropped.
    */
@@ -1157,7 +1249,7 @@ export async function setTeamsManually(
     }
   }
 
-  return hydrate(match);
+  return hydrate(await recommendMinutes(match, sides.length));
 }
 
 /** Undoes the draw, back to one squad and no sides. */
@@ -1466,7 +1558,8 @@ async function demoMatch(
     .insert(matches)
     .values({
       playedAt,
-      endsAt: new Date(playedAt.getTime() + DEFAULT_MATCH_DURATION_MS),
+      // An hour, like a Friday: six games of ten once the sides are drawn.
+      endsAt: new Date(playedAt.getTime() + SUGGESTED_MATCH_LENGTH_MS),
       venueId,
       pitch: DEMO.match.pitch,
       organizerId,
@@ -1517,8 +1610,53 @@ const toGoal = (row: MatchGoalRow): MatchGoal => ({
 });
 
 /** Everything that happened on the night. No other screen asks for it. */
+const toLoan = (row: MatchLoanRow): MatchLoan => ({
+  id: row.id,
+  slot: row.slot,
+  teamId: row.teamId,
+  playerId: row.playerId,
+});
+
+/**
+ * Blows the whistle on a game whose time is up.
+ *
+ * A game with a clock ends when the clock says so, whether or not anybody
+ * pressed anything -- the phone keeping score may be in a pocket, or locked,
+ * or out of battery. There is no timer on a server to do it at the second, so
+ * it is done the next time anybody looks: the game is closed at the minute it
+ * was due, not at the minute somebody noticed, so the table and the clock
+ * agree.
+ *
+ * A night with no clock (two sides playing the whole match as one game) is
+ * left alone: its game ends when somebody says so.
+ */
+async function closeOverdueGames(matchId: string) {
+  const [match] = await db
+    .select({ gameMinutes: matches.gameMinutes })
+    .from(matches)
+    .where(eq(matches.id, matchId));
+
+  const minutes = match?.gameMinutes ?? DEFAULT_GAME_MINUTES;
+  if (!match || minutes <= 0) return;
+
+  const length = minutes * 60_000;
+
+  await db
+    .update(matchGames)
+    .set({ endedAt: sql`${matchGames.startedAt} + ${length}` })
+    .where(
+      and(
+        eq(matchGames.matchId, matchId),
+        isNull(matchGames.endedAt),
+        lte(matchGames.startedAt, new Date(Date.now() - length)),
+      ),
+    );
+}
+
 export async function getMatchLive(matchId: string): Promise<MatchLive> {
-  const [games, goals] = await Promise.all([
+  await closeOverdueGames(matchId);
+
+  const [games, goals, loans] = await Promise.all([
     db
       .select()
       .from(matchGames)
@@ -1529,9 +1667,18 @@ export async function getMatchLive(matchId: string): Promise<MatchLive> {
       .from(matchGoals)
       .where(eq(matchGoals.matchId, matchId))
       .orderBy(asc(matchGoals.scoredAt)),
+    db
+      .select()
+      .from(matchLoans)
+      .where(eq(matchLoans.matchId, matchId))
+      .orderBy(asc(matchLoans.createdAt)),
   ]);
 
-  return { games: games.map(toGame), goals: goals.map(toGoal) };
+  return {
+    games: games.map(toGame),
+    goals: goals.map(toGoal),
+    loans: loans.map(toLoan),
+  };
 }
 
 /**
@@ -1571,8 +1718,8 @@ export async function startGame(
 export async function endGame(
   matchId: string,
   gameId: string,
-): Promise<MatchLive> {
-  await db
+): Promise<{ live: MatchLive; ended: boolean }> {
+  const closed = await db
     .update(matchGames)
     .set({ endedAt: new Date() })
     .where(
@@ -1581,9 +1728,50 @@ export async function endGame(
         eq(matchGames.id, gameId),
         isNull(matchGames.endedAt),
       ),
-    );
+    )
+    .returning({ id: matchGames.id });
 
-  return getMatchLive(matchId);
+  // `ended` says whether this call blew the whistle, or found it already blown.
+  return { live: await getMatchLive(matchId), ended: closed.length > 0 };
+}
+
+/* --------------------------------- push --------------------------------- */
+
+/**
+ * Remembers a browser that wants the end of each game pushed to it, following
+ * this match. The same browser subscribing again just moves to the new match.
+ */
+export async function savePushSubscription(input: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  matchId: string | null;
+}) {
+  await db
+    .insert(pushSubscriptions)
+    .values(input)
+    .onConflictDoUpdate({
+      target: pushSubscriptions.endpoint,
+      set: { p256dh: input.p256dh, auth: input.auth, matchId: input.matchId },
+    });
+}
+
+export async function forgetPushSubscriptions(endpoints: string[]) {
+  if (!endpoints.length) return;
+  await db
+    .delete(pushSubscriptions)
+    .where(inArray(pushSubscriptions.endpoint, endpoints));
+}
+
+export async function pushTargetsFor(matchId: string) {
+  return db
+    .select({
+      endpoint: pushSubscriptions.endpoint,
+      p256dh: pushSubscriptions.p256dh,
+      auth: pushSubscriptions.auth,
+    })
+    .from(pushSubscriptions)
+    .where(eq(pushSubscriptions.matchId, matchId));
 }
 
 /**
@@ -1611,14 +1799,137 @@ export async function addGoal(
 
   if (!entry?.teamId) return null;
 
+  // Lent out for this game: the goal is the side they are playing for.
+  const [played] = await db
+    .select({ slot: matchGames.slot })
+    .from(matchGames)
+    .where(eq(matchGames.id, gameId));
+
+  const [loan] = played
+    ? await db
+        .select({ teamId: matchLoans.teamId })
+        .from(matchLoans)
+        .where(
+          and(
+            eq(matchLoans.matchId, matchId),
+            eq(matchLoans.slot, played.slot),
+            eq(matchLoans.playerId, playerId),
+          ),
+        )
+    : [];
+
   await db.insert(matchGoals).values({
     matchId,
     gameId,
-    teamId: entry.teamId,
+    teamId: loan?.teamId ?? entry.teamId,
     playerId,
     scoredAt: new Date(),
     recordedBy,
   });
+
+  return getMatchLive(matchId);
+}
+
+export type LoanRefusal =
+  | "gameNotRunning"
+  | "teamNotPlaying"
+  | "notShort"
+  | "playerNotAvailable";
+
+/**
+ * Lends a player to a short side, for the game being played or the one about
+ * to start.
+ *
+ * Before kick-off is when it gets sorted out at the ground, so the next game
+ * counts even though it has no row yet: it is the pairing the app is about to
+ * offer, under the next slot, and the loan is waiting there when it starts.
+ *
+ * Only to a side that is actually down against the one it is playing, and
+ * only somebody whose own side is sitting that game out. The suggestions on
+ * screen also leave out the tired legs; the server does not, because the
+ * people at the ground may know better than a stamina rating.
+ */
+export async function lendPlayer(
+  matchId: string,
+  slot: number,
+  teamId: string,
+  playerId: string,
+): Promise<MatchLive | LoanRefusal> {
+  const match = await getMatch(matchId);
+  if (!match) return "gameNotRunning";
+
+  const live = await getMatchLive(matchId);
+  const game = loanableGame(match.teams, live, slot);
+  if (!game) return "gameNotRunning";
+
+  if (game.homeTeamId !== teamId && game.awayTeamId !== teamId) {
+    return "teamNotPlaying";
+  }
+
+  const team = match.teams.find((one) => one.id === teamId);
+  if (!team || shortBy(team, game, match.teams, live.loans) === 0) {
+    return "notShort";
+  }
+
+  const home = match.teams.find((one) => one.id === game.homeTeamId);
+  const away = match.teams.find((one) => one.id === game.awayTeamId);
+  const onPitch = new Set([
+    ...(home ? sideFor(home, game, live.loans) : []),
+    ...(away ? sideFor(away, game, live.loans) : []),
+  ]);
+  const inLineup = match.teams.some((one) => one.playerIds.includes(playerId));
+
+  if (!inLineup || onPitch.has(playerId)) return "playerNotAvailable";
+
+  await db.insert(matchLoans).values({ matchId, slot, teamId, playerId });
+
+  return getMatchLive(matchId);
+}
+
+/**
+ * The game a loan for `slot` would be for: the one being played, or -- when
+ * nothing is -- the next one, as the pairing about to be offered. Null for
+ * any other slot: a finished game is history, and one further ahead has no
+ * sides yet.
+ */
+function loanableGame(
+  teams: Match["teams"],
+  live: MatchLive,
+  slot: number,
+): MatchGame | null {
+  const running = live.games.find((one) => one.endedAt === null);
+  if (running) return running.slot === slot ? running : null;
+
+  if (slot !== live.games.length) return null;
+
+  const next = nextPairing(teams, live.games, live.goals);
+  if (!next) return null;
+
+  return {
+    id: "next",
+    slot,
+    homeTeamId: next.homeTeamId,
+    awayTeamId: next.awayTeamId,
+    startedAt: 0,
+    endedAt: null,
+  };
+}
+
+/** Sends somebody back to their own side. Their goals stay where they went in. */
+export async function returnPlayer(
+  matchId: string,
+  slot: number,
+  playerId: string,
+): Promise<MatchLive> {
+  await db
+    .delete(matchLoans)
+    .where(
+      and(
+        eq(matchLoans.matchId, matchId),
+        eq(matchLoans.slot, slot),
+        eq(matchLoans.playerId, playerId),
+      ),
+    );
 
   return getMatchLive(matchId);
 }
@@ -1663,7 +1974,25 @@ export async function finishMatch(matchId: string): Promise<Match | null> {
     .set({ endedAt: now })
     .where(and(eq(matchGames.matchId, matchId), isNull(matchGames.endedAt)));
 
-  await db.update(matches).set({ endsAt: now }).where(eq(matches.id, matchId));
+  /*
+   * Closed before its own kick-off -- only the sandbox can play early -- would
+   * leave it ending before it started, and the header counting down to a
+   * night that is over. The start moves back to the first whistle instead.
+   */
+  const [first] = await db
+    .select({ startedAt: matchGames.startedAt })
+    .from(matchGames)
+    .where(eq(matchGames.matchId, matchId))
+    .orderBy(asc(matchGames.startedAt))
+    .limit(1);
+
+  const playedAt =
+    match.playedAt > now ? (first?.startedAt ?? now) : match.playedAt;
+
+  await db
+    .update(matches)
+    .set({ playedAt, endsAt: now, closedAt: now })
+    .where(eq(matches.id, matchId));
 
   const [updated] = await db
     .select()
@@ -1704,6 +2033,56 @@ export async function removeGoal(
     .where(and(eq(matchGoals.matchId, matchId), eq(matchGoals.id, goalId)));
 
   return getMatchLive(matchId);
+}
+
+/**
+ * Marks somebody as signed up and not there -- or takes it back.
+ *
+ * They stay on the match, because they owe the bet as a penalty, but they
+ * leave their side the way somebody dropping out does: the gloves go to
+ * whoever keeps best if they had them, and the sides are evened up. Taking it
+ * back puts them in the emptiest side, like a late arrival.
+ */
+export async function setNoShow(
+  matchId: string,
+  playerId: string,
+  noShow: boolean,
+): Promise<Match | null> {
+  const [entry] = await db
+    .select({ teamId: matchPlayers.teamId, isKeeper: matchPlayers.isKeeper })
+    .from(matchPlayers)
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    );
+  if (!entry) return null;
+
+  await db
+    .update(matchPlayers)
+    .set(
+      noShow
+        ? { noShow: true, teamId: null, isKeeper: false }
+        : { noShow: false },
+    )
+    .where(
+      and(
+        eq(matchPlayers.matchId, matchId),
+        eq(matchPlayers.playerId, playerId),
+      ),
+    );
+
+  if (noShow) {
+    if (entry.isKeeper && entry.teamId) {
+      await appointKeeper(matchId, entry.teamId);
+    }
+    await balanceSides(matchId);
+  } else {
+    await placeNewcomers(matchId, [playerId]);
+  }
+
+  return getMatch(matchId);
 }
 
 export async function removePlayerFromMatch(

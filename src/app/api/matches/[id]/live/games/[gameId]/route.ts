@@ -1,3 +1,6 @@
+import { after } from "next/server";
+
+import { pushFullTime } from "@/db/push-night";
 import { endGame } from "@/db/queries";
 import { REALTIME } from "@/lib/constants";
 import { json, route } from "@/lib/http";
@@ -12,8 +15,12 @@ export async function PATCH(_request: Request, { params }: Context) {
   return route(async () => {
     const { id, gameId } = await params;
 
-    const live = await endGame(id, gameId);
+    const { live, ended } = await endGame(id, gameId);
     await broadcast(REALTIME.events.liveChanged, { matchId: id });
+
+    // Only the call that actually ended it tells the locked phones, and after
+    // the answer has gone back: the thumb that pressed it is not kept waiting.
+    if (ended) after(() => pushFullTime(id, gameId));
 
     return json(live);
   });

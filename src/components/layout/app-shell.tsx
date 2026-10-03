@@ -2,6 +2,7 @@
 
 import { useGSAP } from "@gsap/react";
 import {
+  Invoice01Icon,
   FootballPitchIcon,
   PlusSignIcon,
   StopWatchIcon,
@@ -14,10 +15,10 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { AddPlayersDialog } from "@/components/matches/add-players-dialog";
 import { GalleryDialog } from "@/components/matches/gallery-dialog";
 import { MatchesDrawer } from "@/components/matches/matches-drawer";
-import { PaymentsDialog } from "@/components/matches/payments-dialog";
 import { ShareDialog } from "@/components/matches/share-dialog";
 import { TeamsDialog, newSeed } from "@/components/matches/teams-dialog";
 import { TeamsPreviewDialog } from "@/components/matches/teams-preview-dialog";
+import { NightPrizeCard } from "@/components/live/night-prize-card";
 import { PitchScene } from "@/components/pitch/pitch-scene";
 import { VenuesDrawer } from "@/components/venues/venues-drawer";
 import { PlayerCardDialog } from "@/components/players/player-card-dialog";
@@ -38,7 +39,7 @@ import { fill } from "@/i18n/dictionaries";
 import { TEAMS_OPEN_MS } from "@/lib/constants";
 import { matchSlug } from "@/lib/date";
 import { EASE } from "@/lib/ease";
-import { isSettled } from "@/lib/money";
+import { canSettle, formatMoney } from "@/lib/money";
 import type { Player } from "@/types";
 import { AppHeader } from "./app-header";
 import { type PanelName } from "./app-menu";
@@ -63,6 +64,7 @@ export function AppShell() {
     isAdmin,
     isSuperAdmin,
     removePlayerFromNextMatch,
+    setNoShow,
     setPlayerPaid,
     drawTeams,
     setKeeper,
@@ -96,22 +98,6 @@ export function AppShell() {
   // The button turns up two hours before kick-off, so the shell needs a clock.
   const now = useNow(60_000);
 
-  /*
-   * Everybody has paid and the whistle has gone: the ledger is closed, so the
-   * paid marks and the split stop being controls and go back to being a
-   * record of what happened. The same line the server draws when it decides
-   * this date no longer owns the front page.
-   */
-  const settled = nextMatch
-    ? isSettled(
-        {
-          endsAt: nextMatch.endsAt,
-          players: nextMatch.players.length,
-          paid: nextMatch.paidPlayerIds.length,
-        },
-        now,
-      )
-    : false;
   const { go } = useScene();
 
   /*
@@ -174,7 +160,14 @@ export function AppShell() {
   });
   const [addOpen, setAddOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [paymentsOpen, setPaymentsOpen] = useState(false);
+  /*
+   * The night's accounts. Opened by itself the first time a night closed with
+   * a pot is on screen -- that is the moment the money changes hands -- and
+   * from the button in the corner after that.
+   */
+  const [accountsOpen, setAccountsOpen] = useState(
+    () => !!nextMatch && nextMatch.closedAt !== null && nextMatch.bet > 0,
+  );
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   /** Dropping someone is confirmed: on touch screens one tap is enough. */
@@ -192,9 +185,40 @@ export function AppShell() {
     [hudRef],
   );
 
-  const settle = useAction(
-    async ({ player, paid }: { player: Player; paid: boolean }) =>
-      setPlayerPaid(player.id, paid),
+
+  /*
+   * Money only once the night is over: before that a late sign-up still moves
+   * everybody's share of the pitch, and the pot is not won.
+   */
+  const settlable = !!nextMatch && now !== null && canSettle(nextMatch, now);
+
+  /*
+   * Somebody can be marked as not having come from the day itself -- two hours
+   * before kick-off, when the sides are drawn -- and only while there is a bet
+   * to charge them, since that is all the mark does beyond dropping them.
+   */
+  const noShowOpen =
+    !!nextMatch &&
+    now !== null &&
+    nextMatch.bet > 0 &&
+    nextMatch.closedAt === null &&
+    now >= nextMatch.playedAt - TEAMS_OPEN_MS;
+
+  const markNoShow = useAction(
+    async (player: Player) => setNoShow(player.id, true),
+    {
+      success: t.pitch.noShowDone,
+      onSuccess: () => setPendingRemoval(null),
+    },
+  );
+
+  const undoNoShow = useAction(async (playerId: string) =>
+    setNoShow(playerId, false),
+  );
+
+  const tick = useAction(
+    async ({ playerId, paid }: { playerId: string; paid: boolean }) =>
+      setPlayerPaid(playerId, paid),
   );
 
   const removeFromLineup = useAction(
@@ -235,26 +259,41 @@ export function AppShell() {
         onViewPlayer={viewPlayer}
         onSetKeeper={hasTeams ? handOver : undefined}
         keeperPending={handing}
-        /*
-          The mark stays read-only for everyone else: the server refuses it
-          anyway, and a button that always fails is worse than no button.
-
-          And for everybody once the date is settled -- the whole lineup has
-          paid, so the marks are a receipt and there is nothing left to tick.
-        */
-        onTogglePaid={
-          isAdmin && !settled
-            ? (player, paid) => void settle.run({ player, paid })
-            : undefined
-        }
       />
+
+      {/*
+        The night's accounts, once there is a night to settle: the pot and who
+        won it, the pitch, the no-shows, and who is handed or owes what.
+      */}
+      {nextMatch && settlable ? (
+        <NightPrizeCard
+          key={nextMatch.id}
+          match={nextMatch}
+          open={accountsOpen}
+          onOpenChange={setAccountsOpen}
+          onTogglePaid={
+            isAdmin
+              ? (playerId, paid) => tick.run({ playerId, paid })
+              : undefined
+          }
+          onUndoNoShow={(playerId) => void undoNoShow.run(playerId)}
+          resultsHref={
+            demo
+              ? "/demo/results"
+              : `/match/${matchSlug(nextMatch.playedAt)}/results`
+          }
+        />
+      ) : null}
 
       {/* The same header the whole app wears, measured so the pitch clears it. */}
       <AppHeader
         match={nextMatch}
         hudRef={setHud}
-        // Settled: the split is the receipt, not the way into the ledger.
-        onOpenPayments={settled ? undefined : () => setPaymentsOpen(true)}
+        // The split opens the night's accounts, and only once there is a night
+        // to settle; before that it is an estimate, not a bill.
+        onOpenPayments={
+          settlable ? () => setAccountsOpen(true) : undefined
+        }
         onShare={() => setShareOpen(true)}
         onGallery={() => setGalleryOpen(true)}
         onSelectPanel={setPanel}
@@ -265,6 +304,18 @@ export function AppShell() {
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex items-end gap-3 p-4">
         {/* Stays out of the way: no background, no pointer events, no chrome. */}
         {isSuperAdmin ? <LiveVisitors /> : null}
+
+        {/* The night's accounts, in the corner, once the night is over. */}
+        {settlable ? (
+          <Button
+            variant="soft"
+            className="pointer-events-auto"
+            onClick={() => setAccountsOpen(true)}
+          >
+            <Icon icon={Invoice01Icon} size={18} />
+            {t.results.accountsButton}
+          </Button>
+        ) : null}
 
         {/*
           Match day lives by the thumb, not in the corner with the browsing.
@@ -398,12 +449,6 @@ export function AppShell() {
         match={nextMatch}
       />
 
-      <PaymentsDialog
-        open={paymentsOpen}
-        onOpenChange={setPaymentsOpen}
-        match={nextMatch}
-      />
-
       <ShareDialog
         open={shareOpen}
         onOpenChange={setShareOpen}
@@ -423,11 +468,25 @@ export function AppShell() {
         title={fill(t.pitch.dropTitle, {
           name: pendingRemoval?.firstName ?? "",
         })}
-        description={pendingRemoval ? t.pitch.dropLine : undefined}
+        description={
+          pendingRemoval
+            ? noShowOpen
+              ? `${t.pitch.dropLine} ${fill(t.pitch.noShowLine, {
+                  amount: formatMoney(nextMatch?.bet ?? 0),
+                })}`
+              : t.pitch.dropLine
+            : undefined
+        }
         confirmLabel={t.pitch.dropConfirm}
-        pending={removeFromLineup.pending}
+        pending={removeFromLineup.pending || markNoShow.pending}
         onConfirm={() =>
           pendingRemoval && void removeFromLineup.run(pendingRemoval)
+        }
+        secondaryLabel={noShowOpen ? t.pitch.noShow : undefined}
+        onSecondary={
+          noShowOpen
+            ? () => pendingRemoval && void markNoShow.run(pendingRemoval)
+            : undefined
         }
       />
     </main>

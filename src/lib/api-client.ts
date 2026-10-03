@@ -157,6 +157,12 @@ export const api = {
         method: "PATCH",
         body: body({ paid }),
       }),
+    /** Signed up and did not come -- or did after all. */
+    setNoShow: (id: string, playerId: string, noShow: boolean) =>
+      request<Match>(`/api/matches/${id}/players/${playerId}/no-show`, {
+        method: "POST",
+        body: body({ noShow }),
+      }),
     removePlayer: (id: string, playerId: string) =>
       request<Match>(`/api/matches/${id}/players/${playerId}`, {
         method: "DELETE",
@@ -192,6 +198,16 @@ export const api = {
     endGame: (id: string, gameId: string) =>
       request<MatchLive>(`/api/matches/${id}/live/games/${gameId}`, {
         method: "PATCH",
+      }),
+    /** Lends somebody to the short side, before kick-off or during the game. */
+    lendPlayer: (id: string, slot: number, teamId: string, playerId: string) =>
+      request<MatchLive>(`/api/matches/${id}/live/loans`, {
+        method: "POST",
+        body: body({ slot, teamId, playerId }),
+      }),
+    returnPlayer: (id: string, slot: number, playerId: string) =>
+      request<MatchLive>(`/api/matches/${id}/live/loans/${slot}/${playerId}`, {
+        method: "DELETE",
       }),
     addGoal: (
       id: string,

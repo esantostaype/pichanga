@@ -1,4 +1,7 @@
+import { after } from "next/server";
+
 import { getMatch, startGame } from "@/db/queries";
+import { scheduleFullTime } from "@/lib/push";
 import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
@@ -39,6 +42,11 @@ export async function POST(request: Request, { params }: Context) {
       return fail((await messages()).notKickedOff, 409);
     }
 
+    // Closed from the results: the night is over, and so is the playing.
+    if (match.closedAt !== null) {
+      return fail((await messages()).nightClosed, 409);
+    }
+
     const ids = new Set(match.teams.map((team) => team.id));
     if (!ids.has(homeTeamId) || !ids.has(awayTeamId)) {
       return fail((await messages()).teamsNotInMatch, 422);
@@ -46,6 +54,18 @@ export async function POST(request: Request, { params }: Context) {
 
     const live = await startGame(id, homeTeamId, awayTeamId);
     await broadcast(REALTIME.events.liveChanged, { matchId: id });
+
+    /*
+     * A game with a clock ends on it, phone locked or not: QStash is asked to
+     * call back the second it runs out, and that callback pushes the whistle
+     * to every phone following the night. See `src/lib/push.ts`.
+     */
+    const kickedOff = live.games[live.games.length - 1];
+    if (kickedOff && match.gameMinutes > 0) {
+      after(() =>
+        scheduleFullTime(id, kickedOff.id, match.gameMinutes * 60),
+      );
+    }
 
     return json(live, 201);
   });

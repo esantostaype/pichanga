@@ -197,9 +197,9 @@ export type PitchFormat = (typeof PITCH_FORMATS)[number];
  *
  * Every one of them has to work as a crest, which is a harder test than being
  * funny in a list: a short badge, a colour, and something readable from across
- * a pitch. They are named after the floors the squad comes off -- the people
- * who write the code, the ones who read the numbers, the ones who make it look
- * like something -- so a side reads as a side and not as an in-joke.
+ * a pitch. They sound like a club with a wink -- the bar after the game, the
+ * legs that give out in the second half, the Másters who will not retire --
+ * so a side reads as a side on a Friday night and not as an in-joke.
  *
  * The colour belongs to the name, so a side is the same colour every week --
  * and the six are spread as far around the wheel as six hues get, because two
@@ -209,12 +209,12 @@ export type PitchFormat = (typeof PITCH_FORMATS)[number];
  * so changing this list renames nothing that has already been played.
  */
 export const TEAM_NAMES = [
-  { name: "Code FC", badge: "CF", accent: "#c6f432" },
-  { name: "Full Stack United", badge: "FS", accent: "#a78bfa" },
-  { name: "Data Miners FC", badge: "DM", accent: "#38bdf8" },
-  { name: "Analytics City", badge: "AC", accent: "#fb923c" },
-  { name: "Creative United", badge: "CU", accent: "#f472b6" },
-  { name: "Brand Builders", badge: "BB", accent: "#4ade80" },
+  { name: "Viernes FC", badge: "VF", accent: "#f472b6" },
+  { name: "Bar-celona", badge: "BC", accent: "#38bdf8" },
+  { name: "Viejentus", badge: "VJ", accent: "#a78bfa" },
+  { name: "Chocolateros FC", badge: "CH", accent: "#fb923c" },
+  { name: "Unión Mineros", badge: "UM", accent: "#4ade80" },
+  { name: "Deportivo Calambre", badge: "DC", accent: "#c6f432" },
 ] as const;
 
 /**
@@ -255,6 +255,9 @@ export const INDEFINITE_GAME = 0;
  * starting point.
  */
 export const SUGGESTED_MATCH_LENGTH_MS = 60 * 60 * 1000;
+
+/** What each player puts into the night's pot unless the match says otherwise. */
+export const DEFAULT_BET = 5;
 
 /** Fallback length for a match with no explicit end time. */
 export const DEFAULT_MATCH_DURATION_MS = 90 * 60 * 1000;

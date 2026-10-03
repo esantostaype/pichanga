@@ -29,8 +29,6 @@ type PitchSceneProps = {
    */
   bottomInset?: number;
   onRemovePlayer?: (player: Player) => void;
-  /** Passed only when this visitor may settle the rental. */
-  onTogglePaid?: (player: Player, paid: boolean) => void;
   /** Opens a player's card. Everyone gets this one. */
   onViewPlayer?: (player: Player) => void;
   /** Hands one side's gloves to somebody else. */
@@ -47,7 +45,6 @@ export function PitchScene({
   hudInset = 0,
   bottomInset = 0,
   onRemovePlayer,
-  onTogglePaid,
   onViewPlayer,
   onSetKeeper,
   keeperPending,
@@ -72,12 +69,11 @@ export function PitchScene({
    */
   const teams = over ? undefined : match?.teams;
 
-  /**
-   * Otherwise always on. The rental is usually collected after the whistle, but
-   * plenty of people pay up front, so the ledger has to be open on every match
-   * -- past, present and still to come.
+  /*
+   * No paid marks on the pitch. Every payment -- the pitch, the penalties, the
+   * pot -- is settled together from the night's accounts once it is over, so
+   * the tokens carry who is playing and who runs it, and nothing about money.
    */
-  const showPayments = !!match && !drawn;
 
   return (
     <div
@@ -89,14 +85,12 @@ export function PitchScene({
       {players.length > 0 && size.width > 0 && size.width < LIST_BELOW ? (
         <LineupList
           players={players}
-          paidPlayerIds={showPayments ? match.paidPlayerIds : undefined}
           organizerId={drawn ? null : match?.organizerId}
           teams={teams}
           columns={size.width < ONE_COLUMN_BELOW ? 1 : 2}
           insetTop={hudInset}
           insetBottom={bottomInset}
           onRemovePlayer={onRemovePlayer}
-          onTogglePaid={onTogglePaid}
           onViewPlayer={onViewPlayer}
           onSetKeeper={over ? undefined : onSetKeeper}
           keeperPending={keeperPending}
@@ -109,8 +103,6 @@ export function PitchScene({
           insetY={hudInset}
           organizerId={drawn ? null : match?.organizerId}
           teams={teams}
-          paidPlayerIds={showPayments ? match.paidPlayerIds : undefined}
-          onTogglePaid={onTogglePaid}
           onViewPlayer={onViewPlayer}
           onRemovePlayer={onRemovePlayer}
           onSetKeeper={over ? undefined : onSetKeeper}

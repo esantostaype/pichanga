@@ -114,6 +114,16 @@ export const matches = sqliteTable(
      * office needs from it is the line that says which gate to walk to.
      */
     pitch: text("pitch"),
+    /**
+     * What each player puts into the pot for the night. The side that tops the
+     * table takes the lot, split between its players. Zero means no bet.
+     */
+    bet: real("bet").notNull().default(5),
+    /**
+     * When somebody pressed "close the night" on the results. Until then the
+     * night can still go on, however late it runs past `endsAt`.
+     */
+    closedAt: integer("closed_at", { mode: "timestamp_ms" }),
     /** Whoever is running this one. Their token wears the crown. */
     organizerId: text("organizer_id").references(() => players.id, {
       onDelete: "set null",
@@ -189,6 +199,12 @@ export const matchPlayers = sqliteTable(
     }),
     /** Whether they are the one in goal for that side. */
     isKeeper: integer("is_keeper", { mode: "boolean" }).notNull().default(false),
+    /**
+     * Signed up and never turned up. They stay on the match -- out of the
+     * sides, off the pitch -- because they owe the bet as a penalty, and that
+     * penalty goes towards the pitch everybody else is paying for.
+     */
+    noShow: integer("no_show", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
   },
   (t) => [
@@ -266,6 +282,45 @@ export const matchGoals = sqliteTable(
   (t) => [index("match_goals_game_idx").on(t.gameId, t.scoredAt)],
 );
 
+/**
+ * A player lent to a side for one game, before or during it.
+ *
+ * With the turnout split into sides of seven, seven and six, the six never
+ * plays a man down: for each of its games it borrows somebody from a side that
+ * is sitting that one out. Per game rather than per night, because the side
+ * they came from plays the next one and wants them back.
+ *
+ * Their goals count for the side they were lent to -- `addGoal` reads this
+ * table before it reads the lineup -- and their share of the pot stays with
+ * their own side.
+ */
+export const matchLoans = sqliteTable(
+  "match_loans",
+  {
+    id: id(),
+    matchId: text("match_id")
+      .notNull()
+      .references(() => matches.id, { onDelete: "cascade" }),
+    /**
+     * Which game of the night, by its order: the same number `match_games`
+     * gives it. Keyed on this rather than on the game row so a loan can be
+     * agreed before kick-off, when there is no row yet.
+     */
+    slot: integer("slot").notNull(),
+    /** The side they are lent to. */
+    teamId: text("team_id")
+      .notNull()
+      .references(() => matchTeams.id, { onDelete: "cascade" }),
+    playerId: text("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("match_loans_slot_player_idx").on(t.matchId, t.slot, t.playerId),
+  ],
+);
+
 /* -------------------------------------------------------------------------- */
 /*                                match_media                                 */
 /* -------------------------------------------------------------------------- */
@@ -292,6 +347,38 @@ export const matchMedia = sqliteTable(
     createdAt: createdAt(),
   },
   (t) => [index("match_media_match_idx").on(t.matchId, t.createdAt)],
+);
+
+/* -------------------------------------------------------------------------- */
+/*                             push_subscriptions                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A browser that asked to be told when a game ends, even with the phone
+ * locked.
+ *
+ * What a push service hands back when the browser subscribes: where to send
+ * (`endpoint`) and the two keys the message is encrypted with. Tied to the
+ * match it is following, not to a player -- nobody signs in, and the phone in
+ * somebody's pocket is not necessarily theirs. Opening another match's night
+ * moves it there.
+ */
+export const pushSubscriptions = sqliteTable(
+  "push_subscriptions",
+  {
+    id: id(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    matchId: text("match_id").references(() => matches.id, {
+      onDelete: "set null",
+    }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("push_subscriptions_endpoint_idx").on(t.endpoint),
+    index("push_subscriptions_match_idx").on(t.matchId),
+  ],
 );
 
 /* -------------------------------------------------------------------------- */
@@ -364,5 +451,6 @@ export type MatchPlayerRow = typeof matchPlayers.$inferSelect;
 export type MatchTeamRow = typeof matchTeams.$inferSelect;
 export type MatchGameRow = typeof matchGames.$inferSelect;
 export type MatchGoalRow = typeof matchGoals.$inferSelect;
+export type MatchLoanRow = typeof matchLoans.$inferSelect;
 export type MatchMediaRow = typeof matchMedia.$inferSelect;
 export type VisitorRow = typeof visitors.$inferSelect;

@@ -233,8 +233,23 @@ export function planTeams(
     );
   }
 
+  /**
+   * A side's strength, on the 1-5 scale.
+   *
+   * With three sides or more it is the average: a side left one short borrows
+   * somebody from a side that is resting (see `src/lib/loans.ts`), so on the
+   * pitch every side is the same size and the average is what meets.
+   *
+   * With two there is nobody resting to borrow from, so seven really do play
+   * six -- and an average would call a six as strong as a seven of the same
+   * level when it is a player down. So it is the total, measured against the
+   * bigger side: the short side comes out weaker unless its players are
+   * better, which is exactly what makes the draw hand it the better ones.
+   */
   function averageStrength(squad: Player[], keeperId: string | null) {
     if (squad.length === 0) return 0;
+
+    const per = count === 2 ? Math.max(...sizes) : squad.length;
 
     const total = squad.reduce(
       (sum, player) =>
@@ -247,7 +262,7 @@ export function planTeams(
       0,
     );
 
-    return total / squad.length;
+    return total / per;
   }
 
   /**
@@ -451,8 +466,8 @@ export function pickNames(count: number, seed: number) {
 /**
  * The short form for a team name, for its crest.
  *
- * Taken from the pool when the name is in it, so `Los 404` reads `404` rather
- * than `L4`. A name from outside the pool -- an older match, a rename -- falls
+ * Taken from the pool when the name is in it, so `Bar-celona` reads `BC` rather
+ * than `B`. A name from outside the pool -- an older match, a rename -- falls
  * back to its initials, which is never wrong even when it is dull.
  *
  * Here rather than on the crest component because a crest is drawn in two

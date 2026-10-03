@@ -57,6 +57,7 @@ export default async function LivePage({ params }: Props) {
       <LiveScreen
         match={match}
         backHref={`/match/${slug}`}
+        resultsHref={`/match/${slug}/results`}
         initial={live}
       />
     </PichangaProvider>

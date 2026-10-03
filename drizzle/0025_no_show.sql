@@ -1,0 +1,1 @@
+ALTER TABLE `match_players` ADD `no_show` integer DEFAULT false NOT NULL;

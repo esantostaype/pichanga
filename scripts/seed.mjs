@@ -134,11 +134,11 @@ await db.batch(
   })),
 );
 
-/** Next Wednesday at 19:00. */
+/** Next Friday at 19:00. */
 const playedAt = (() => {
   const date = new Date();
   date.setHours(19, 0, 0, 0);
-  const ahead = (3 - date.getDay() + 7) % 7;
+  const ahead = (5 - date.getDay() + 7) % 7;
   const passed = ahead === 0 && Date.now() > date.getTime();
   date.setDate(date.getDate() + (passed ? 7 : ahead));
   return date.getTime();

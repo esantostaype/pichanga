@@ -1,6 +1,6 @@
 # Pichanga
 
-Office match lineup: a full-screen football pitch where signed-up players
+Friday kickabout lineup: a full-screen football pitch where signed-up players
 appear from the center and spread outwards, always symmetric, updating live for
 everyone watching.
 
@@ -370,11 +370,11 @@ waiting by the time the wipe has finished closing.
 ## Crests
 
 A shield in the side's colour with its short form on it, drawn rather than
-drawn _by hand_: fourteen names in the pool and more to come, each needing a
-crest in two sizes and both themes. As artwork that is fourteen files to keep
+drawn _by hand_: six names in the pool and more to come, each needing a
+crest in two sizes and both themes. As artwork that is six files to keep
 in step with a list in a constants file; as a shape plus a colour plus two
-letters, a new name arrives with its crest already made. `Los 404` reads
-`404` because the pool carries the short form; a name from outside it falls
+letters, a new name arrives with its crest already made. `Bar-celona` reads
+`BC` because the pool carries the short form; a name from outside it falls
 back to initials, which is never wrong even when it is dull.
 
 **Two letters at most.** A shield is read from the touchline at the size of a
@@ -1043,10 +1043,10 @@ somebody has to press it. **Shuffling again is the session's**, though: a squad
 that can re-roll until it likes the look of a team has not been given teams at
 all.
 
-Each side gets a name from a pool of fourteen -- Los 404, Kernel Panic, Cache
-Miss -- and a crest that is drawn rather than drawn by hand: a shield, the
-team's colour, and the short form of the name. Fourteen names and more to come
-would otherwise be fourteen pieces of artwork to keep in step with a list in a
+Each side gets a name from a pool of six -- Viernes FC, Bar-celona, Viejentus,
+Chocolateros FC, Unión Mineros, Deportivo Calambre -- and a crest that is drawn rather than drawn by hand: a shield, the
+team's colour, and the short form of the name. Six names and more to come
+would otherwise be six pieces of artwork to keep in step with a list in a
 constants file; as a shape plus a colour plus two letters, a new name arrives
 with its crest already made.
 

@@ -27,22 +27,23 @@ export const MAX_IN_A_ROW = 2;
  *
  * Two customs, because two turnouts play differently:
  *
- * **Three sides (or five, or six).** The winner stays and the loser comes off,
+ * **Three sides.** A fixed cycle, A-B, B-C, C-A, so every side plays the same
+ * number of games and meets the others equally -- see `byCycle`.
+ *
+ * **Five or six sides.** The winner stays and the loser comes off,
  * and whoever has waited longest comes on -- except that **nobody plays more
  * than two in a row**. A side that has just won twice goes off anyway and the
  * side it beat stays to face the fresh legs, which is the rule almost every
  * triangular is actually played by and the one that stops an evening becoming
  * one team's exercise bike.
  *
- * **Four sides.** They pair off two and two, and then the results decide: the
- * next game is the two winners, and the one after it the two losers. Nobody
- * waits more than a game, and by the end of every round of two everybody has
- * played once.
+ * **Four sides.** Everybody plays everybody, six games to an hour, and the
+ * second hour plays the six again while the table keeps counting -- see
+ * `ROUND_ROBIN_OF_FOUR` for the order.
  *
  * **A draw is settled by the app**, and by nothing anybody at the ground can
- * argue with. On three sides it picks which of the two comes off; on four it
- * picks which of them takes the winners' half, so the next game is the real
- * winner against one of the pair that drew.
+ * argue with. On three sides it picks which of the two comes off; on four
+ * there is nothing to pick, since the order does not depend on results.
  *
  * The pick is drawn from the id of the game that was just played rather than
  * from a live coin toss: unpredictable to everyone standing there, and the same
@@ -65,7 +66,9 @@ export function nextPairing(
       : { homeTeamId: teams[0].id, awayTeamId: teams[1].id };
   }
 
-  if (teams.length === 4) return byRounds(teams, played, goals);
+  if (teams.length === 3) return byCycle(teams, played);
+
+  if (teams.length === 4) return byRounds(teams, played);
 
   return byTurns(teams, played, goals);
 }
@@ -109,40 +112,68 @@ function byTurns(teams: MatchTeam[], played: MatchGame[], goals: MatchGoal[]) {
   return { homeTeamId: staying, awayTeamId: coming.id };
 }
 
-/** Two and two, then the winners, then the losers. */
-function byRounds(teams: MatchTeam[], played: MatchGame[], goals: MatchGoal[]) {
-  const opening = [
-    { homeTeamId: teams[0].id, awayTeamId: teams[1].id },
-    { homeTeamId: teams[2].id, awayTeamId: teams[3].id },
-  ];
+/**
+ * Three sides: everybody plays everybody, round and round.
+ *
+ * Three games make a full round -- A-B, B-C, C-A -- and after every one of
+ * them each side has played twice and met both of the others once, so the
+ * table is fair after any multiple of three. Somebody always plays two in a
+ * row with three sides on one pitch, since any two of the three pairings share
+ * a side; in this order it is everybody's turn equally: two on, one off.
+ *
+ * Fixed rather than winner-stays: with a pot riding on the table, a side that
+ * kept winning would also keep playing, and its points would come from more
+ * games than everybody else's.
+ */
+const CYCLE_OF_THREE: Array<[number, number]> = [
+  [0, 1],
+  [1, 2],
+  [2, 0],
+];
 
-  if (played.length < 2) return opening[played.length];
-
-  // The round that has just been completed: its two games decide the next two.
-  const round = Math.floor(played.length / 2) - 1;
-  const first = played[round * 2];
-  const second = played[round * 2 + 1];
-
-  if (!first || !second) return opening[played.length % 2];
-
-  const winners = { homeTeamId: winnerOf(first, goals), awayTeamId: winnerOf(second, goals) };
-  const losers = { homeTeamId: loserOf(first, goals), awayTeamId: loserOf(second, goals) };
-
-  return played.length % 2 === 0 ? winners : losers;
+function byCycle(teams: MatchTeam[], played: MatchGame[]) {
+  const [home, away] = CYCLE_OF_THREE[played.length % CYCLE_OF_THREE.length];
+  return { homeTeamId: teams[home].id, awayTeamId: teams[away].id };
 }
 
 /**
- * Who won, as far as the next pairing is concerned.
+ * Four sides: everybody plays everybody, twice over two hours.
  *
- * A draw has no winner, so the app names one -- which on four sides costs the
- * drawing pair nothing, since both of them are coming off either way. It only
- * decides which of the two faces the side that actually won.
+ * Six games make a full round, and every pair of games is a round where all
+ * four play once -- so after any even number of games the table is fair. An
+ * hour of six games is the whole thing; a second hour plays the same six
+ * pairings again and the table simply keeps counting.
+ *
+ * With four sides and one pitch somebody has to play two in a row now and
+ * then: two games are only clear of each other when they are the two halves of
+ * the same round. This order was searched for so that over the twelve games
+ * each side does it exactly once, and nobody ever plays three. The second hour
+ * opens with the same round the first one closed on, which is the trick that
+ * makes the change of hour free.
+ *
+ * Fixed rather than driven by results: the winners-against-winners format it
+ * replaces meant a side that lost early only ever met losers, and its points
+ * were not worth the same as anybody else's.
  */
-function winnerOf(game: MatchGame, goals: MatchGoal[]) {
-  const score = gameScore(goals, game);
-  if (score.home > score.away) return game.homeTeamId;
-  if (score.away > score.home) return game.awayTeamId;
-  return toss(game.id, game.homeTeamId, game.awayTeamId);
+const ROUND_ROBIN_OF_FOUR: Array<[number, number]> = [
+  [0, 1],
+  [2, 3],
+  [1, 3],
+  [0, 2],
+  [0, 3],
+  [1, 2],
+  [0, 3],
+  [1, 2],
+  [0, 2],
+  [1, 3],
+  [0, 1],
+  [2, 3],
+];
+
+function byRounds(teams: MatchTeam[], played: MatchGame[]) {
+  const [home, away] =
+    ROUND_ROBIN_OF_FOUR[played.length % ROUND_ROBIN_OF_FOUR.length];
+  return { homeTeamId: teams[home].id, awayTeamId: teams[away].id };
 }
 
 /**
@@ -161,11 +192,6 @@ function toss(seed: string, first: string, second: string) {
   }
 
   return hash % 2 === 0 ? first : second;
-}
-
-function loserOf(game: MatchGame, goals: MatchGoal[]) {
-  const won = winnerOf(game, goals);
-  return won === game.homeTeamId ? game.awayTeamId : game.homeTeamId;
 }
 
 /** How many games in a row a side has just played. */

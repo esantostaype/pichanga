@@ -45,6 +45,7 @@ import { fill } from "@/i18n/dictionaries";
 import { useRealtime } from "@/hooks/use-realtime";
 import { api } from "@/lib/api-client";
 import { GAME_MINUTES_CHOICES, INDEFINITE_GAME } from "@/lib/constants";
+import { recommendedGamePlan } from "@/lib/schedule";
 import { matchSlug } from "@/lib/date";
 import { currentGame } from "@/lib/live";
 
@@ -206,10 +207,26 @@ export function TeamsDialog({
    * ends when the pitch does. With three there is always somebody waiting for
    * it to end, so it is not offered -- and the server refuses it anyway.
    */
+  /*
+   * The fair length for this many sides and this long a match -- the one where
+   * every side has played as many games as the others when the pot is shared
+   * out. It is set on its own when the sides are drawn, and offered among the
+   * usual choices even when it is not one of them (nine, for ninety minutes
+   * with four sides).
+   */
+  const plan = match
+    ? recommendedGamePlan(match.endsAt - match.playedAt, teams.length)
+    : null;
+
+  const usual: number[] = [...GAME_MINUTES_CHOICES];
+  if (plan && !usual.includes(plan.minutes)) {
+    usual.push(plan.minutes);
+    usual.sort((left, right) => left - right);
+  }
+
   const choices =
-    teams.length === 2
-      ? [...GAME_MINUTES_CHOICES, INDEFINITE_GAME]
-      : [...GAME_MINUTES_CHOICES];
+    teams.length === 2 ? [...usual, INDEFINITE_GAME] : usual;
+  const onPlan = !!plan && match?.gameMinutes === plan.minutes;
   const byId = new Map((match?.players ?? []).map((one) => [one.id, one]));
   const busy = shuffle.pending || clear.pending || move.pending;
 
@@ -518,12 +535,26 @@ export function TeamsDialog({
                   {t.teams.minutesLine}
                   {teams.length === 2 ? t.teams.minutesTwoSides : ""}
                 </span>
+                {plan ? (
+                  <span
+                    className={cn(
+                      "mt-1 text-xs",
+                      onPlan ? "text-primary" : "text-amber-400",
+                    )}
+                  >
+                    {fill(onPlan ? t.teams.minutesFair : t.teams.minutesUnfair, {
+                      minutes: plan.minutes,
+                      games: plan.games,
+                    })}
+                  </span>
+                ) : null}
               </span>
 
               <span className="-mx-1 flex flex-wrap items-center gap-1">
                 {choices.map((minutes) => {
                   const picked = minutes === (match?.gameMinutes ?? -1);
                   const forever = minutes === INDEFINITE_GAME;
+                  const best = minutes === plan?.minutes;
 
                   return (
                     <button
@@ -549,6 +580,8 @@ export function TeamsDialog({
                         picked
                           ? "bg-primary/15 font-semibold text-primary"
                           : "text-muted-foreground hover:text-foreground",
+                        // The fair one wears a ring, picked or not.
+                        best && "ring-1 ring-primary/60",
                       )}
                     >
                       {forever ? (
