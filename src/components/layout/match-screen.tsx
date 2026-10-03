@@ -82,7 +82,8 @@ export async function loadScreenState(
         players,
         venues,
         matches,
-        isAdmin: role !== null,
+        // Everybody runs the sandbox: there is nothing real in it to protect.
+        isAdmin: role !== null || demo,
         isSuperAdmin: role === "superadmin",
         authEnabled: isAuthConfigured(),
         pinnedMatchId: slug && !demo ? (active?.id ?? null) : null,

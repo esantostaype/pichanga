@@ -3,15 +3,15 @@
 import { Cancel01Icon, CrownIcon, GloveIcon } from "@hugeicons/core-free-icons";
 
 import { TeamCrest } from "@/components/matches/team-crest";
-import { areaColor } from "@/components/players/area-badge";
 import { SkillAverage } from "@/components/players/skill-average";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { useLocale } from "@/components/providers/locale-provider";
-import { areaLabel, fill } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/dictionaries";
 import type { MatchTeam, Player } from "@/types";
 import { PaidMark } from "./paid-mark";
+import { categoryColor, categoryLabel } from "@/lib/age";
 
 /**
  * The lineup as a list, over the pitch rather than on it.
@@ -148,8 +148,8 @@ function Row({
   onRemove?: (player: Player) => void;
 }) {
   const { t } = useLocale();
-  const area = areaColor(player.area);
-  const ring = accent ?? area;
+  const tint = categoryColor(player.birthDate);
+  const ring = accent ?? tint;
 
   return (
     <li className="group/token flex items-center gap-2.5 rounded-xl border border-white/10 bg-black/60 px-2.5 py-2 backdrop-blur-sm">
@@ -196,9 +196,9 @@ function Row({
         <span className="flex items-center gap-1.5">
           <span
             className="truncate font-display text-xs uppercase leading-tight tracking-widest"
-            style={{ color: area }}
+            style={{ color: tint }}
           >
-            {areaLabel(player.area)}
+            {categoryLabel(player.birthDate)}
           </span>
           <SkillAverage player={player} accent={ring} />
         </span>
@@ -211,9 +211,9 @@ function Row({
             title={t.pitch.inGoal}
             className="grid size-6 place-items-center rounded-full border"
             style={{
-              color: accent ?? area,
-              borderColor: `${accent ?? area}66`,
-              backgroundColor: `color-mix(in oklab, ${accent ?? area} 22%, var(--background))`,
+              color: accent ?? tint,
+              borderColor: `${accent ?? tint}66`,
+              backgroundColor: `color-mix(in oklab, ${accent ?? tint} 22%, var(--background))`,
             }}
           >
             <Icon icon={GloveIcon} strokeWidth={2} />

@@ -1,0 +1,1 @@
+ALTER TABLE `players` ADD `birth_date` text;

@@ -95,39 +95,40 @@ if (Number(existing.rows[0].total) > 0 && !flag("force")) {
   process.exit(0);
 }
 
+/* Name and date of birth: the age category comes from the date. */
 const DEMO = [
-  ["Diego", "Maradona", "dev"],
-  ["Sophie", "Turner", "data"],
-  ["Martin", "Reed", "marketing"],
-  ["Camila", "Rojas", "it"],
-  ["Ivan", "Salazar", "sales"],
-  ["Valentina", "Cross", "design"],
-  ["Bruno", "Hale", "product"],
-  ["Lucy", "Harper", "finance"],
-  ["Thomas", "Vega", "operations"],
-  ["Anna", "Fields", "hr"],
-  ["Joaquin", "Silva", "support"],
-  ["Renata", "Poole", "management"],
+  ["Diego", "Maradona", "1988-03-14"],
+  ["Sophie", "Turner", "1995-07-02"],
+  ["Martin", "Reed", "1979-11-21"],
+  ["Camila", "Rojas", "2003-01-30"],
+  ["Ivan", "Salazar", "1990-05-18"],
+  ["Valentina", "Cross", "1984-09-09"],
+  ["Bruno", "Hale", "1998-12-05"],
+  ["Lucy", "Harper", "1972-04-27"],
+  ["Thomas", "Vega", "2009-06-11"],
+  ["Anna", "Fields", "1993-10-08"],
+  ["Joaquin", "Silva", "1981-02-16"],
+  ["Renata", "Poole", "2000-08-23"],
 ];
 
 const now = Date.now();
 
-const players = DEMO.map(([firstName, lastName, area], index) => ({
+const players = DEMO.map(([firstName, lastName, birthDate], index) => ({
   id: crypto.randomUUID(),
   firstName,
   lastName,
-  area,
+  birthDate,
   createdAt: now + index,
 }));
 
 await db.batch(
   players.map((player) => ({
-    sql: "insert into players (id, first_name, last_name, area, photo_url, photo_public_id, created_at) values (?, ?, ?, ?, null, null, ?)",
+    sql: "insert into players (id, first_name, last_name, birth_date, photo_url, photo_public_id, created_at) values (?, ?, ?, ?, null, null, ?)",
     args: [
       player.id,
       player.firstName,
       player.lastName,
-      player.area,
+      player.birthDate,
       player.createdAt,
     ],
   })),

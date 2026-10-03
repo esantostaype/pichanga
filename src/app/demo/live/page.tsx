@@ -6,7 +6,6 @@ import { SetupNotice } from "@/components/layout/setup-notice";
 import { PichangaProvider } from "@/components/providers/pichanga-provider";
 import { getMatchLive } from "@/db/queries";
 import { getDictionary } from "@/i18n/server";
-import { getRole } from "@/lib/session";
 import { SITE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -23,8 +22,6 @@ export async function generateMetadata() {
 
 /** Match night in the sandbox. The same screen, over the demo's own match. */
 export default async function DemoLivePage() {
-  if (!(await getRole())) notFound();
-
   const state = await loadScreenState(undefined, true);
 
   if ("missing" in state) notFound();

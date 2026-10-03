@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 /**
  * Wipes the sandbox and builds a fresh one.
  *
- * Behind the session, like the demo screen itself. It is destructive by design
+ * Open to everybody, like the demo screen itself. It is destructive by design
  * -- that is what a sandbox is for -- and it can only reach rows marked as the
  * demo's, so there is nothing real for it to take with it.
  */

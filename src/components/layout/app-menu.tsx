@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BirthdayCakeIcon,
   Calendar03Icon,
   Location01Icon,
   Login03Icon,
@@ -27,13 +28,19 @@ import { Icon } from "@/components/ui/icon";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
 
-export type PanelName = "matches" | "players" | "venues" | "stats";
+export type PanelName =
+  | "matches"
+  | "players"
+  | "venues"
+  | "stats"
+  | "birthdays";
 
 const PANELS: Array<{ name: PanelName; icon: typeof Calendar03Icon }> = [
   { name: "matches", icon: Calendar03Icon },
   { name: "players", icon: UserGroupIcon },
   { name: "venues", icon: Location01Icon },
   { name: "stats", icon: ChartLineData01Icon },
+  { name: "birthdays", icon: BirthdayCakeIcon },
 ];
 
 export function AppMenu({
@@ -121,7 +128,8 @@ export function AppMenu({
           </DropdownMenuItem>
         ) : null}
 
-        {isAdmin ? (
+        {/* The sandbox is everybody's: there is nothing to sign in to. */}
+        {demo ? null : isAdmin ? (
           <DropdownMenuItem onSelect={() => void signOut.run()}>
             <Icon icon={Logout03Icon} size={17} />
             <span className="font-medium">{t.menu.signOut}</span>

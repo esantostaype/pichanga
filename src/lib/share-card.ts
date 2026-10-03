@@ -1,6 +1,5 @@
 "use client";
 
-import { getArea } from "./constants";
 import { formatLongDate, formatTimeRange } from "./date";
 import { formatMoney, perPlayer } from "./money";
 import { thumbUrl } from "./media-url";
@@ -9,6 +8,7 @@ import { whereLabel } from "./venue";
 import { badgeFor } from "./teams";
 import { initialsOf } from "./utils";
 import type { Match, Player } from "@/types";
+import { categoryOf } from "./age";
 
 /**
  * The match, as one tall image to send to a chat.
@@ -285,7 +285,7 @@ export async function renderMatchCard(
     const photoX = x + 16;
     const photoY = top + (ROW_H - 14 - PHOTO) / 2;
     const { player, image } = entry;
-    const area = getArea(player.area);
+    const category = categoryOf(player.birthDate);
 
     ctx.save();
     circle(ctx, photoX, photoY, PHOTO);
@@ -309,8 +309,8 @@ export async function renderMatchCard(
 
     ctx.restore();
 
-    // The area colour as a ring, the way the pitch tokens are outlined.
-    ctx.strokeStyle = area.color;
+    // The age category colour as a ring, the way the pitch tokens are outlined.
+    ctx.strokeStyle = category.color;
     ctx.lineWidth = 3;
     circle(ctx, photoX, photoY, PHOTO);
     ctx.stroke();
@@ -346,9 +346,9 @@ export async function renderMatchCard(
       drawCrown(ctx, textX + ctx.measureText(name).width + 10, top + 32);
     }
 
-    ctx.fillStyle = area.color;
+    ctx.fillStyle = category.color;
     ctx.font = `500 22px "Sofia Sans", sans-serif`;
-    ctx.fillText(fit(ctx, area.label.toUpperCase(), textW), textX, top + 70);
+    ctx.fillText(fit(ctx, category.label.toUpperCase(), textW), textX, top + 70);
   });
 
   return new Promise<Blob>((resolve, reject) => {
@@ -761,7 +761,7 @@ export async function renderTeamsPreviewCard(
     side.players.forEach((player, seat) => {
       const rowTop = top + blockHead + seat * rowH;
       const image = photos.get(player.id) ?? null;
-      const area = getArea(player.area);
+      const category = categoryOf(player.birthDate);
       const photoX = x + 18;
       const photoY = rowTop + (rowH - photo) / 2 - 4;
 
@@ -787,8 +787,8 @@ export async function renderTeamsPreviewCard(
 
       ctx.restore();
 
-      // The area colour as a ring, the way the pitch tokens are outlined.
-      ctx.strokeStyle = area.color;
+      // The age category colour as a ring, the way the pitch tokens are outlined.
+      ctx.strokeStyle = category.color;
       ctx.lineWidth = 2.5;
       circle(ctx, photoX, photoY, photo);
       ctx.stroke();
@@ -822,10 +822,10 @@ export async function renderTeamsPreviewCard(
         rowTop + rowH / 2 - (tight ? 1 : 2),
       );
 
-      ctx.fillStyle = area.color;
+      ctx.fillStyle = category.color;
       ctx.font = `500 ${tight ? 15 : 17}px "Sofia Sans", sans-serif`;
       ctx.fillText(
-        fit(ctx, area.label.toUpperCase(), textW),
+        fit(ctx, category.label.toUpperCase(), textW),
         textX,
         rowTop + rowH / 2 + (tight ? 17 : 19),
       );

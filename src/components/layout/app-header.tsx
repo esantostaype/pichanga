@@ -9,6 +9,7 @@ import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/types";
 import { AppMenu, type PanelName } from "./app-menu";
+import { BirthdayNotice } from "./birthday-notice";
 import { Brand } from "./brand";
 import { MatchHudCard } from "./match-hud-card";
 
@@ -57,7 +58,7 @@ export function AppHeader({
     <div
       ref={hudRef}
       className={cn(
-        "pointer-events-none inset-x-0 top-0 z-40 p-2 md:p-4",
+        "pointer-events-none inset-x-0 top-0 z-40 flex flex-col gap-2 p-2 md:p-4",
         fixed ? "fixed" : "absolute",
       )}
     >
@@ -110,6 +111,9 @@ export function AppHeader({
           </div>
         ) : null}
       </div>
+
+      {/* Inside the week of somebody's birthday, and only then. */}
+      <BirthdayNotice onOpen={() => onSelectPanel("birthdays")} />
     </div>
   );
 }

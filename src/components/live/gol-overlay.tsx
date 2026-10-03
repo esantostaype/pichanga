@@ -49,7 +49,7 @@ export function GolOverlay({
   /** The face, which is the fastest way to know who it was. */
   player: Pick<Player, "firstName" | "lastName" | "photoUrl">;
   name: string;
-  /** Their area, the way their card shows it. */
+  /** Their age category, the way their card shows it. */
   role: string;
   accent: string;
 }) {

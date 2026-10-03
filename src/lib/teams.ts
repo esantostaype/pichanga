@@ -5,6 +5,7 @@ import {
   type PositionId,
 } from "./constants";
 import { TEAM_NAMES } from "./constants";
+import { categoryOf } from "./age";
 import type { Player } from "@/types";
 
 export type PlannedTeam = {
@@ -40,6 +41,24 @@ export function strengthOf(player: Player, role: PositionId = player.position) {
       total + (player.skills[skill.id] ?? SKILL_DEFAULT) * weights[skill.id],
     0,
   );
+}
+
+/**
+ * What the balancer weighs a player at: their skills, plus what their age is
+ * worth on the pitch.
+ *
+ * `strengthOf` is the number on their card and stays the skills alone -- that
+ * is what somebody rated. This is the one the teams are evened on, so a side
+ * of four Sub-15s and a side of four Libres with the same ratings stop looking
+ * equal to the draw: the `edge` of each age category (see `AGE_CATEGORIES`)
+ * nudges the figure, never by more than a skill point and usually by less.
+ */
+export function balanceStrength(
+  player: Player,
+  role: PositionId = player.position,
+  now = Date.now(),
+) {
+  return strengthOf(player, role) + categoryOf(player.birthDate, now).edge;
 }
 
 /**
@@ -82,12 +101,14 @@ export function teamCountFor(playerCount: number, teamSize: number) {
  * `seed` only decides ties, so the same squad always plans the same way and
  * "shuffle again" is a different seed rather than a different algorithm.
  *
- * `mixAreas` adds a second thing to aim at: nobody's floor stacked on one
- * side. Eight people from Dev and two from Design is four Devs against four
- * Devs however even the strengths look, and the whole point of playing on
- * Wednesday is talking to somebody you do not sit next to. Strength still
- * outweighs it -- the mix is worth about a tenth of a point of it -- so the
- * teams stay fair and stop being departmental.
+ * Strength here is `balanceStrength`: the skills and what the age is worth.
+ *
+ * `mixAges` adds a second thing to aim at: no age category stacked on one
+ * side. Four Másters on one team and four Sub-18s on the other can add up to
+ * the same strength and still be a different game -- one side running, the
+ * other one waiting for it. Strength still outweighs it -- the mix is worth
+ * about a tenth of a point of it -- so the teams stay fair and stop being
+ * generational.
  */
 export function planTeams(
   players: Player[],
@@ -95,12 +116,12 @@ export function planTeams(
     teamSize,
     teamCount,
     seed = 1,
-    mixAreas = false,
+    mixAges = false,
   }: {
     teamSize: number;
     teamCount?: number;
     seed?: number;
-    mixAreas?: boolean;
+    mixAges?: boolean;
   },
 ): TeamPlan {
   const count = Math.max(
@@ -111,6 +132,8 @@ export function planTeams(
     ),
   );
 
+  // One clock for the whole plan, so nobody changes category halfway through.
+  const now = Date.now();
   const random = mulberry32(seed);
   const sizes = shareOut(players.length, count);
   const squads: Player[][] = Array.from({ length: count }, () => []);
@@ -147,7 +170,12 @@ export function planTeams(
 
   const outfield = players
     .filter((player) => left.has(player.id))
-    .sort(compareBy((player) => strengthOf(player, fieldRole(player)), random));
+    .sort(
+      compareBy(
+        (player) => balanceStrength(player, fieldRole(player), now),
+        random,
+      ),
+    );
 
   let index = 0;
   let forwards = true;
@@ -211,7 +239,11 @@ export function planTeams(
     const total = squad.reduce(
       (sum, player) =>
         sum +
-        strengthOf(player, player.id === keeperId ? "gk" : fieldRole(player)),
+        balanceStrength(
+          player,
+          player.id === keeperId ? "gk" : fieldRole(player),
+          now,
+        ),
       0,
     );
 
@@ -238,7 +270,7 @@ export function planTeams(
           state.map((squad, team) =>
             averageStrength(squad, keepers[team]?.id ?? null),
           ),
-        ) + (mixAreas ? AREA_WEIGHT * areaImbalance(state) : 0);
+        ) + (mixAges ? AGE_MIX_WEIGHT * ageImbalance(state, now) : 0);
 
       let best: { a: number; b: number; i: number; j: number } | null = null;
       let bestSpread = cost(squads);
@@ -310,17 +342,20 @@ function shareOut(total: number, teams: number) {
 }
 
 /**
- * How lopsided the areas are across the teams.
+ * How lopsided the age categories are across the teams.
  *
- * Every head above an even share counts, squared, so one team with four of the
- * same floor scores worse than two teams with two each. Zero is a perfect mix
- * and there is no ceiling, which is why the weight below keeps it in its place.
+ * Every head above an even share counts, squared, so one team with four
+ * Masters scores worse than two teams with two each. Zero is a perfect mix and
+ * there is no ceiling, which is why the weight below keeps it in its place.
  */
-function areaImbalance(squads: Player[][]) {
+function ageImbalance(squads: Player[][], now: number) {
+  const categoryId = (player: Player) => categoryOf(player.birthDate, now).id;
+
   const total = new Map<string, number>();
   for (const squad of squads) {
     for (const player of squad) {
-      total.set(player.area, (total.get(player.area) ?? 0) + 1);
+      const id = categoryId(player);
+      total.set(id, (total.get(id) ?? 0) + 1);
     }
   }
 
@@ -329,11 +364,12 @@ function areaImbalance(squads: Player[][]) {
   for (const squad of squads) {
     const here = new Map<string, number>();
     for (const player of squad) {
-      here.set(player.area, (here.get(player.area) ?? 0) + 1);
+      const id = categoryId(player);
+      here.set(id, (here.get(id) ?? 0) + 1);
     }
 
-    for (const [area, count] of here) {
-      const share = (total.get(area) ?? 0) / squads.length;
+    for (const [id, count] of here) {
+      const share = (total.get(id) ?? 0) / squads.length;
       const over = count - share;
       if (over > 0) cost += over * over;
     }
@@ -344,12 +380,12 @@ function areaImbalance(squads: Player[][]) {
 
 /**
  * What a swap is judged on: the gap between the teams, plus a little of how
- * badly the areas are stacked.
+ * badly the age categories are stacked.
  *
  * A tenth of a point per unit of imbalance. Enough to break a tie between two
  * equally fair arrangements, never enough to make an unfair one win.
  */
-const AREA_WEIGHT = 0.1;
+const AGE_MIX_WEIGHT = 0.1;
 
 function spreadOf(strengths: number[]) {
   const real = strengths.filter((value) => value > 0);

@@ -165,13 +165,13 @@ export const api = {
     drawTeams: (
       id: string,
       seed: number,
-      mixAreas = false,
+      mixAges = true,
       /** Absent lets the turnout decide, which is what it always did. */
       teams?: number,
     ) =>
       request<Match>(`/api/matches/${id}/teams`, {
         method: "POST",
-        body: body({ seed, mixAreas, teams }),
+        body: body({ seed, mixAges, teams }),
       }),
     /** The whole arrangement at once, as somebody built it by hand. */
     setTeamsManually: (id: string, sides: string[][]) =>

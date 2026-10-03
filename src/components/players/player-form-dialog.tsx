@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,8 +29,14 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
-import { problem, skillLabel } from "@/i18n/dictionaries";
-import { AREAS, POSITIONS, SKILLS, SKILL_DEFAULT } from "@/lib/constants";
+import {
+  fill,
+  positionLabel,
+  problem,
+  skillLabel,
+} from "@/i18n/dictionaries";
+import { POSITIONS, SKILLS, SKILL_DEFAULT } from "@/lib/constants";
+import { categoryOf } from "@/lib/age";
 import { playerInputSchema } from "@/lib/validators";
 import type { Player } from "@/types";
 import { PhotoField } from "./photo-field";
@@ -38,7 +45,7 @@ import { SkillField } from "./skill-field";
 const formSchema = playerInputSchema.pick({
   firstName: true,
   lastName: true,
-  area: true,
+  birthDate: true,
   position: true,
   skills: true,
 });
@@ -112,14 +119,14 @@ function PlayerForm({
       ? {
           firstName: player.firstName,
           lastName: player.lastName,
-          area: player.area as FormValues["area"],
+          birthDate: player.birthDate ?? "",
           position: player.position,
           skills: player.skills as FormValues["skills"],
         }
       : {
           firstName: "",
           lastName: "",
-          area: "dev",
+          birthDate: "",
           position: "mid",
           // Average until somebody says otherwise, so a new player balances
           // into a team without anybody having to rate them first.
@@ -200,34 +207,40 @@ function PlayerForm({
         </Field>
       </div>
 
-      <Field label={t.players.area} error={problem(t, errors.area?.message)}>
+      <Field
+        label={t.players.birthday}
+        error={problem(t, errors.birthDate?.message)}
+      >
         <Controller
           control={form.control}
-          name="area"
-          render={({ field }) => (
-            <Select
-              value={field.value}
-              onValueChange={field.onChange}
-              disabled={pending}
-            >
-              <SelectTrigger aria-invalid={!!errors.area}>
-                <SelectValue placeholder={t.players.pickArea} />
-              </SelectTrigger>
-              <SelectContent>
-                {AREAS.map((area) => (
-                  <SelectItem key={area.id} value={area.id}>
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="size-2 rounded-full"
-                        style={{ backgroundColor: area.color }}
-                      />
-                      {area.label}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          name="birthDate"
+          render={({ field }) => {
+            const category = field.value ? categoryOf(field.value) : null;
+
+            return (
+              <div className="flex flex-col gap-1.5">
+                <DatePicker
+                  birthday
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={pending}
+                  invalid={!!errors.birthDate}
+                  placeholder={t.players.pickBirthday}
+                />
+                {/* The category it puts them in, so nobody has to work it out. */}
+                {category && category.id !== "unknown" ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span
+                      aria-hidden
+                      className="size-2 rounded-full"
+                      style={{ backgroundColor: category.color }}
+                    />
+                    {fill(t.players.categoryHint, { category: category.label })}
+                  </p>
+                ) : null}
+              </div>
+            );
+          }}
         />
       </Field>
 
@@ -250,7 +263,7 @@ function PlayerForm({
               <SelectContent>
                 {POSITIONS.map((position) => (
                   <SelectItem key={position.id} value={position.id}>
-                    {position.label}
+                    {positionLabel(t, position.id)}
                   </SelectItem>
                 ))}
               </SelectContent>

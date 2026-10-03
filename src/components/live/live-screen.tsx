@@ -29,6 +29,7 @@ import { VenuesDrawer } from "@/components/venues/venues-drawer";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { PlayersDrawer } from "@/components/players/players-drawer";
 import { StatsDrawer } from "@/components/stats/stats-drawer";
+import { BirthdaysDrawer } from "@/components/players/birthdays-drawer";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,11 +51,11 @@ import { useNow } from "@/hooks/use-now";
 import { useLocale } from "@/components/providers/locale-provider";
 import { useGoalSound } from "@/hooks/use-goal-sound";
 import { SkillAverage } from "@/components/players/skill-average";
-import { areaLabel, fill } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/dictionaries";
 import { useRealtime } from "@/hooks/use-realtime";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { api } from "@/lib/api-client";
-import { getArea, INDEFINITE_GAME } from "@/lib/constants";
+import { INDEFINITE_GAME } from "@/lib/constants";
 import { formatTimeRange } from "@/lib/date";
 import {
   currentGame,
@@ -73,6 +74,7 @@ import type {
   Player,
 } from "@/types";
 import { GOL_MS, GolOverlay } from "./gol-overlay";
+import { categoryLabel, categoryOf } from "@/lib/age";
 
 /** How often an unsaved goal tries again. The pitch has bad signal. */
 const RETRY_MS = 5_000;
@@ -211,7 +213,7 @@ export function LiveScreen({
       key: (shoutCount.current += 1),
       player: scorer,
       name: `${scorer.firstName} ${scorer.lastName}`,
-      role: getArea(scorer.area).label,
+      role: categoryOf(scorer.birthDate).label,
       accent: team?.accent ?? "#c6f432",
     });
   };
@@ -753,6 +755,11 @@ export function LiveScreen({
         onOpenChange={(next) => setPanel(next ? "stats" : null)}
       />
 
+      <BirthdaysDrawer
+        open={panel === "birthdays"}
+        onOpenChange={(next) => setPanel(next ? "birthdays" : null)}
+      />
+
       <PaymentsDialog
         open={paymentsOpen}
         onOpenChange={setPaymentsOpen}
@@ -1127,7 +1134,7 @@ function TeamSheet({
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="truncate font-display text-[0.8125rem] uppercase leading-tight tracking-widest text-muted-foreground">
-                        {areaLabel(player.area)}
+                        {categoryLabel(player.birthDate)}
                       </span>
                       <SkillAverage
                         player={player}

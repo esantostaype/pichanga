@@ -1,31 +1,88 @@
-/** Company areas. The stored value is the `id`. */
-export const AREAS = [
-  { id: "data", label: "Data", color: "#7dd3fc" },
-  { id: "dev", label: "Dev", color: "#c6f432" },
-  { id: "it", label: "IT", color: "#a78bfa" },
-  { id: "marketing", label: "Marketing", color: "#fb923c" },
-  { id: "sales", label: "Sales", color: "#f472b6" },
-  { id: "product", label: "Product", color: "#2dd4bf" },
-  { id: "design", label: "Design", color: "#fbbf24" },
-  { id: "finance", label: "Finance", color: "#34d399" },
-  { id: "hr", label: "HR", color: "#f87171" },
-  { id: "legal", label: "Legal", color: "#94a3b8" },
-  { id: "operations", label: "Operations", color: "#60a5fa" },
-  { id: "support", label: "Support", color: "#e879f9" },
-  { id: "management", label: "Management", color: "#facc15" },
-  /** Not from the office at all: somebody's friend, making up the numbers. */
-  { id: "guest", label: "Guest", color: "#d4d4d8" },
-  { id: "other", label: "Other", color: "#a1a1aa" },
+/**
+ * Age categories, the way the squad splits a league: Sub-15 (14 and under),
+ * Sub-18 (15 to 17), Libre (18 to 39), Máster (40 to 49) and Súper Máster
+ * (50 and over).
+ *
+ * Not stored. A player keeps their birthday and the category is worked out from
+ * it on the day, so nobody has to remember to move a forty-year-old into
+ * Máster -- the calendar does it. `from` is the age the category starts at
+ * (inclusive); each runs until the next one starts.
+ *
+ * The labels are the league's own words and stay the same in both languages,
+ * the same way a shirt number does. `edge` is what the age is worth on the
+ * pitch, on the 1-5 scale of a skill: the balancer adds it to a player's
+ * strength, so a side of teenagers or a side of Súper Másters is weighed as one.
+ * Small on purpose -- the skills still decide, the age only tips it.
+ */
+export const AGE_CATEGORIES = [
+  { id: "sub15", label: "Sub-15", from: 0, color: "#7dd3fc", edge: -0.4 },
+  { id: "sub18", label: "Sub-18", from: 15, color: "#2dd4bf", edge: -0.15 },
+  { id: "libre", label: "Libre", from: 18, color: "#c6f432", edge: 0 },
+  { id: "master", label: "Máster", from: 40, color: "#fb923c", edge: -0.15 },
+  {
+    id: "supermaster",
+    label: "Súper Máster",
+    from: 50,
+    color: "#f472b6",
+    edge: -0.4,
+  },
 ] as const;
 
-export type AreaId = (typeof AREAS)[number]["id"];
+/** A player with no birthday on file: neutral on the pitch, grey on screen. */
+export const UNKNOWN_CATEGORY = {
+  id: "unknown",
+  label: "—",
+  from: -1,
+  color: "#a1a1aa",
+  edge: 0,
+} as const;
 
-export const AREA_IDS = AREAS.map((a) => a.id) as [AreaId, ...AreaId[]];
+export type AgeCategory =
+  | (typeof AGE_CATEGORIES)[number]
+  | typeof UNKNOWN_CATEGORY;
 
-const AREA_MAP = new Map(AREAS.map((a) => [a.id, a]));
+/** The oldest anybody can be on the form; past this it is a typo. */
+export const MAX_AGE = 90;
 
-export function getArea(id: string) {
-  return AREA_MAP.get(id as AreaId) ?? AREAS[AREAS.length - 1];
+/** How close a birthday has to be for the app to say so. */
+export const BIRTHDAY_NOTICE_DAYS = 7;
+
+/**
+ * Whole years since `birthDate` ("yyyy-MM-dd") on the day `today` names, also
+ * "yyyy-MM-dd". Compared as dates, not milliseconds, so it turns over at
+ * midnight in the app's time zone and not at whatever hour somebody was born.
+ */
+export function ageOn(birthDate: string | null, today: string): number | null {
+  const born = parseDay(birthDate);
+  const now = parseDay(today);
+  if (!born || !now) return null;
+
+  const hadBirthday =
+    now.month > born.month ||
+    (now.month === born.month && now.day >= born.day);
+
+  return now.year - born.year - (hadBirthday ? 0 : 1);
+}
+
+export function categoryForAge(age: number | null): AgeCategory {
+  if (age === null || age < 0) return UNKNOWN_CATEGORY;
+
+  let found: AgeCategory = AGE_CATEGORIES[0];
+  for (const category of AGE_CATEGORIES) {
+    if (age >= category.from) found = category;
+  }
+  return found;
+}
+
+/** "yyyy-MM-dd" into its three numbers, or null when it is not one. */
+export function parseDay(value: string | null | undefined) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+  if (!match) return null;
+
+  const [year, month, day] = match.slice(1).map(Number);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+
+  return { year, month, day };
 }
 
 /**

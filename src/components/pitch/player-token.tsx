@@ -8,7 +8,6 @@ import {
 } from "@hugeicons/core-free-icons";
 import { memo, useEffect, useRef, useState } from "react";
 
-import { areaColor } from "@/components/players/area-badge";
 import { SkillAverage } from "@/components/players/skill-average";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { Icon } from "@/components/ui/icon";
@@ -18,11 +17,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useLocale } from "@/components/providers/locale-provider";
-import { areaLabel, fill } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/dictionaries";
 import { clamp, cn, shortName } from "@/lib/utils";
 import type { Player } from "@/types";
 import { Spinner } from "@/components/ui/spinner";
 import { PaidMark } from "./paid-mark";
+import { categoryColor, categoryLabel } from "@/lib/age";
 
 /** Matches `.animate-paid-stamp` in globals.css. */
 const STAMP_MS = 900;
@@ -36,7 +36,7 @@ type PlayerTokenProps = {
   /** Marks the match organizer, who wears the crown. */
   isOrganizer?: boolean;
   /**
-   * The colour of the side they were drawn into. Given, it replaces the area
+   * The colour of the side they were drawn into. Given, it replaces the category
    * colour around the photo: once the teams exist, which team somebody is on
    * matters more than which floor they sit on.
    */
@@ -60,7 +60,7 @@ type PlayerTokenProps = {
 };
 
 /**
- * Pitch token: circular photo above a plate with the name and the area.
+ * Pitch token: circular photo above a plate with the name and the age category.
  * Every measurement derives from `size` so it scales with the device and with
  * how many players are on the pitch.
  */
@@ -79,7 +79,7 @@ function PlayerTokenBase({
   keeperPending,
 }: PlayerTokenProps) {
   const { t } = useLocale();
-  const color = accent ?? areaColor(player.area);
+  const color = accent ?? categoryColor(player.birthDate);
   // Low floors so a very large squad shrinks the labels instead of spilling
   // them outside the plate.
   const nameSize = clamp(size * 0.21, 6.5, 18);
@@ -303,7 +303,7 @@ function PlayerTokenBase({
             {shortName(player.firstName, player.lastName)}
           </p>
           {/*
-            Area and number on one line, because the plate is as wide as the
+            Category and number on one line, because the plate is as wide as the
             token and a second stacked row eats the space the name needs.
           */}
           <span className="mt-1 flex items-center justify-center gap-1">
@@ -311,7 +311,7 @@ function PlayerTokenBase({
               className="truncate font-display uppercase leading-none tracking-widest text-foreground"
               style={{ fontSize: areaSize, color }}
             >
-              {areaLabel(player.area)}
+              {categoryLabel(player.birthDate)}
             </span>
             <SkillAverage
               player={player}

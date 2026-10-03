@@ -9,7 +9,7 @@ import {
 import { useLocale } from "@/components/providers/locale-provider";
 import { Icon } from "@/components/ui/icon";
 import { skillLabel } from "@/i18n/dictionaries";
-import { getArea, TEAM_NAMES } from "@/lib/constants";
+import { AGE_CATEGORIES, TEAM_NAMES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,14 +30,18 @@ const LIME = "#c6f432";
 /*                          one: the pitch fills up                           */
 /* -------------------------------------------------------------------------- */
 
-/* Whoever turns up, in the colour of the area they turned up from. */
+/** The colour a category is drawn in on the pitch. */
+const tint = (id: string) =>
+  AGE_CATEGORIES.find((category) => category.id === id)?.color ?? "#a1a1aa";
+
+/* Whoever turns up, in the colour of their age category. */
 const ARRIVING = [
-  { left: "24%", top: "34%", area: "dev", delay: "0s" },
-  { left: "50%", top: "24%", area: "design", delay: "0.4s" },
-  { left: "76%", top: "34%", area: "data", delay: "0.8s" },
-  { left: "32%", top: "62%", area: "sales", delay: "1.2s" },
-  { left: "68%", top: "62%", area: "product", delay: "1.6s" },
-  { left: "50%", top: "76%", area: "marketing", delay: "2s" },
+  { left: "24%", top: "34%", category: "libre", delay: "0s" },
+  { left: "50%", top: "24%", category: "master", delay: "0.4s" },
+  { left: "76%", top: "34%", category: "sub15", delay: "0.8s" },
+  { left: "32%", top: "62%", category: "supermaster", delay: "1.2s" },
+  { left: "68%", top: "62%", category: "sub18", delay: "1.6s" },
+  { left: "50%", top: "76%", category: "libre", delay: "2s" },
 ];
 
 export function SceneLineup() {
@@ -48,7 +52,7 @@ export function SceneLineup() {
       {ARRIVING.map((spot) => (
         <Token
           key={spot.left + spot.top}
-          colour={getArea(spot.area).color}
+          colour={tint(spot.category)}
           className="tour-arrive size-8 md:size-10"
           style={{ left: spot.left, top: spot.top, animationDelay: spot.delay }}
         />
@@ -57,7 +61,7 @@ export function SceneLineup() {
   );
 }
 
-/** A player as the pitch draws one: a ring in the colour of their area. */
+/** A player as the pitch draws one: a ring in the colour of their category. */
 function Token({
   colour,
   className,
@@ -99,14 +103,14 @@ const SIDES = [TEAM_NAMES[0], TEAM_NAMES[2], TEAM_NAMES[4]];
  * colours running down the two cards are the colours scattered on the grass.
  */
 const SQUAD = [
-  { left: "20%", top: "28%", area: "dev", side: 0 },
-  { left: "44%", top: "20%", area: "design", side: 1 },
-  { left: "72%", top: "26%", area: "data", side: 0 },
-  { left: "86%", top: "48%", area: "sales", side: 1 },
-  { left: "14%", top: "56%", area: "product", side: 1 },
-  { left: "38%", top: "50%", area: "marketing", side: 0 },
-  { left: "62%", top: "62%", area: "finance", side: 1 },
-  { left: "30%", top: "78%", area: "it", side: 0 },
+  { left: "20%", top: "28%", category: "libre", side: 0 },
+  { left: "44%", top: "20%", category: "master", side: 1 },
+  { left: "72%", top: "26%", category: "sub15", side: 0 },
+  { left: "86%", top: "48%", category: "supermaster", side: 1 },
+  { left: "14%", top: "56%", category: "sub18", side: 1 },
+  { left: "38%", top: "50%", category: "libre", side: 0 },
+  { left: "62%", top: "62%", category: "sub15", side: 1 },
+  { left: "30%", top: "78%", category: "libre", side: 0 },
 ];
 
 export function SceneTeams() {
@@ -124,8 +128,8 @@ export function SceneTeams() {
 
         {SQUAD.map((spot) => (
           <Token
-            key={spot.area}
-            colour={getArea(spot.area).color}
+            key={spot.left + spot.top}
+            colour={tint(spot.category)}
             className="size-7 md:size-8"
             style={{ left: spot.left, top: spot.top }}
           />
@@ -169,15 +173,15 @@ export function SceneTeams() {
 
             {SQUAD.filter((spot) => spot.side === index).map((spot, row) => (
               <span
-                key={spot.area}
+                key={spot.left + spot.top}
                 className="tour-slot flex items-center gap-1.5"
                 style={{ animationDelay: `${row * 0.07}s` }}
               >
                 <span
                   className="size-4 shrink-0 rounded-full border"
                   style={{
-                    borderColor: getArea(spot.area).color,
-                    backgroundColor: `color-mix(in oklab, ${getArea(spot.area).color} 25%, black)`,
+                    borderColor: tint(spot.category),
+                    backgroundColor: `color-mix(in oklab, ${tint(spot.category)} 25%, black)`,
                   }}
                 />
                 <span className="h-1.5 min-w-0 flex-1 rounded bg-white/25" />

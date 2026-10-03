@@ -78,7 +78,7 @@ export function TeamsPreviewDialog({
    * away. "Another draw" is the button for a different one.
    */
   const [seed, setSeed] = useState(newSeed);
-  const [mixAreas, setMixAreas] = useState(false);
+  const [mixAges, setMixAges] = useState(true);
   const [sharing, setSharing] = useState(false);
 
   // Only for the countdown, so a minute is as fine a tick as it gets.
@@ -98,7 +98,7 @@ export function TeamsPreviewDialog({
   const sides = useMemo(() => {
     if (!players || players.length < 4) return [];
 
-    const plan = planTeams(players, { teamSize, seed, mixAreas });
+    const plan = planTeams(players, { teamSize, seed, mixAges });
     const names = pickNames(plan.teams.length, seed);
 
     return plan.teams.map((team, index) => ({
@@ -106,7 +106,7 @@ export function TeamsPreviewDialog({
       name: names[index].name,
       accent: names[index].accent,
     }));
-  }, [players, teamSize, seed, mixAreas]);
+  }, [players, teamSize, seed, mixAges]);
 
   const opensAt = match ? match.playedAt - TEAMS_OPEN_MS : null;
   const when =
@@ -247,7 +247,7 @@ export function TeamsPreviewDialog({
           </p>
 
           <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
-            <Switch checked={mixAreas} onCheckedChange={setMixAreas} />
+            <Switch checked={mixAges} onCheckedChange={setMixAges} />
             <span className="flex flex-col">
               <span className="text-sm font-medium">{t.teams.mixTitle}</span>
               <span className="text-xs text-muted-foreground">

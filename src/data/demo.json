@@ -12,7 +12,8 @@
     {
       "firstName": "Maximo",
       "lastName": "Guzman",
-      "area": "data",
+      "turns": 38,
+      "birthdayIn": 45,
       "position": "gk",
       "photoUrl": "/api/demo/avatar/men-0",
       "skills": {
@@ -27,7 +28,8 @@
     {
       "firstName": "Erick",
       "lastName": "Santos",
-      "area": "dev",
+      "turns": 33,
+      "birthdayIn": 0,
       "position": "def",
       "photoUrl": "/api/demo/avatar/men-1",
       "skills": {
@@ -42,7 +44,8 @@
     {
       "firstName": "Joaquin",
       "lastName": "Angeles",
-      "area": "it",
+      "turns": 16,
+      "birthdayIn": 120,
       "position": "def",
       "photoUrl": "/api/demo/avatar/men-2",
       "skills": {
@@ -57,7 +60,8 @@
     {
       "firstName": "Adrian",
       "lastName": "Zavaleta",
-      "area": "marketing",
+      "turns": 27,
+      "birthdayIn": 210,
       "position": "mid",
       "photoUrl": null,
       "skills": {
@@ -72,7 +76,8 @@
     {
       "firstName": "Victor",
       "lastName": "Amaya",
-      "area": "sales",
+      "turns": 41,
+      "birthdayIn": 3,
       "position": "mid",
       "photoUrl": "/api/demo/avatar/men-4",
       "skills": {
@@ -87,7 +92,8 @@
     {
       "firstName": "Alfredo",
       "lastName": "Saira",
-      "area": "product",
+      "turns": 19,
+      "birthdayIn": 300,
       "position": "fwd",
       "photoUrl": "/api/demo/avatar/men-5",
       "skills": {
@@ -102,7 +108,8 @@
     {
       "firstName": "Cristian",
       "lastName": "Maldonado",
-      "area": "design",
+      "turns": 52,
+      "birthdayIn": 75,
       "position": "gk",
       "photoUrl": "/api/demo/avatar/men-6",
       "skills": {
@@ -117,7 +124,8 @@
     {
       "firstName": "Emilio",
       "lastName": "Cardenas",
-      "area": "finance",
+      "turns": 47,
+      "birthdayIn": 160,
       "position": "def",
       "photoUrl": null,
       "skills": {
@@ -132,7 +140,8 @@
     {
       "firstName": "Diego",
       "lastName": "Villalobos",
-      "area": "hr",
+      "turns": 24,
+      "birthdayIn": 30,
       "position": "def",
       "photoUrl": "/api/demo/avatar/men-8",
       "skills": {
@@ -147,7 +156,8 @@
     {
       "firstName": "Luis",
       "lastName": "Bermudez",
-      "area": "legal",
+      "turns": 36,
+      "birthdayIn": 250,
       "position": "mid",
       "photoUrl": "/api/demo/avatar/men-9",
       "skills": {
@@ -162,7 +172,8 @@
     {
       "firstName": "Marco",
       "lastName": "Ferreyra",
-      "area": "operations",
+      "turns": 58,
+      "birthdayIn": 95,
       "position": "mid",
       "photoUrl": "/api/demo/avatar/men-10",
       "skills": {
@@ -177,7 +188,8 @@
     {
       "firstName": "Sergio",
       "lastName": "Palacios",
-      "area": "support",
+      "turns": 22,
+      "birthdayIn": 5,
       "position": "fwd",
       "photoUrl": null,
       "skills": {
@@ -192,7 +204,8 @@
     {
       "firstName": "Bruno",
       "lastName": "Carranza",
-      "area": "management",
+      "turns": 44,
+      "birthdayIn": 340,
       "position": "gk",
       "photoUrl": "/api/demo/avatar/men-12",
       "skills": {
@@ -207,7 +220,8 @@
     {
       "firstName": "Ivan",
       "lastName": "Rojas",
-      "area": "guest",
+      "turns": 17,
+      "birthdayIn": 60,
       "position": "def",
       "photoUrl": "/api/demo/avatar/men-13",
       "skills": {
@@ -222,7 +236,8 @@
     {
       "firstName": "Pablo",
       "lastName": "Quiroz",
-      "area": "other",
+      "turns": 29,
+      "birthdayIn": 185,
       "position": "mid",
       "photoUrl": "/api/demo/avatar/men-14",
       "skills": {
@@ -237,7 +252,8 @@
     {
       "firstName": "Hugo",
       "lastName": "Lazo",
-      "area": "data",
+      "turns": 14,
+      "birthdayIn": 270,
       "position": "fwd",
       "photoUrl": null,
       "skills": {
@@ -252,7 +268,8 @@
     {
       "firstName": "Ruben",
       "lastName": "Tapia",
-      "area": "dev",
+      "turns": 31,
+      "birthdayIn": 15,
       "position": "def",
       "photoUrl": "/api/demo/avatar/men-16",
       "skills": {
@@ -267,7 +284,8 @@
     {
       "firstName": "Tomas",
       "lastName": "Escobar",
-      "area": "it",
+      "turns": 61,
+      "birthdayIn": 225,
       "position": "mid",
       "photoUrl": "/api/demo/avatar/men-17",
       "skills": {

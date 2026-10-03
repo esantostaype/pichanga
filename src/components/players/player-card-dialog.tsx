@@ -3,9 +3,7 @@
 import { PencilEdit02Icon, UserStar01Icon } from "@hugeicons/core-free-icons";
 
 import { useLocale } from "@/components/providers/locale-provider";
-import { areaColor } from "@/components/players/area-badge";
 import {
-  areaLabel,
   fill,
   positionLabel,
   skillLabel,
@@ -20,6 +18,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
+import {
+  ageOf,
+  categoryColor,
+  categoryLabel,
+  formatBirthday,
+} from "@/lib/age";
 import { SKILLS, SKILL_MAX, SKILL_MIN } from "@/lib/constants";
 import { strengthOf } from "@/lib/teams";
 import type { Player } from "@/types";
@@ -28,9 +32,9 @@ import type { Player } from "@/types";
  * A player, as the card they would be if this were a game.
  *
  * Everything on it is already in the app somewhere -- the photo in the lineup,
- * the area on the pitch, the skills in the edit form -- but scattered across
+ * the category on the pitch, the skills in the edit form -- but scattered across
  * three screens and one of them a form. Gathered onto one card in the colour of
- * their area, with the shape of their six skills drawn out, it is the only
+ * their category, with the shape of their six skills drawn out, it is the only
  * place that answers "what is this person actually like on a pitch".
  *
  * The overall in the corner is the same number the balancer uses, weighed by
@@ -51,10 +55,12 @@ export function PlayerCardDialog({
   /** Shown as a pencil on the card when there is somewhere to go. */
   onEdit?: (player: Player) => void;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   if (!player) return null;
 
-  const color = areaColor(player.area);
+  const age = ageOf(player.birthDate);
+
+  const color = categoryColor(player.birthDate);
   const overall = strengthOf(player);
 
   return (
@@ -65,14 +71,14 @@ export function PlayerCardDialog({
           {player.firstName} {player.lastName}
         </DialogTitle>
         <DialogDescription className="sr-only">
-          {positionLabel(t, player.position)} · {areaLabel(player.area)} ·{" "}
+          {positionLabel(t, player.position)} · {categoryLabel(player.birthDate)} ·{" "}
           {fill(t.players.overall, { value: overall.toFixed(1) })}
         </DialogDescription>
 
         <div
           className="relative px-6 pb-6 pt-8"
           style={{
-            // The area colour bleeds down from the top and gives out before the
+            // The category colour bleeds down from the top and gives out before the
             // skills, so the card is tinted rather than painted.
             background: `linear-gradient(180deg, ${color}2e 0%, ${color}0f 38%, transparent 72%)`,
           }}
@@ -109,8 +115,14 @@ export function PlayerCardDialog({
                 className="mt-2 font-display text-xs uppercase tracking-[0.2em]"
                 style={{ color }}
               >
-                {areaLabel(player.area)}
+                {categoryLabel(player.birthDate)}
+                {age !== null ? ` · ${fill(t.players.age, { age })}` : null}
               </p>
+              {player.birthDate ? (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {formatBirthday(player.birthDate, locale)}
+                </p>
+              ) : null}
             </div>
 
             {/* The overall, where a card always puts it. */}

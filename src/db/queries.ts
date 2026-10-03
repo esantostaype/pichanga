@@ -20,7 +20,7 @@ import {
   MATCH_GRACE_MS,
 } from "@/lib/constants";
 import DEMO from "@/data/demo.json";
-import { matchSlug } from "@/lib/date";
+import { matchSlug, toDateInput } from "@/lib/date";
 import type {
   MatchInput,
   MediaInput,
@@ -44,9 +44,9 @@ import type { Stats } from "@/lib/stats";
 import {
   balanceMoves,
   pickKeeper,
+  balanceStrength,
   pickNames,
   planTeams,
-  strengthOf,
 } from "@/lib/teams";
 import {
   matchGames,
@@ -76,7 +76,7 @@ const toPlayer = (row: PlayerRow): Player => ({
   id: row.id,
   firstName: row.firstName,
   lastName: row.lastName,
-  area: row.area,
+  birthDate: row.birthDate,
   photoUrl: row.photoUrl,
   photoPublicId: row.photoPublicId,
   position: row.position as Player["position"],
@@ -315,7 +315,7 @@ export async function getPlayer(id: string): Promise<Player | null> {
 const playerValues = (input: PlayerInput) => ({
   firstName: input.firstName,
   lastName: input.lastName,
-  area: input.area,
+  birthDate: input.birthDate,
   photoUrl: input.photoUrl ?? null,
   photoPublicId: input.photoPublicId ?? null,
   position: input.position,
@@ -941,7 +941,7 @@ async function placeNewcomers(matchId: string, playerIds: string[]) {
 
   const worth = (squad: typeof lineup) =>
     squad.reduce(
-      (total, entry) => total + strengthOf(toPlayer(entry.player)),
+      (total, entry) => total + balanceStrength(toPlayer(entry.player)),
       0,
     );
 
@@ -996,7 +996,7 @@ async function placeNewcomers(matchId: string, playerIds: string[]) {
 export async function drawTeams(
   matchId: string,
   seed: number,
-  mixAreas = false,
+  mixAges = true,
   /** How many sides, when the squad has asked for a number of its own. */
   teamCount?: number,
 ): Promise<Match | null> {
@@ -1014,7 +1014,7 @@ export async function drawTeams(
 
   const plan = planTeams(
     lineup.map((entry) => toPlayer(entry.player)),
-    { teamSize, teamCount, seed, mixAreas },
+    { teamSize, teamCount, seed, mixAges },
   );
 
   const names = pickNames(plan.teams.length, seed);
@@ -1304,6 +1304,8 @@ export async function getStats(demo = false): Promise<Stats> {
  * history with its own teams, goals and table.
  */
 export async function ensureDemo(): Promise<Match> {
+  await backfillDemoBirthdays();
+
   const [existing] = await db
     .select()
     .from(matches)
@@ -1377,7 +1379,7 @@ export async function ensureDemo(): Promise<Match> {
       DEMO.squad.map((one) => ({
         firstName: one.firstName,
         lastName: one.lastName,
-        area: one.area,
+        birthDate: demoBirthDate(one.turns, one.birthdayIn),
         position: one.position,
         // Faces, through this app's own proxy so the share card can draw them.
         // Some go without, which is what the real squad looks like and what
@@ -1399,6 +1401,51 @@ export async function ensureDemo(): Promise<Match> {
     squad[0].id,
     squad.map((player) => player.id),
   );
+}
+
+/**
+ * Gives the sandbox squad the birthdays it was seeded without.
+ *
+ * The demo players are reused, never reseeded, so the ones made before birthdays
+ * existed would stay without an age category for good. Matched by name against
+ * `demo.json`; a player renamed in the sandbox simply keeps going without one.
+ * Costs one select once everybody has a date.
+ */
+async function backfillDemoBirthdays() {
+  const missing = await db
+    .select({
+      id: players.id,
+      firstName: players.firstName,
+      lastName: players.lastName,
+    })
+    .from(players)
+    .where(and(eq(players.isDemo, true), isNull(players.birthDate)));
+
+  for (const one of missing) {
+    const seed = DEMO.squad.find(
+      (entry) =>
+        entry.firstName === one.firstName && entry.lastName === one.lastName,
+    );
+    if (!seed) continue;
+
+    await db
+      .update(players)
+      .set({ birthDate: demoBirthDate(seed.turns, seed.birthdayIn) })
+      .where(eq(players.id, one.id));
+  }
+}
+
+/**
+ * A birthday for a sandbox player, counted from today.
+ *
+ * The demo file says how old somebody turns and how many days away that is,
+ * rather than a date: a fixed date would drift out of the coming week within a
+ * week of being written, and the birthday notice is one of the things the
+ * sandbox is there to show. Rebuilding the demo puts them back in range.
+ */
+function demoBirthDate(turns: number, birthdayIn: number) {
+  const next = toDateInput(Date.now() + birthdayIn * 24 * 60 * 60 * 1000);
+  return `${Number(next.slice(0, 4)) - turns}${next.slice(4)}`;
 }
 
 /**
@@ -1717,7 +1764,7 @@ async function balanceSides(matchId: string) {
         .filter((entry) => entry.teamId === team.id)
         .map((entry) => ({
           id: entry.player.id,
-          strength: strengthOf(
+          strength: balanceStrength(
             toPlayer(entry.player),
             entry.isKeeper ? "gk" : undefined,
           ),

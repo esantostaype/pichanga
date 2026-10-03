@@ -35,16 +35,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { areaLabel, fill } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/dictionaries";
 import { useAction } from "@/hooks/use-action";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { normalize } from "@/lib/utils";
 import type { Player } from "@/types";
-import { AreaBadge } from "./area-badge";
+import { CategoryBadge } from "./category-badge";
 import { SkillAverage } from "./skill-average";
 import { PlayerAvatar } from "./player-avatar";
 import { PlayerCardDialog } from "./player-card-dialog";
 import { PlayerFormDialog } from "./player-form-dialog";
+import { categoryLabel } from "@/lib/age";
 
 export function PlayersDrawer({
   open,
@@ -72,7 +73,7 @@ export function PlayersDrawer({
 
     return players.filter((player) =>
       normalize(
-        `${player.firstName} ${player.lastName} ${areaLabel(player.area)}`,
+        `${player.firstName} ${player.lastName} ${categoryLabel(player.birthDate)}`,
       ).includes(needle),
     );
   }, [players, query]);
@@ -187,7 +188,7 @@ export function PlayersDrawer({
                         />
                       </TableHead>
                       <TableHead>{t.stats.player}</TableHead>
-                      <TableHead>{t.players.area}</TableHead>
+                      <TableHead>{t.players.category}</TableHead>
                       <TableHead className="w-24 text-right">
                         {t.common.actions}
                       </TableHead>
@@ -225,7 +226,7 @@ export function PlayersDrawer({
                         </TableCell>
                         <TableCell>
                           <span className="flex items-center gap-2">
-                            <AreaBadge area={player.area} />
+                            <CategoryBadge birthDate={player.birthDate} />
                             <SkillAverage player={player} />
                           </span>
                         </TableCell>

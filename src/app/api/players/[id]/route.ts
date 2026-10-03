@@ -30,7 +30,7 @@ export async function PATCH(request: Request, { params }: Context) {
     }
 
     await broadcast(REALTIME.events.playersChanged, { id });
-    // Tokens show photo and area, so the pitch is affected too.
+    // Tokens show photo and age category, so the pitch is affected too.
     await broadcast(REALTIME.events.lineupChanged, { playerId: id });
 
     return json(player);

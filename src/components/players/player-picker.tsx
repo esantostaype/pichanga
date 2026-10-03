@@ -11,12 +11,12 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { Input } from "@/components/ui/input";
-import { areaLabel } from "@/i18n/dictionaries";
 import { cn, normalize } from "@/lib/utils";
 import type { Player } from "@/types";
-import { AreaBadge } from "./area-badge";
+import { CategoryBadge } from "./category-badge";
 import { SkillAverage } from "./skill-average";
 import { PlayerAvatar } from "./player-avatar";
+import { categoryLabel } from "@/lib/age";
 
 type PlayerPickerProps = {
   players: Player[];
@@ -47,7 +47,7 @@ export function PlayerPicker({
 
     return players.filter((player) =>
       normalize(
-        `${player.firstName} ${player.lastName} ${areaLabel(player.area)}`,
+        `${player.firstName} ${player.lastName} ${categoryLabel(player.birthDate)}`,
       ).includes(needle),
     );
   }, [players, query]);
@@ -61,7 +61,7 @@ export function PlayerPicker({
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={t.players.searchByNameOrArea}
+          placeholder={t.players.searchByNameOrCategory}
           className="pl-9"
         />
       </div>
@@ -104,7 +104,7 @@ export function PlayerPicker({
                         {player.firstName} {player.lastName}
                       </span>
                       <span className="mt-0.5 flex items-center gap-2">
-                        <AreaBadge area={player.area} />
+                        <CategoryBadge birthDate={player.birthDate} />
                         <SkillAverage player={player} />
                       </span>
                     </span>

@@ -5,6 +5,7 @@ import { loadScreenState } from "@/components/layout/match-screen";
 import { SetupNotice } from "@/components/layout/setup-notice";
 import { PichangaProvider } from "@/components/providers/pichanga-provider";
 import { getMatchLive } from "@/db/queries";
+import { getDictionary, getLocale } from "@/i18n/server";
 import { formatShortDate } from "@/lib/date";
 import { SITE } from "@/lib/site";
 
@@ -14,12 +15,16 @@ type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
-  const state = await loadScreenState(slug);
+  const [state, locale, t] = await Promise.all([
+    loadScreenState(slug),
+    getLocale(),
+    getDictionary(),
+  ]);
 
   return {
     title:
       "data" in state && state.data.nextMatch
-        ? `${formatShortDate(state.data.nextMatch.playedAt)} live - ${SITE.name}`
+        ? `${formatShortDate(state.data.nextMatch.playedAt, locale)} ${t.hud.live} - ${SITE.name}`
         : SITE.title,
   };
 }

@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 import {
-  AREA_IDS,
+  MAX_AGE,
+  ageOn,
   PITCH_FORMATS,
   POSITION_IDS,
   SKILL_MAX,
@@ -40,7 +41,28 @@ const name = z.string().trim().min(2, "form.tooShort").max(40, "form.tooLong");
 export const playerInputSchema = z.object({
   firstName: name,
   lastName: name,
-  area: z.enum(AREA_IDS, { message: "players.pickArea" }),
+  /*
+   * A real day, in the past, and not so far back it is a typo. Checked against
+   * today in UTC rather than the app's zone: a server has no business holding
+   * a birthday back by a few hours.
+   */
+  birthDate: z.string().superRefine((value, ctx) => {
+    if (!value) {
+      ctx.addIssue({ code: "custom", message: "players.pickBirthday" });
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const age = ageOn(value, today);
+    // 31 February parses into three numbers; it is still not a day.
+    const real =
+      age !== null &&
+      new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+
+    if (!real || age < 0 || age > MAX_AGE) {
+      ctx.addIssue({ code: "custom", message: "players.badBirthday" });
+    }
+  }),
   photoUrl: z.string().url().nullable().optional(),
   photoPublicId: z.string().nullable().optional(),
   position: z.enum(POSITION_IDS, { message: "players.pickPosition" }),
@@ -174,8 +196,8 @@ export const teamDrawInputSchema = z.object({
     .int()
     .min(0)
     .max(2 ** 31 - 1),
-  /** Spread the floors across the sides as well as the strength. */
-  mixAreas: z.boolean().optional(),
+  /** Spread the age categories across the sides as well as the strength. */
+  mixAges: z.boolean().optional(),
   /**
    * How many sides. Absent means the turnout decides, which is what it did
    * before anybody could ask for a number -- six on a seven-a-side pitch is

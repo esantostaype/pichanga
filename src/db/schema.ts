@@ -29,7 +29,8 @@ export const players = sqliteTable(
     id: id(),
     firstName: text("first_name").notNull(),
     lastName: text("last_name").notNull(),
-    area: text("area").notNull(),
+    /** "yyyy-MM-dd". Their age category is worked out from it, never stored. */
+    birthDate: text("birth_date"),
     photoUrl: text("photo_url"),
     photoPublicId: text("photo_public_id"),
     /** Where they want to play: gk, def, mid or fwd. */

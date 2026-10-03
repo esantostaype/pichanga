@@ -7,7 +7,7 @@ import {
   PaymentSuccess01Icon,
 } from "@hugeicons/core-free-icons";
 
-import { AreaBadge } from "@/components/players/area-badge";
+import { CategoryBadge } from "@/components/players/category-badge";
 import { SkillAverage } from "@/components/players/skill-average";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { usePichanga } from "@/components/providers/pichanga-provider";
@@ -215,7 +215,7 @@ export function PaymentsDialog({
                       {player.firstName} {player.lastName}
                     </span>
                     <span className="flex items-center gap-2">
-                      <AreaBadge area={player.area} />
+                      <CategoryBadge birthDate={player.birthDate} />
                       <SkillAverage player={player} />
                     </span>
                   </span>

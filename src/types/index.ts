@@ -4,7 +4,11 @@ export type Player = {
   id: string;
   firstName: string;
   lastName: string;
-  area: string;
+  /**
+   * "yyyy-MM-dd". The age category on their card comes from it, and so does
+   * the birthday notice. Null only for a profile nobody has finished.
+   */
+  birthDate: string | null;
   photoUrl: string | null;
   photoPublicId: string | null;
   /** Where they want to play, which is also how their strength is weighed. */

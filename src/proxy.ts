@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { isDemoWrite } from "@/db/demo-guard";
 import { DICTIONARIES } from "@/i18n/dictionaries";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale } from "@/i18n/locale";
 import { SESSION_COOKIE, verifySessionToken, type Role } from "@/lib/auth";
@@ -10,6 +11,9 @@ import { SESSION_COOKIE, verifySessionToken, type Role } from "@/lib/auth";
  * A guest can read everything and fully manage *players* and the *lineup*:
  * that is the part of the app the whole office touches. Matches and venues are
  * the fixture itself, so creating or changing them needs the admin session.
+ *
+ * The sandbox is the exception: `/demo` is open to everybody, so a write that
+ * only lands on demo rows needs no session at all (see `isDemoWrite`).
  *
  * In Next 16 this file convention is `proxy`, not `middleware`.
  */
@@ -117,6 +121,11 @@ export async function proxy(request: NextRequest) {
   );
 
   if (role && allows(role, required)) return NextResponse.next();
+
+  // Anybody may do anything to the sandbox, and only to the sandbox.
+  if (!protectedRead && (await isDemoWrite(request, pathname))) {
+    return NextResponse.next();
+  }
 
   // Signed in but not far enough: say so, instead of asking for a password
   // they already typed.

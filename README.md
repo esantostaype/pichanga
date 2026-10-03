@@ -51,6 +51,8 @@ for an empty local file and nothing else.
 | `npm run db:migrate:plan` | Lists what it would run, and writes nothing                                                                                                |
 | `npm run demo:clear`      | Counts the sandbox rows in the database, writes nothing                                                                                    |
 | `npm run demo:clear:yes`  | Deletes them                                                                                                                               |
+| `npm run db:wipe`         | Counts every row in the database, writes nothing                                                                                           |
+| `npm run db:wipe:yes`     | Deletes every row, real and sandbox; `/demo` rebuilds itself on the next visit                                                             |
 | `npm run test:watch`      | Vitest, watching                                                                                                                           |
 | `npm run db:generate`     | Generates migration SQL from the schema                                                                                                    |
 | `npm run db:push`         | Rebuilds tables from the schema. Local files only: it drops what it cannot keep, and refuses a remote database without `ALLOW_REMOTE_DB=1` |

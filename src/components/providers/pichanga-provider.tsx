@@ -72,7 +72,7 @@ type PichangaContextValue = PichangaState & {
    */
   drawTeams: (
     seed: number,
-    mixAreas?: boolean,
+    mixAges?: boolean,
     teams?: number,
   ) => Promise<void>;
   /** Moves one player onto another side, leaving the sides themselves alone. */
@@ -251,12 +251,13 @@ export function PichangaProvider({
         const { isAdmin, isSuperAdmin } = await api.auth.login(password);
         // Every panel is already loaded for guests, so the session only flips
         // what the UI allows.
-        patch({ isAdmin, isSuperAdmin });
+        patch({ isAdmin: isAdmin || state.demo, isSuperAdmin });
       },
 
       logout: async () => {
         await api.auth.logout();
-        patch({ isAdmin: false, isSuperAdmin: false });
+        // The sandbox stays open to whoever is on it, session or not.
+        patch({ isAdmin: state.demo, isSuperAdmin: false });
       },
 
       createPlayer: async (input) => {
@@ -334,13 +335,13 @@ export function PichangaProvider({
         }
       },
 
-      drawTeams: async (seed, mixAreas = false, teams) => {
+      drawTeams: async (seed, mixAges = true, teams) => {
         if (!state.nextMatch) throw new Error("common.noActiveMatch");
         syncNextMatch(
           await api.matches.drawTeams(
             state.nextMatch.id,
             seed,
-            mixAreas,
+            mixAges,
             teams,
           ),
         );

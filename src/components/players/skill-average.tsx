@@ -3,7 +3,7 @@
 import { strengthOf } from "@/lib/teams";
 import { cn } from "@/lib/utils";
 import type { Player } from "@/types";
-import { areaColor } from "./area-badge";
+import { categoryColor } from "@/lib/age";
 
 /**
  * One size, everywhere.
@@ -15,7 +15,7 @@ import { areaColor } from "./area-badge";
  */
 const SIDE = 24;
 
-/** The family and the size the area label beside it is set in. */
+/** The family and the size the category label beside it is set in. */
 const shape = cn(
   "inline-grid shrink-0 place-items-center rounded-full",
   "font-display text-[0.8125rem] font-semibold leading-none tabular-nums",
@@ -37,11 +37,11 @@ const box = {
  * The colour, the way the scoreboard does it.
  *
  * The first version filled the circle with the colour and put white on top,
- * which reads on a saturated blue and fails completely on the five pale areas:
- * Dev is lime, Guest is a pale grey, and white on those is a circle with
- * nothing in it. Tinting the ground instead and writing in the colour itself
- * needs no exception for any of them -- the ink is always the colour against
- * almost-background, so all fourteen land at the same contrast.
+ * which reads on a saturated blue and fails completely on the pale categories:
+ * Libre is lime, Sub-15 is a pale sky, and white on those is a circle with nothing
+ * in it. Tinting the ground instead and writing in the colour itself needs no
+ * exception for any of them -- the ink is always the colour against
+ * almost-background, so every category lands at the same contrast.
  *
  * The same three lines `Digit` uses for the score, because it is the same
  * idea: a number belonging to a side, shown in that side's colour.
@@ -60,8 +60,8 @@ const paint = (accent: string) => ({
  * is the number that decided which side they ended up on. Two different
  * averages on one screen would be one too many.
  *
- * Coloured by area, or by the side when the player is being shown as part of
- * one: on the pitch a player is their team first, and a row of area colours
+ * Coloured by age category, or by the side when the player is being shown as part of
+ * one: on the pitch a player is their team first, and a row of category colours
  * there would argue with the shirt they are standing in.
  */
 export function SkillAverage({
@@ -80,7 +80,7 @@ export function SkillAverage({
     <span
       title={value.toFixed(1)}
       className={cn(shape, className)}
-      style={{ ...box, ...paint(accent ?? areaColor(player.area)) }}
+      style={{ ...box, ...paint(accent ?? categoryColor(player.birthDate)) }}
     >
       {value.toFixed(1)}
     </span>

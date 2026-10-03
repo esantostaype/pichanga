@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   balanceMoves,
+  balanceStrength,
   pickNames,
   planTeams,
   strengthOf,
@@ -9,6 +10,9 @@ import {
 } from "./teams";
 import type { PositionId, SkillId } from "./constants";
 import type { Player } from "@/types";
+
+/** Born on 1 January, `age` years back: that age all year long. */
+const bornAgo = (age: number) => `${new Date().getFullYear() - age}-01-01`;
 
 const player = (
   id: string,
@@ -18,7 +22,7 @@ const player = (
   id,
   firstName: id,
   lastName: "Player",
-  area: "dev",
+  birthDate: bornAgo(28),
   photoUrl: null,
   photoPublicId: null,
   position,
@@ -247,43 +251,44 @@ describe("planTeams", () => {
   });
 });
 
-describe("planTeams with mixAreas", () => {
-  /** Eight from one floor and four from another: the stacking to undo. */
+describe("planTeams with mixAges", () => {
+  /** Eight in Libre and four Masters: the stacking to undo. */
   const lopsided = () => [
     ...Array.from({ length: 8 }, (_, index) =>
       player(`dev${index}`, index % 3 === 0 ? "def" : "mid", {
         pace: 1 + (index % 5),
         defending: 1 + ((index * 3) % 5),
       }),
-    ).map((one) => ({ ...one, area: "dev" })),
+    ).map((one) => ({ ...one, birthDate: bornAgo(28) })),
     ...Array.from({ length: 4 }, (_, index) =>
       player(`des${index}`, index % 2 === 0 ? "fwd" : "mid", {
         pace: 1 + ((index * 2) % 5),
         finishing: 1 + ((index * 4) % 5),
       }),
-    ).map((one) => ({ ...one, area: "design" })),
+    ).map((one) => ({ ...one, birthDate: bornAgo(40) })),
   ];
 
-  const spreadOfAreas = (plan: ReturnType<typeof planTeams>, area: string) =>
+  const spreadOfAges = (plan: ReturnType<typeof planTeams>, age: number) =>
     plan.teams.map(
-      (team) => team.players.filter((one) => one.area === area).length,
+      (team) =>
+        team.players.filter((one) => one.birthDate === bornAgo(age)).length,
     );
 
-  it("shares out the smaller floor rather than stacking it", () => {
+  it("shares out the smaller category rather than stacking it", () => {
     const squad = lopsided();
 
-    const mixed = planTeams(squad, { teamSize: 6, mixAreas: true });
+    const mixed = planTeams(squad, { teamSize: 6, mixAges: true });
 
-    // Four Design across two teams: two each, not three and one.
-    expect(spreadOfAreas(mixed, "design").sort()).toEqual([2, 2]);
-    expect(spreadOfAreas(mixed, "dev").sort()).toEqual([4, 4]);
+    // Four Masters across two teams: two each, not three and one.
+    expect(spreadOfAges(mixed, 40).sort()).toEqual([2, 2]);
+    expect(spreadOfAges(mixed, 28).sort()).toEqual([4, 4]);
   });
 
   it("does not buy the mix with a lopsided match", () => {
     const squad = lopsided();
 
     const plain = planTeams(squad, { teamSize: 6 });
-    const mixed = planTeams(squad, { teamSize: 6, mixAreas: true });
+    const mixed = planTeams(squad, { teamSize: 6, mixAges: true });
 
     // Fairness first: mixing may cost a little, never a lot.
     expect(mixed.spread).toBeLessThan(0.35);
@@ -301,14 +306,48 @@ describe("planTeams with mixAreas", () => {
   it("still gives every team a keeper while mixing", () => {
     const squad = [
       ...lopsided(),
-      { ...player("gk1", "gk", { goalkeeping: 5 }), area: "guest" },
-      { ...player("gk2", "gk", { goalkeeping: 4 }), area: "guest" },
+      { ...player("gk1", "gk", { goalkeeping: 5 }), birthDate: null },
+      { ...player("gk2", "gk", { goalkeeping: 4 }), birthDate: null },
     ];
 
-    const plan = planTeams(squad, { teamSize: 7, mixAreas: true });
+    const plan = planTeams(squad, { teamSize: 7, mixAges: true });
 
     expect(plan.teams.every((team) => team.keeperId !== null)).toBe(true);
     expect(plan.teams.every((team) => !team.borrowedKeeper)).toBe(true);
+  });
+});
+
+describe("age in the balance", () => {
+  it("weighs a veteran and a kid below the same ratings in their prime", () => {
+    const prime = player("prime", "mid");
+    const veteran = { ...player("veteran", "mid"), birthDate: bornAgo(58) };
+    const kid = { ...player("kid", "mid"), birthDate: bornAgo(14) };
+
+    expect(balanceStrength(veteran)).toBeLessThan(balanceStrength(prime));
+    expect(balanceStrength(kid)).toBeLessThan(balanceStrength(prime));
+    // The card still shows what somebody rated, age or no age.
+    expect(strengthOf(veteran)).toBe(strengthOf(prime));
+  });
+
+  it("does not put every veteran on the same side", () => {
+    const squad = [
+      ...Array.from({ length: 4 }, (_, index) => ({
+        ...player(`old${index}`, "mid"),
+        birthDate: bornAgo(56),
+      })),
+      ...Array.from({ length: 4 }, (_, index) => ({
+        ...player(`young${index}`, "mid"),
+        birthDate: bornAgo(24),
+      })),
+    ];
+
+    const plan = planTeams(squad, { teamSize: 4, mixAges: true });
+
+    for (const team of plan.teams) {
+      expect(
+        team.players.filter((one) => one.birthDate === bornAgo(56)),
+      ).toHaveLength(2);
+    }
   });
 });
 

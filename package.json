@@ -17,7 +17,9 @@
     "db:migrate": "node --env-file=.env.local scripts/db-migrate.mjs --yes",
     "db:migrate:plan": "node --env-file=.env.local scripts/db-migrate.mjs",
     "demo:clear": "node --env-file=.env.local scripts/demo-clear.mjs",
-    "demo:clear:yes": "node --env-file=.env.local scripts/demo-clear.mjs --yes"
+    "demo:clear:yes": "node --env-file=.env.local scripts/demo-clear.mjs --yes",
+    "db:wipe": "node --env-file=.env.local scripts/db-wipe.mjs",
+    "db:wipe:yes": "node --env-file=.env.local scripts/db-wipe.mjs --yes"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

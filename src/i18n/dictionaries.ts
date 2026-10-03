@@ -1,5 +1,3 @@
-import { getArea } from "@/lib/constants";
-
 import type { Locale } from "./locale";
 
 /**
@@ -155,6 +153,8 @@ export const en = {
     venuesHint: "Where you play",
     stats: "Stats",
     statsHint: "Goals, games and records",
+    birthdays: "Birthdays",
+    birthdaysHint: "Who is next to turn a year older",
     signIn: "Sign in",
     signOut: "Sign out",
     signedOut: "Signed out",
@@ -248,9 +248,9 @@ export const en = {
     noClock: "No clock, one game all match",
     noClockTitle: "One game, for as long as the pitch is rented",
     lengthAgreed: "Game length agreed",
-    mixTitle: "Mix the areas",
+    mixTitle: "Mix the ages",
     mixLine:
-      "Spreads the smaller areas across the sides, so a team is not one floor of the office. Strength still comes first.",
+      "Spreads the age categories across the sides, so one team is not all veterans and the other all kids. Strength still comes first, and it already counts the age.",
     putAway: "Put away",
     putAwayDone: "Teams put away",
     shuffle: "Shuffle again",
@@ -469,9 +469,9 @@ export const en = {
     deleteOne: "Delete player",
     deleteMany: "Delete {count} players",
     searchPlaceholder: "Search players...",
-    searchByNameOrArea: "Search by name or area...",
+    searchByNameOrCategory: "Search by name or category...",
     noResults: "No results",
-    tryAnother: "Try another name or area.",
+    tryAnother: "Try another name or category.",
     tryAnotherName: "Try another name.",
     noneYet: "Create the first profile to start building matches.",
     noneCreated: "No players have been created yet.",
@@ -490,7 +490,8 @@ export const en = {
     photoHint: "Drag an image here or click to upload.",
     photoTypes: "JPG, PNG, WebP or AVIF - max {mb} MB",
     removePhoto: "Remove photo",
-    pickArea: "Pick an area",
+    pickBirthday: "Pick their birthday",
+    badBirthday: "That is not a birthday we can use",
     pickPosition: "Pick a position",
     saveChanges: "Save changes",
     createPlayer: "Create player",
@@ -504,7 +505,11 @@ export const en = {
     formEdit: "Edit player",
     firstName: "First name",
     lastName: "Last name",
-    area: "Area",
+    birthday: "Birthday",
+    category: "Category",
+    age: "{age} years",
+    noBirthday: "No birthday yet",
+    categoryHint: "{category} today. It moves up on its own as the years go by.",
     position: "Position",
     photo: "Photo",
     skills: "Skills",
@@ -585,6 +590,24 @@ export const en = {
     scored: "{name} scored {count}",
   },
 
+  birthdays: {
+    title: "Birthdays",
+    summary: "{count} on file, soonest first.",
+    emptyTitle: "No birthdays yet",
+    emptyLine: "Add a birthday to a player's profile and it shows up here.",
+    missing: "{count} without a birthday",
+    today: "Today!",
+    tomorrow: "Tomorrow",
+    inDays: "In {days} days",
+    turns: "Turns {age}",
+    noticeToday: "{name}'s birthday is today",
+    noticeSoon: "{name}'s birthday is {when}",
+    noticeMore: "and {count} more",
+    noticeSoonWhen: "in {days} days",
+    thisWeek: "This week",
+    later: "Later",
+  },
+
   gallery: {
     title: "Match gallery",
     heading: "Gallery",
@@ -636,7 +659,7 @@ export const en = {
     roleNightLine: "You are the one with the phone out while the game is on.",
     profileTitle: "Your card, your business",
     profileLine:
-      "Photo, area, position and six skills you set yourself. That card is what the app reads when it draws even sides.",
+      "Photo, birthday, position and six skills you set yourself. That card is what the app reads when it draws even sides.",
     metaDescription:
       "The office match, sorted: the lineup on a pitch, even sides in one tap, the score kept with a thumb, the rental split and the season counting itself.",
     heroTitle: "Match day,",
@@ -685,7 +708,7 @@ export const en = {
     paid: "paid",
     owes: "owes",
     scorer: "Erick Santos",
-    scorerArea: "Dev",
+    scorerCategory: "Libre",
     shareDate: "Saturday, August 29",
     shareMeta: "20:00 - 21:30 · Office pitch · 12 players",
   },
@@ -833,6 +856,8 @@ export const es: Dictionary = {
     venuesHint: "Dónde juegan",
     stats: "Estadísticas",
     statsHint: "Goles, partidos y récords",
+    birthdays: "Cumpleaños",
+    birthdaysHint: "Quién es el próximo en cumplir",
     signIn: "Iniciar sesión",
     signOut: "Cerrar sesión",
     signedOut: "Sesión cerrada",
@@ -927,9 +952,9 @@ export const es: Dictionary = {
     noClock: "Sin reloj, un solo partido",
     noClockTitle: "Un solo partido, lo que dure la cancha",
     lengthAgreed: "Duración acordada",
-    mixTitle: "Mezclar las áreas",
+    mixTitle: "Mezclar las edades",
     mixLine:
-      "Reparte las áreas chicas entre los equipos, para que uno no sea todo el mismo piso de la oficina. La fuerza sigue mandando.",
+      "Reparte las categorías entre los equipos, para que uno no sea todo de veteranos y el otro todo de chibolos. La fuerza sigue mandando, y ya cuenta la edad.",
     putAway: "Deshacer",
     putAwayDone: "Equipos deshechos",
     shuffle: "Armar de nuevo",
@@ -1149,9 +1174,9 @@ export const es: Dictionary = {
     deleteOne: "Eliminar jugador",
     deleteMany: "Eliminar {count} jugadores",
     searchPlaceholder: "Buscar jugadores...",
-    searchByNameOrArea: "Buscar por nombre o área...",
+    searchByNameOrCategory: "Buscar por nombre o categoría...",
     noResults: "Sin resultados",
-    tryAnother: "Prueba con otro nombre o área.",
+    tryAnother: "Prueba con otro nombre o categoría.",
     tryAnotherName: "Prueba con otro nombre.",
     noneYet: "Crea el primer perfil para empezar a armar partidos.",
     noneCreated: "Todavía no se creó ningún jugador.",
@@ -1170,7 +1195,8 @@ export const es: Dictionary = {
     photoHint: "Arrastra una imagen aquí o haz clic para subirla.",
     photoTypes: "JPG, PNG, WebP o AVIF - máx {mb} MB",
     removePhoto: "Quitar foto",
-    pickArea: "Elige un área",
+    pickBirthday: "Elige su cumpleaños",
+    badBirthday: "Esa fecha de nacimiento no sirve",
     pickPosition: "Elige una posición",
     saveChanges: "Guardar cambios",
     createPlayer: "Crear jugador",
@@ -1184,7 +1210,11 @@ export const es: Dictionary = {
     formEdit: "Editar jugador",
     firstName: "Nombre",
     lastName: "Apellido",
-    area: "Área",
+    birthday: "Cumpleaños",
+    category: "Categoría",
+    age: "{age} años",
+    noBirthday: "Sin cumpleaños",
+    categoryHint: "{category} hoy. Sube de categoría solo con los años.",
     position: "Posición",
     photo: "Foto",
     skills: "Habilidades",
@@ -1263,6 +1293,24 @@ export const es: Dictionary = {
     scored: "{name} anotó {count}",
   },
 
+  birthdays: {
+    title: "Cumpleaños",
+    summary: "{count} registrados, los más próximos primero.",
+    emptyTitle: "Sin cumpleaños todavía",
+    emptyLine: "Ponle la fecha de nacimiento a un jugador y aparece aquí.",
+    missing: "{count} sin cumpleaños",
+    today: "¡Hoy!",
+    tomorrow: "Mañana",
+    inDays: "En {days} días",
+    turns: "Cumple {age}",
+    noticeToday: "Hoy cumple {name}",
+    noticeSoon: "{name} cumple {when}",
+    noticeMore: "y {count} más",
+    noticeSoonWhen: "en {days} días",
+    thisWeek: "Esta semana",
+    later: "Más adelante",
+  },
+
   gallery: {
     title: "Galería del partido",
     heading: "Galería",
@@ -1314,7 +1362,7 @@ export const es: Dictionary = {
     roleNightLine: "Eres el que tiene el celular en la mano mientras se juega.",
     profileTitle: "Tu tarjeta, tu asunto",
     profileLine:
-      "Foto, área, posición y seis habilidades que pones tú. Esa tarjeta es la que lee la app para armar equipos parejos.",
+      "Foto, cumpleaños, posición y seis habilidades que pones tú. Esa tarjeta es la que lee la app para armar equipos parejos.",
     metaDescription:
       "La pichanga de la oficina, resuelta: la alineación en una cancha, equipos parejos en un toque, los goles con el pulgar, la cuenta dividida y la temporada contándose sola.",
     heroTitle: "La pichanga,",
@@ -1363,7 +1411,7 @@ export const es: Dictionary = {
     paid: "pagó",
     owes: "debe",
     scorer: "Erick Santos",
-    scorerArea: "Dev",
+    scorerCategory: "Libre",
     shareDate: "Sábado 29 de agosto",
     shareMeta: "20:00 - 21:30 · Cancha de la oficina · 12 jugadores",
   },
@@ -1385,19 +1433,6 @@ export function fill(
   return line.replace(/\{(\w+)\}/g, (whole, key: string) =>
     key in values ? String(values[key]) : whole,
   );
-}
-
-/**
- * The name of an area. The one thing on screen that never changes language.
- *
- * These are the company's own departments -- what is on the org chart and what
- * people call them out loud -- so translating them would be renaming somebody's
- * team. They live in `AREAS` and nowhere else, which also means an area the app
- * has never heard of falls back to the id it was saved under rather than to an
- * empty space where a word should be.
- */
-export function areaLabel(id: string): string {
-  return getArea(id).label;
 }
 
 /** And for the six numbers on a profile. */

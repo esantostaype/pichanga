@@ -24,6 +24,7 @@ import { PlayerCardDialog } from "@/components/players/player-card-dialog";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { PlayersDrawer } from "@/components/players/players-drawer";
 import { StatsDrawer } from "@/components/stats/stats-drawer";
+import { BirthdaysDrawer } from "@/components/players/birthdays-drawer";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -352,6 +353,11 @@ export function AppShell() {
       <StatsDrawer
         open={panel === "stats"}
         onOpenChange={(open) => setPanel(open ? "stats" : null)}
+      />
+
+      <BirthdaysDrawer
+        open={panel === "birthdays"}
+        onOpenChange={(open) => setPanel(open ? "birthdays" : null)}
       />
 
       <AddPlayersDialog open={addOpen} onOpenChange={setAddOpen} />

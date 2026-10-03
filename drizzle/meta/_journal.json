@@ -127,6 +127,20 @@
       "when": 1788883801280,
       "tag": "0017_match_pitch",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1791042701788,
+      "tag": "0018_player_birth_date",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1791042706906,
+      "tag": "0019_drop_player_area",
+      "breakpoints": true
     }
   ]
 }

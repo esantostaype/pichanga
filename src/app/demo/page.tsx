@@ -1,7 +1,4 @@
-import { notFound } from "next/navigation";
-
 import { MatchScreen } from "@/components/layout/match-screen";
-import { getRole } from "@/lib/session";
 import { SITE } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
@@ -20,11 +17,11 @@ export const metadata = {
  * out, and none of it touches a real fixture -- which is the only way to try
  * any of it without waiting for Wednesday.
  *
- * Behind the session, and a 404 rather than a redirect for everyone else: a
- * page nobody should be poking at is better off looking like it does not exist.
+ * Open to everybody, password or not: it is where somebody who has never seen
+ * the app gets to press every button. The edits a guest cannot make on the real
+ * fixture are allowed here because they can only reach sandbox rows -- see
+ * `isDemoWrite`.
  */
 export default async function DemoPage() {
-  if (!(await getRole())) notFound();
-
   return <MatchScreen demo />;
 }

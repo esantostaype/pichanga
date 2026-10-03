@@ -125,7 +125,7 @@ export function TeamsDialog({
    * Off by default: strength alone is what most squads want, and mixing is the
    * thing you reach for when the draw came out as one floor against another.
    */
-  const [mixAreas, setMixAreas] = useState(false);
+  const [mixAges, setMixAges] = useState(true);
 
   /*
    * How many sides the next shuffle should make. Null is the turnout deciding,
@@ -145,7 +145,7 @@ export function TeamsDialog({
 
 
   const shuffle = useAction(
-    async () => drawTeams(newSeed(), mixAreas, sides ?? undefined),
+    async () => drawTeams(newSeed(), mixAges, sides ?? undefined),
     { success: t.teams.shuffled },
   );
 
@@ -614,8 +614,8 @@ export function TeamsDialog({
         {isAdmin && !started ? (
           <label className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/20 px-4 py-3">
             <Switch
-              checked={mixAreas}
-              onCheckedChange={setMixAreas}
+              checked={mixAges}
+              onCheckedChange={setMixAges}
               disabled={busy}
             />
             <span className="flex flex-col">

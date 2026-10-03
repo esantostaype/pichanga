@@ -20,7 +20,7 @@ type Context = { params: Promise<{ id: string }> };
 export async function POST(request: Request, { params }: Context) {
   return route(async () => {
     const { id } = await params;
-    const { seed, mixAreas, teams } = await readJson(
+    const { seed, mixAges, teams } = await readJson(
       request,
       teamDrawInputSchema,
     );
@@ -46,7 +46,7 @@ export async function POST(request: Request, { params }: Context) {
       return fail((await messages()).nightStarted, 409);
     }
 
-    const match = await drawTeams(id, seed, mixAreas ?? false, teams);
+    const match = await drawTeams(id, seed, mixAges ?? true, teams);
     if (!match) return fail((await messages()).matchNotFound, 404);
 
     await broadcast(REALTIME.events.lineupChanged, { matchId: id });
