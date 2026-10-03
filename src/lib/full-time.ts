@@ -6,7 +6,7 @@
  * shows on the lock screen.
  */
 
-const WHISTLE = "/audio/silbato.wav";
+const WHISTLE = "/audio/whistle.mp3";
 
 let whistle: HTMLAudioElement | null = null;
 
