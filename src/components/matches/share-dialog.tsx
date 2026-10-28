@@ -113,6 +113,12 @@ export function ShareDialog({
     breakdownWinner: t.share.accBreakdownWinner,
     breakdown: t.share.accBreakdown,
     noShow: t.share.accNoShow,
+    pitchPerGame: t.share.accPitchPerGame,
+    debt: t.share.accDebt,
+    noDebts: t.share.accNoDebts,
+    wonOf: t.share.accWonOf,
+    lostOf: t.share.accLostOf,
+    pitchOf: t.share.accPitchOf,
   };
 
   useEffect(() => {
@@ -170,6 +176,12 @@ export function ShareDialog({
               breakdownWinner: DICTIONARIES[locale].share.accBreakdownWinner,
               breakdown: DICTIONARIES[locale].share.accBreakdown,
               noShow: DICTIONARIES[locale].share.accNoShow,
+              pitchPerGame: DICTIONARIES[locale].share.accPitchPerGame,
+              debt: DICTIONARIES[locale].share.accDebt,
+              noDebts: DICTIONARIES[locale].share.accNoDebts,
+              wonOf: DICTIONARIES[locale].share.accWonOf,
+              lostOf: DICTIONARIES[locale].share.accLostOf,
+              pitchOf: DICTIONARIES[locale].share.accPitchOf,
             },
             locale,
           )

@@ -1,0 +1,1 @@
+ALTER TABLE `matches` ADD `bet_mode` text DEFAULT 'pot' NOT NULL;

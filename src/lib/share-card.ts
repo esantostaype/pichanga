@@ -7,7 +7,7 @@ import { venueMapsUrl } from "./maps";
 import { whereLabel } from "./venue";
 import { badgeFor } from "./teams";
 import { initialsOf } from "./utils";
-import { nightAccounts } from "./prize";
+import { nightAccounts, type LedgerRow, type NightMoney } from "./prize";
 import type { Match, MatchLive, Player } from "@/types";
 import { categoryOf } from "./age";
 
@@ -882,6 +882,13 @@ export type AccountsWords = {
   breakdownWinner: string;
   breakdown: string;
   noShow: string;
+  /** Con la apuesta por partido. */
+  pitchPerGame: string;
+  debt: string;
+  noDebts: string;
+  wonOf: string;
+  lostOf: string;
+  pitchOf: string;
 };
 
 const ACCOUNT_ROW = 92;
@@ -900,7 +907,10 @@ export async function renderAccountsCard(
   words: AccountsWords,
   lang: "en" | "es" = "en",
 ): Promise<Blob> {
-  const { prize, rental, ledger, toCollect } = nightAccounts(match, live);
+  const { money, prize, rental, ledger, toCollect } = nightAccounts(
+    match,
+    live,
+  );
   const everybody = new Map(
     [...match.players, ...match.noShows].map((player) => [player.id, player]),
   );
@@ -958,38 +968,17 @@ export async function renderAccountsCard(
   ctx.fillStyle = MUTED;
   ctx.font = `400 25px "Sofia Sans", sans-serif`;
   ctx.fillText(
-    fit(
-      ctx,
-      fillWords(words.pitchBet, {
-        pitch: formatMoney(rental),
-        bet: formatMoney(prize.bet),
-      }),
-      W - PAD * 2,
-    ),
+    fit(ctx, pitchBetLine(money, rental, words), W - PAD * 2),
     PAD,
     y + 20,
   );
   y += 44;
 
-  // The pot, and who takes it.
-  const winners = prize.rows.filter((row) =>
-    prize.winnerIds.includes(row.team.id),
-  );
+  // The pot, and who takes it; or, betting per game, who owes whom.
   ctx.font = `600 29px "Sofia Sans", sans-serif`;
   ctx.fillStyle = LIME;
   ctx.fillText(
-    fit(
-      ctx,
-      `${fillWords(words.pot, { money: formatMoney(prize.pot) })} · ${
-        winners.length
-          ? fillWords(words.winners, {
-              teams: winners.map((row) => row.team.name).join(", "),
-              each: formatMoney(prize.perWinner),
-            })
-          : words.noWinner
-      }`,
-      W - PAD * 2,
-    ),
+    fit(ctx, moneyLine(money, prize, words), W - PAD * 2),
     PAD,
     y + 24,
   );
@@ -1061,13 +1050,7 @@ export async function renderAccountsCard(
 
     ctx.fillStyle = MUTED;
     ctx.font = `400 20px "Sofia Sans", sans-serif`;
-    const breakdown = row.noShow
-      ? fillWords(words.noShow, { money: formatMoney(row.penalty) })
-      : fillWords(row.prize > 0 ? words.breakdownWinner : words.breakdown, {
-          prize: formatMoney(row.prize),
-          pitch: formatMoney(rental),
-          bet: formatMoney(prize.bet),
-        });
+    const breakdown = breakdownOf(row, money, rental, words);
     ctx.fillText(fit(ctx, breakdown, textW), textX, top + 64);
 
     // The amount, on the right, in the colour of which way it goes.
@@ -1108,28 +1091,18 @@ export function accountsShareText(
   words: AccountsWords,
   lang: "en" | "es" = "en",
 ) {
-  const { prize, rental, ledger, toCollect } = nightAccounts(match, live);
+  const { money, prize, rental, ledger, toCollect } = nightAccounts(
+    match,
+    live,
+  );
   const everybody = new Map(
     [...match.players, ...match.noShows].map((player) => [player.id, player]),
-  );
-  const winners = prize.rows.filter((row) =>
-    prize.winnerIds.includes(row.team.id),
   );
 
   const lines = [
     `*${words.title} · ${formatLongDate(match.playedAt, lang)}*`,
-    fillWords(words.pitchBet, {
-      pitch: formatMoney(rental),
-      bet: formatMoney(prize.bet),
-    }),
-    `${fillWords(words.pot, { money: formatMoney(prize.pot) })} · ${
-      winners.length
-        ? fillWords(words.winners, {
-            teams: winners.map((row) => row.team.name).join(", "),
-            each: formatMoney(prize.perWinner),
-          })
-        : words.noWinner
-    }`,
+    pitchBetLine(money, rental, words),
+    moneyLine(money, prize, words),
     fillWords(words.toCollect, { money: formatMoney(toCollect) }),
     "",
   ];
@@ -1144,6 +1117,74 @@ export function accountsShareText(
   }
 
   return lines.join("\n");
+}
+
+/** La cancha y la apuesta, cada una por cabeza. */
+function pitchBetLine(money: NightMoney, rental: number, words: AccountsWords) {
+  return fillWords(
+    money.mode === "pot" ? words.pitchBet : words.pitchPerGame,
+    { pitch: formatMoney(rental), bet: formatMoney(money.bet) },
+  );
+}
+
+/** El pozo y quién lo ganó, o, apostando por partido, quién le debe a quién. */
+function moneyLine(
+  money: NightMoney,
+  prize: ReturnType<typeof nightAccounts>["prize"],
+  words: AccountsWords,
+) {
+  if (money.mode === "perGame") {
+    const debts = money.games.debts.map((debt) =>
+      fillWords(words.debt, {
+        from: debt.from.name,
+        to: debt.to.name,
+        money: formatMoney(debt.amount),
+      }),
+    );
+    return debts.length ? debts.join(" · ") : words.noDebts;
+  }
+
+  const winners = prize.rows.filter((row) =>
+    prize.winnerIds.includes(row.team.id),
+  );
+  return `${fillWords(words.pot, { money: formatMoney(prize.pot) })} · ${
+    winners.length
+      ? fillWords(words.winners, {
+          teams: winners.map((row) => row.team.name).join(", "),
+          each: formatMoney(prize.perWinner),
+        })
+      : words.noWinner
+  }`;
+}
+
+/** De dónde sale lo que alguien debe o cobra. */
+function breakdownOf(
+  row: LedgerRow,
+  money: NightMoney,
+  rental: number,
+  words: AccountsWords,
+) {
+  if (row.noShow) {
+    return fillWords(words.noShow, { money: formatMoney(row.penalty) });
+  }
+
+  if (money.mode === "pot") {
+    return fillWords(row.prize > 0 ? words.breakdownWinner : words.breakdown, {
+      prize: formatMoney(row.prize),
+      pitch: formatMoney(rental),
+      bet: formatMoney(money.bet),
+    });
+  }
+
+  // Lo que ganó su equipo, menos la cancha y lo que perdió.
+  const won = row.prize > 0;
+  return [
+    won ? `${fillWords(words.wonOf, { money: formatMoney(row.prize) })} − ` : "",
+    fillWords(words.pitchOf, { money: formatMoney(rental) }),
+    row.bet > 0
+      ? ` ${won ? "−" : "+"} ${fillWords(words.lostOf, { money: formatMoney(row.bet) })}`
+      : "",
+  ].join("");
 }
 
 /** Whoever still has something to pay: a negative balance not yet ticked off. */

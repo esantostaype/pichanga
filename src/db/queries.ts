@@ -42,6 +42,7 @@ import type {
   MatchSummary,
   Player,
   Recurrence,
+  BetMode,
   SavedTeam,
   Venue,
 } from "@/types";
@@ -161,6 +162,7 @@ const toMatch = (
   venue: toVenue(venue),
   pitch: row.pitch,
   bet: row.bet,
+  betMode: row.betMode as BetMode,
   closedAt: row.closedAt?.getTime() ?? null,
   organizerId: row.organizerId,
   recurrence: (row.recurrence as Recurrence | null) ?? null,
@@ -703,6 +705,7 @@ async function _materializeRecurringMatches(): Promise<void> {
           organizerId: source.organizerId,
           // The stake is the group's habit, unlike the pitch: it carries over.
           bet: source.bet,
+          betMode: source.betMode,
           recurrence: source.recurrence,
           seriesId: source.seriesId,
           // Whichever world it belongs to: a sandbox fixture that rolled
@@ -763,6 +766,7 @@ export async function listMatches(demo = false): Promise<MatchSummary[]> {
     venue: toVenue(row.venue),
     pitch: row.match.pitch,
     bet: row.match.bet,
+    betMode: row.match.betMode as BetMode,
     organizerId: row.match.organizerId,
     recurrence: (row.match.recurrence as Recurrence | null) ?? null,
     seriesId: row.match.seriesId,
@@ -1099,6 +1103,7 @@ export async function createMatch(input: MatchInput): Promise<Match> {
       venueId: input.venueId ?? null,
       pitch: input.pitch?.trim() || null,
       bet: input.bet ?? undefined,
+      betMode: input.betMode ?? undefined,
       organizerId: input.organizerId ?? null,
       recurrence: input.recurrence ?? null,
       // A recurring fixture opens its own series; occurrences inherit the id.
@@ -1143,6 +1148,7 @@ export async function updateMatch(
       venueId: input.venueId ?? null,
       pitch: input.pitch?.trim() || null,
       bet: input.bet ?? undefined,
+      betMode: input.betMode ?? undefined,
       organizerId: input.organizerId ?? null,
       recurrence: input.recurrence ?? null,
       seriesId,

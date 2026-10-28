@@ -18,9 +18,10 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { fill } from "@/i18n/dictionaries";
 import { api } from "@/lib/api-client";
 import { formatMoney } from "@/lib/money";
-import { nightPrize } from "@/lib/prize";
+import { nightMoney, nightPrize } from "@/lib/prize";
 import type { Match, MatchLive } from "@/types";
 import { PrizeLedger } from "./prize-ledger";
+import { TeamDebts } from "./team-debts";
 
 /**
  * The night's accounts, on the lineup, once the night is over: the pot and
@@ -75,6 +76,8 @@ export function NightPrizeCard({
   if (!live) return null;
 
   const prize = nightPrize(match.teams, live.games, live.goals, match.bet);
+  const money = nightMoney(match, live);
+  const perGame = money.mode === "perGame";
   const winners = prize.rows.filter((row) => prize.winnerIds.includes(row.team.id));
 
   return (
@@ -101,7 +104,9 @@ export function NightPrizeCard({
             </DialogTitle>
             <DialogDescription className="font-display text-xl uppercase tracking-[0.04em] text-primary">
               {prize.bet > 0
-                ? `${t.results.pot} ${formatMoney(prize.pot)}`
+                ? perGame
+                  ? fill(t.results.perGame, { amount: formatMoney(money.bet) })
+                  : `${t.results.pot} ${formatMoney(prize.pot)}`
                 : t.results.noBet}
             </DialogDescription>
           </DialogHeader>
@@ -128,7 +133,7 @@ export function NightPrizeCard({
                   </span>
                   <span className="text-base text-foreground/90">
                     {fill(t.results.points, { points: row.standing.points })}
-                    {prize.bet > 0
+                    {prize.bet > 0 && !perGame
                       ? ` · ${fill(t.results.each, { amount: formatMoney(row.perPlayer) })}`
                       : ""}
                   </span>
@@ -144,13 +149,21 @@ export function NightPrizeCard({
             </div>
           ) : (
             <p className="text-center text-base text-foreground/90">
-              {prize.allLevel ? t.results.allLevel : t.results.noGames}
+              {prize.allLevel
+                ? perGame
+                  ? t.results.allLevelGames
+                  : t.results.allLevel
+                : t.results.noGames}
             </p>
           )}
 
+          {prize.bet > 0 && money.mode === "perGame" ? (
+            <TeamDebts bets={money.games} className="bg-background/40" />
+          ) : null}
+
           <PrizeLedger
             match={match}
-            prize={prize}
+            money={money}
             onTogglePaid={onTogglePaid}
             onUndoNoShow={onUndoNoShow}
             className="bg-background/40"

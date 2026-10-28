@@ -21,8 +21,9 @@ import { fill } from "@/i18n/dictionaries";
 import { api } from "@/lib/api-client";
 import { loanHeroes } from "@/lib/loans";
 import { PrizeLedger } from "./prize-ledger";
+import { TeamDebts } from "./team-debts";
 import { formatMoney } from "@/lib/money";
-import { nightPrize, type PrizeRow } from "@/lib/prize";
+import { nightMoney, nightPrize, type PrizeRow } from "@/lib/prize";
 import { cn } from "@/lib/utils";
 import type { Match, MatchLive } from "@/types";
 
@@ -99,6 +100,9 @@ export function NightResults({
 
   const closed = match.closedAt !== null;
   const prize = nightPrize(match.teams, live.games, live.goals, match.bet);
+  // El podio es siempre de la tabla; la plata depende de cómo se apostó.
+  const money = nightMoney(match, live);
+  const perGame = money.mode === "perGame";
   const byId = new Map(match.players.map((player) => [player.id, player]));
 
   /** The podium is the winners and nobody else; the rest go in the table. */
@@ -152,7 +156,14 @@ export function NightResults({
           </h1>
 
           {/* The pot: how big, and where it came from. */}
-          {prize.bet > 0 ? (
+          {prize.bet > 0 && perGame ? (
+            <p className="flex flex-col items-center gap-0.5 text-sm text-foreground/80">
+              <span className="font-display text-2xl uppercase tracking-[0.06em] text-primary">
+                {fill(t.results.perGame, { amount: formatMoney(money.bet) })}
+              </span>
+              <span>{t.results.perGameLine}</span>
+            </p>
+          ) : prize.bet > 0 ? (
             <p className="flex flex-col items-center gap-0.5 text-sm text-foreground/80">
               <span className="font-display text-2xl uppercase tracking-[0.06em] text-primary">
                 {t.results.pot} {formatMoney(prize.pot)}
@@ -196,7 +207,11 @@ export function NightResults({
                 )}
               >
                 {podium.map((row) => (
-                  <Step key={row.team.id} row={row} showMoney={prize.bet > 0} />
+                  <Step
+                    key={row.team.id}
+                    row={row}
+                    showMoney={prize.bet > 0 && !perGame}
+                  />
                 ))}
 
                 <Image
@@ -216,11 +231,15 @@ export function NightResults({
               </div>
             ) : (
               <p className="max-w-md rounded-2xl border border-white/10 bg-black/60 px-5 py-4 text-center text-sm backdrop-blur-md">
-                {prize.allLevel ? t.results.allLevel : t.results.noGames}
+                {prize.allLevel
+                  ? perGame
+                    ? t.results.allLevelGames
+                    : t.results.allLevel
+                  : t.results.noGames}
               </p>
             )}
 
-            {podium.length > 1 ? (
+            {podium.length > 1 && !perGame ? (
               <p className="text-sm text-primary">{t.results.tie}</p>
             ) : null}
 
@@ -267,10 +286,14 @@ export function NightResults({
             ) : null}
 
             {/* Everybody's money: who is handed what, who still owes. */}
+            {prize.bet > 0 && money.mode === "perGame" ? (
+              <TeamDebts bets={money.games} />
+            ) : null}
+
             {prize.bet > 0 ? (
               <PrizeLedger
                 match={match}
-                prize={prize}
+                money={money}
                 onTogglePaid={onTogglePaid}
               />
             ) : null}

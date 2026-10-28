@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { nightPrize, playerLedger } from "./prize";
+import { gameBets, gameLedger, nightPrize, playerLedger } from "./prize";
 import type { MatchGame, MatchGoal, MatchTeam } from "@/types";
 
 const team = (id: string, size: number): MatchTeam => ({
@@ -211,5 +211,75 @@ describe("rentalShare", () => {
     expect(
       rentalShare({ venue: { price: 80 }, players: Array.from({ length: 27 }) }),
     ).toBe(3);
+  });
+});
+
+describe("gameBets", () => {
+  it("cobra cada partido perdido, por jugador, y compensa entre cada par", () => {
+    const bets = gameBets(
+      [team("a", 7), team("b", 7), team("c", 7)],
+      [
+        game("g1", "a", "b"),
+        game("g2", "b", "c"),
+        game("g3", "c", "a"),
+        game("g4", "a", "b"),
+        game("g5", "b", "a"),
+      ],
+      [
+        goal("g1", "a"),
+        goal("g2", "b"),
+        goal("g3", "c"),
+        goal("g4", "a"),
+        goal("g5", "b"),
+      ],
+      5,
+    );
+
+    // A le ganó dos a B y B uno a A: B le debe uno, S/ 35.
+    const ba = bets.debts.find((debt) => debt.from.id === "b")!;
+    expect(ba.to.id).toBe("a");
+    expect(ba.amount).toBe(35);
+    expect([ba.toWon, ba.fromWon]).toEqual([2, 1]);
+
+    // A ganó 2 y perdió 2: queda parejo, aunque igual le debe 35 a C.
+    const a = bets.rows.find((row) => row.team.id === "a")!;
+    expect(a.won).toBe(70);
+    expect(a.lost).toBe(70);
+    expect(a.net).toBe(0);
+    expect(a.wonEach).toBe(10);
+    expect(a.lostEach).toBe(10);
+
+    // La plata solo cambia de manos: lo que unos ganan, otros lo pierden.
+    expect(bets.rows.reduce((sum, row) => sum + row.net, 0)).toBe(0);
+  });
+
+  it("no cobra los empates ni los partidos sin terminar", () => {
+    const bets = gameBets(
+      [team("a", 5), team("b", 5)],
+      [game("g1", "a", "b"), { ...game("g2", "a", "b"), endedAt: null }],
+      [goal("g2", "a")],
+      5,
+    );
+
+    expect(bets.debts).toEqual([]);
+    expect(bets.rows.every((row) => row.net === 0)).toBe(true);
+  });
+
+  it("cada perdedor paga lo suyo aunque los equipos no sean iguales", () => {
+    const bets = gameBets(
+      [team("a", 7), team("b", 6)],
+      [game("g1", "a", "b")],
+      [goal("g1", "a")],
+      5,
+    );
+
+    // Seis pagan 5 cada uno; los siete del ganador se reparten 30.
+    expect(bets.debts[0].amount).toBe(30);
+    const a = bets.rows.find((row) => row.team.id === "a")!;
+    expect(a.wonEach).toBe(4.2);
+
+    const ledger = gameLedger(bets, { rental: 0, paidPlayerIds: [] });
+    expect(ledger.filter((row) => row.teamId === "b")[0].settle).toBe(-5);
+    expect(ledger.filter((row) => row.teamId === "a")[0].settle).toBe(4.2);
   });
 });

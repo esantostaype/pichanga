@@ -113,6 +113,8 @@ export const matchInputSchema = z
     organizerId: z.string().min(1).nullable().optional(),
     /** Each player's stake for the night's pot. Absent keeps what is there. */
     bet: z.number().min(0, "matches.badBet").max(10_000, "matches.badBet").optional(),
+    /** Pozo o por partido. Si no viene, se queda el que había. */
+    betMode: z.enum(["pot", "perGame"]).optional(),
     /** `null` for a one-off fixture. */
     recurrence: z.literal("weekly").nullable().optional(),
     /** No upper bound: a match takes as many players as sign up. */

@@ -38,6 +38,12 @@ export type Venue = {
 /** Only `weekly` for now; the column is text so more rules can be added. */
 export type Recurrence = "weekly";
 
+/**
+ * Cómo se juega la apuesta: `"pot"`, todos ponen y el primero de la tabla se
+ * lleva el pozo; `"perGame"`, cada partido perdido se le paga al que lo ganó.
+ */
+export type BetMode = "pot" | "perGame";
+
 export type MatchSummary = {
   id: string;
   playedAt: number;
@@ -50,6 +56,8 @@ export type MatchSummary = {
   pitch: string | null;
   /** What each player puts into the night's pot. Zero is no bet. */
   bet: number;
+  /** Pozo de la noche, o apuesta por cada partido jugado. */
+  betMode: BetMode;
   /** Player running the match; their token wears the crown. */
   organizerId: string | null;
   recurrence: Recurrence | null;
@@ -110,6 +118,8 @@ export type Match = {
   pitch: string | null;
   /** What each player puts into the night's pot. Zero is no bet. */
   bet: number;
+  /** Pozo de la noche, o apuesta por cada partido jugado. */
+  betMode: BetMode;
   organizerId: string | null;
   recurrence: Recurrence | null;
   seriesId: string | null;

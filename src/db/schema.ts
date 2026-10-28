@@ -120,6 +120,13 @@ export const matches = sqliteTable(
      */
     bet: real("bet").notNull().default(5),
     /**
+     * Cómo se juega la apuesta. `"pot"`: el pozo de la noche, que se lleva el
+     * primero de la tabla. `"perGame"`: cada partido perdido se paga al que lo
+     * ganó, y al final se saca cuánto le debe cada equipo a cada otro. En los
+     * dos, `bet` es lo que pone cada jugador.
+     */
+    betMode: text("bet_mode").notNull().default("pot"),
+    /**
      * When somebody pressed "close the night" on the results. Until then the
      * night can still go on, however late it runs past `endsAt`.
      */

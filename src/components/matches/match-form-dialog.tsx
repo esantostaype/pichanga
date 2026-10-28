@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Location01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useRef, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { useLocale } from "@/components/providers/locale-provider";
@@ -37,6 +37,7 @@ import { Switch } from "@/components/ui/switch";
 import { TimePicker } from "@/components/ui/time-picker";
 import { useAction } from "@/hooks/use-action";
 import { api } from "@/lib/api-client";
+import { cn } from "@/lib/utils";
 import { DEFAULT_BET, SUGGESTED_MATCH_LENGTH_MS } from "@/lib/constants";
 import { suggestedMatchDate, toDateInput, toTimeInput } from "@/lib/date";
 import { toEpoch } from "@/lib/validators";
@@ -60,6 +61,8 @@ const formSchema = z
       .string()
       .trim()
       .regex(/^(\d{1,5}([.,]\d{1,2})?)?$/, "matches.badBet"),
+    /** Pozo de la noche, o cada partido perdido se le paga al que ganó. */
+    betMode: z.enum(["pot", "perGame"]),
     recurring: z.boolean(),
   })
   .refine(
@@ -143,6 +146,7 @@ function MatchForm({
       organizerId: match?.organizerId ?? NO_ORGANIZER,
       // Five a head unless somebody says otherwise: what the group always puts in.
       bet: String(match?.bet ?? DEFAULT_BET),
+      betMode: match?.betMode ?? "pot",
       recurring: match?.recurrence === "weekly",
     },
   });
@@ -183,6 +187,7 @@ function MatchForm({
           values.organizerId === NO_ORGANIZER ? null : values.organizerId,
         recurrence: values.recurring ? ("weekly" as const) : null,
         bet: Number(values.bet.replace(",", ".") || 0),
+        betMode: values.betMode,
         playerIds: selected,
       };
 
@@ -195,6 +200,8 @@ function MatchForm({
   );
 
   const errors = form.formState.errors;
+  const perGame =
+    useWatch({ control: form.control, name: "betMode" }) === "perGame";
 
   return (
     <>
@@ -383,8 +390,42 @@ function MatchForm({
           />
         </div>
 
+        {/* Pozo o por partido: cambia qué significa el monto de abajo. */}
+        <Controller
+          control={form.control}
+          name="betMode"
+          render={({ field }) => (
+            <div
+              role="radiogroup"
+              aria-label={t.matches.betMode}
+              className="grid grid-cols-2 gap-1 rounded-xl border border-border/60 bg-muted/25 p-1"
+            >
+              {(["pot", "perGame"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={field.value === mode}
+                  disabled={pending}
+                  onClick={() => field.onChange(mode)}
+                  className={cn(
+                    "cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-200",
+                    field.value === mode
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {mode === "pot"
+                    ? t.matches.betModePot
+                    : t.matches.betModePerGame}
+                </button>
+              ))}
+            </div>
+          )}
+        />
+
         <Field
-          label={t.matches.bet}
+          label={perGame ? t.matches.betPerGame : t.matches.bet}
           error={problem(t, errors.bet?.message)}
         >
           <Input
@@ -396,7 +437,7 @@ function MatchForm({
             {...form.register("bet")}
           />
           <p className="text-xs text-muted-foreground/70">
-            {t.matches.betHint}
+            {perGame ? t.matches.betPerGameHint : t.matches.betHint}
           </p>
         </Field>
 

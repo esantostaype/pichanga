@@ -11,7 +11,7 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { fill } from "@/i18n/dictionaries";
 import { EASE } from "@/lib/ease";
 import { formatMoney, rentalShare } from "@/lib/money";
-import { playerLedger, type NightPrize } from "@/lib/prize";
+import { ledgerFor, type NightMoney } from "@/lib/prize";
 import { cn } from "@/lib/utils";
 import type { Match } from "@/types";
 
@@ -28,13 +28,14 @@ gsap.registerPlugin(Flip);
  */
 export function PrizeLedger({
   match,
-  prize,
+  money,
   onTogglePaid,
   onUndoNoShow,
   className,
 }: {
   match: Match;
-  prize: NightPrize;
+  /** La plata de la noche: el pozo, o la apuesta por partido. */
+  money: NightMoney;
   /** Ticks somebody off once the money has changed hands. Absent: read only. */
   onTogglePaid?: (playerId: string, paid: boolean) => Promise<unknown>;
   /** They came after all. */
@@ -88,7 +89,7 @@ export function PrizeLedger({
   });
 
   const rental = rentalShare(match) ?? 0;
-  const ledger = playerLedger(prize, {
+  const ledger = ledgerFor(money, {
     rental,
     paidPlayerIds: match.paidPlayerIds,
     noShowIds: match.noShows.map((player) => player.id),
@@ -131,14 +132,18 @@ export function PrizeLedger({
           {t.results.ledgerTitle}
         </h2>
         <p className="text-sm text-muted-foreground">
-          {fill(t.results.ledgerLine, {
-            bet: formatMoney(prize.bet),
-            rental: formatMoney(rental),
-          })}
-          {match.noShows.length && prize.bet > 0
+          {money.mode === "pot"
+            ? fill(t.results.ledgerLine, {
+                bet: formatMoney(money.bet),
+                rental: formatMoney(rental),
+              })
+            : fill(t.results.ledgerLineGames, {
+                rental: formatMoney(rental),
+              })}
+          {match.noShows.length && money.bet > 0
             ? ` ${fill(t.results.noShowLine, {
                 count: match.noShows.length,
-                amount: formatMoney(prize.bet * match.noShows.length),
+                amount: formatMoney(money.bet * match.noShows.length),
               })}`
             : ""}
         </p>
@@ -207,14 +212,26 @@ export function PrizeLedger({
                      * The total on the right, and here what makes it up: the
                      * prize if they won, less the pitch and the bet that are
                      * collected from everybody at the end of the night.
+                     * Apostando por partido: lo que ganó su equipo, menos la
+                     * cancha y lo que perdió.
                      */
                     <>
                       {row.prize > 0
-                        ? `${fill(t.results.prizeOf, { amount: formatMoney(row.prize) })} − `
+                        ? `${fill(
+                            money.mode === "pot"
+                              ? t.results.prizeOf
+                              : t.results.wonOf,
+                            { amount: formatMoney(row.prize) },
+                          )} − `
                         : ""}
                       {fill(t.results.pitchOf, { amount: formatMoney(rental) })}
-                      {prize.bet > 0
-                        ? ` ${row.prize > 0 ? "−" : "+"} ${fill(t.results.betOf, { amount: formatMoney(prize.bet) })}`
+                      {row.bet > 0
+                        ? ` ${row.prize > 0 ? "−" : "+"} ${fill(
+                            money.mode === "pot"
+                              ? t.results.betOf
+                              : t.results.lostOf,
+                            { amount: formatMoney(row.bet) },
+                          )}`
                         : ""}
                     </>
                   )}
