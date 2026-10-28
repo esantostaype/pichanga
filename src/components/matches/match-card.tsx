@@ -87,7 +87,8 @@ export function MatchCard({
 
   const counts = (
     <>
-      {match.playerCount} {match.playerCount === 1 ? "player" : "players"}
+      {match.playerCount}{" "}
+      {match.playerCount === 1 ? t.common.player : t.common.players}
       {match.paidCount > 0
         ? fill(t.matches.paidSuffix, { count: match.paidCount })
         : ""}

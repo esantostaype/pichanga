@@ -1176,8 +1176,25 @@ export async function updateMatch(
 }
 
 export async function deleteMatch(id: string): Promise<boolean> {
-  const rows = await db.delete(matches).where(eq(matches.id, id)).returning();
-  return rows.length > 0;
+  const [removed] = await db
+    .delete(matches)
+    .where(eq(matches.id, id))
+    .returning();
+  if (!removed) return false;
+
+  /*
+   * Borrar una fecha semanal la deja de repetir, como dice el aviso. Sin esto,
+   * la fecha anterior de la serie vuelve a ser la última, y como ya pasó,
+   * `materializeRecurringMatches` crea otra vez la que se acaba de borrar.
+   */
+  if (removed.seriesId) {
+    await db
+      .update(matches)
+      .set({ recurrence: null })
+      .where(eq(matches.seriesId, removed.seriesId));
+  }
+
+  return true;
 }
 
 /* -------------------------------------------------------------------------- */
