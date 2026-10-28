@@ -24,6 +24,8 @@ type ConfirmDialogProps = {
   /** A second way out, beside the main one: "they never came", say. */
   secondaryLabel?: string;
   onSecondary?: () => void;
+  /** Rojo si se pierde algo; el botón normal para una pregunta que no. */
+  tone?: "destructive" | "default";
 };
 
 /** Reusable confirmation for destructive actions. */
@@ -37,6 +39,7 @@ export function ConfirmDialog({
   onConfirm,
   secondaryLabel,
   onSecondary,
+  tone = "destructive",
 }: ConfirmDialogProps) {
   const { t } = useLocale();
 
@@ -63,7 +66,7 @@ export function ConfirmDialog({
               {secondaryLabel}
             </Button>
           ) : null}
-          <Button variant="destructive" disabled={pending} onClick={onConfirm}>
+          <Button variant={tone} disabled={pending} onClick={onConfirm}>
             {pending ? <Spinner /> : null}
             {confirmLabel ?? t.common.delete}
           </Button>

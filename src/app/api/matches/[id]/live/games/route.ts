@@ -1,6 +1,12 @@
 import { after } from "next/server";
 
-import { getMatch, startGame } from "@/db/queries";
+import {
+  getMatch,
+  getMatchLive,
+  setGameMinutes,
+  startGame,
+} from "@/db/queries";
+import { planFrom } from "@/lib/schedule";
 import { scheduleFullTime } from "@/lib/push";
 import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
@@ -52,6 +58,28 @@ export async function POST(request: Request, { params }: Context) {
       return fail((await messages()).teamsNotInMatch, 422);
     }
 
+    /*
+     * A night that kicks off late still plays its full round: if the first
+     * game starts after the planned time and the length is still the one the
+     * app suggested, the games get shorter to fit what is left -- fifty
+     * minutes is six games of eight, not five of ten. A length somebody chose
+     * by hand is left as they chose it.
+     */
+    let minutes = match.gameMinutes;
+    const now = Date.now();
+    const first = (await getMatchLive(id)).games.length === 0;
+
+    if (first && now > match.playedAt && minutes > 0) {
+      const planned = planFrom(match, match.teams.length, match.playedAt);
+      const fitted = planFrom(match, match.teams.length, now);
+
+      if (minutes === planned.minutes && fitted.minutes !== minutes) {
+        minutes = fitted.minutes;
+        await setGameMinutes(id, minutes);
+        await broadcast(REALTIME.events.lineupChanged, { matchId: id });
+      }
+    }
+
     const live = await startGame(id, homeTeamId, awayTeamId);
     await broadcast(REALTIME.events.liveChanged, { matchId: id });
 
@@ -61,10 +89,8 @@ export async function POST(request: Request, { params }: Context) {
      * to every phone following the night. See `src/lib/push.ts`.
      */
     const kickedOff = live.games[live.games.length - 1];
-    if (kickedOff && match.gameMinutes > 0) {
-      after(() =>
-        scheduleFullTime(id, kickedOff.id, match.gameMinutes * 60),
-      );
+    if (kickedOff && minutes > 0) {
+      after(() => scheduleFullTime(id, kickedOff.id, minutes * 60));
     }
 
     return json(live, 201);

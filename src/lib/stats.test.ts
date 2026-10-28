@@ -8,6 +8,8 @@ const team = (id: string, slot: number): MatchTeam => ({
   slot,
   name: `Team ${id.toUpperCase()}`,
   accent: "#c6f432",
+  badge: null,
+  crestUrl: null,
   playerIds: [],
   keeperId: null,
   borrowedKeeper: false,

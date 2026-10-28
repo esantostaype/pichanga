@@ -9,6 +9,7 @@ import {
   ChartLineData01Icon,
   Menu02Icon,
   RefreshIcon,
+  Shield01Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
 
@@ -31,6 +32,7 @@ import { api } from "@/lib/api-client";
 export type PanelName =
   | "matches"
   | "players"
+  | "teams"
   | "venues"
   | "stats"
   | "birthdays";
@@ -38,6 +40,7 @@ export type PanelName =
 const PANELS: Array<{ name: PanelName; icon: typeof Calendar03Icon }> = [
   { name: "matches", icon: Calendar03Icon },
   { name: "players", icon: UserGroupIcon },
+  { name: "teams", icon: Shield01Icon },
   { name: "venues", icon: Location01Icon },
   { name: "stats", icon: ChartLineData01Icon },
   { name: "birthdays", icon: BirthdayCakeIcon },

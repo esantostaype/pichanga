@@ -220,11 +220,12 @@ export const TEAM_NAMES = [
 /**
  * How long before kick-off the teams can be drawn.
  *
- * Early enough that nobody is standing on the pitch waiting for it, late enough
- * that the lineup is settled: two hours before is when people stop dropping out
- * and start asking who they are playing with.
+ * Ten minutes: everybody is expected at the pitch by then to say they are
+ * there, the draw is made from whoever did, and whoever did not is marked as a
+ * no-show before it. Any earlier and the sides would be drawn from people who
+ * have not turned up yet. The sandbox ignores it -- its clock is not a rule.
  */
-export const TEAMS_OPEN_MS = 2 * 60 * 60 * 1000;
+export const TEAMS_OPEN_MS = 10 * 60 * 1000;
 
 /** Teams for a venue that never said how big it is. */
 export const DEFAULT_PITCH_FORMAT = 7;
@@ -324,6 +325,8 @@ export const REALTIME = {
     matchesChanged: "matches:changed",
     playersChanged: "players:changed",
     venuesChanged: "venues:changed",
+    /** La lista de equipos guardados cambió: se creó, editó o borró uno. */
+    savedTeamsChanged: "saved-teams:changed",
     lineupChanged: "lineup:changed",
     mediaChanged: "media:changed",
     /** A game started, ended, or a goal went in or came off the board. */

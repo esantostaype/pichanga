@@ -5,7 +5,7 @@ import {
   Tick02Icon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { useLocale } from "@/components/providers/locale-provider";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -24,6 +24,8 @@ type PlayerPickerProps = {
   onToggle: (playerId: string) => void;
   /** Players already signed up: shown ticked and impossible to untick. */
   lockedIds?: string[];
+  /** Algo que decir de un jugador junto a su nombre: normalmente un chip. */
+  noteFor?: (player: Player) => ReactNode;
   className?: string;
 };
 
@@ -33,6 +35,7 @@ export function PlayerPicker({
   selected,
   onToggle,
   lockedIds = [],
+  noteFor,
   className,
 }: PlayerPickerProps) {
   const { t } = useLocale();
@@ -103,9 +106,10 @@ export function PlayerPicker({
                       <span className="block truncate text-sm font-medium">
                         {player.firstName} {player.lastName}
                       </span>
-                      <span className="mt-0.5 flex items-center gap-2">
+                      <span className="mt-0.5 flex flex-wrap items-center gap-2">
                         <CategoryBadge birthDate={player.birthDate} />
                         <SkillAverage player={player} />
+                        {noteFor?.(player)}
                       </span>
                     </span>
 

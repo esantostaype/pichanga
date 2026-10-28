@@ -35,6 +35,8 @@ const team = (id: string, ids: string[]): MatchTeam => ({
   slot: 0,
   name: id,
   accent: "#c6f432",
+  badge: null,
+  crestUrl: null,
   playerIds: ids,
   keeperId: null,
   borrowedKeeper: false,

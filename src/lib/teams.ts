@@ -463,6 +463,46 @@ export function pickNames(count: number, seed: number) {
   });
 }
 
+/** La entrada de la lista para un nombre, sin importar mayúsculas. */
+export function poolEntry(name: string) {
+  const wanted = name.trim().toLowerCase();
+  return TEAM_NAMES.find((team) => team.name.toLowerCase() === wanted);
+}
+
+/**
+ * Un color para cada equipo armado a mano, sin repetir.
+ *
+ * Primero el color propio de la lista, si el nombre está en ella; luego el que
+ * ya tenía ese lugar, para que renombrar no repinte; luego el primer color
+ * libre de la lista: seis tonos repartidos por la rueda, tantos como equipos
+ * puede tener una noche.
+ *
+ * Está aquí y no en la consulta porque el formulario pinta los equipos con él
+ * mientras se arman, y un escudo que cambia de color al guardar mentía.
+ *
+ * `preferred` va antes que todo: es el color de un equipo guardado que se cargó
+ * en ese lugar, para que el equipo se vea igual que todas las semanas.
+ */
+export function accentsFor(
+  names: string[],
+  kept: Array<string | undefined>,
+  preferred: Array<string | null | undefined> = [],
+) {
+  const used = new Set<string>();
+
+  return names.map((name, index) => {
+    const accent =
+      [preferred[index], poolEntry(name)?.accent, kept[index]].find(
+        (one) => one && !used.has(one),
+      ) ??
+      TEAM_NAMES.map((team) => team.accent).find((one) => !used.has(one)) ??
+      TEAM_NAMES[0].accent;
+
+    used.add(accent);
+    return accent;
+  });
+}
+
 /**
  * The short form for a team name, for its crest.
  *
@@ -474,11 +514,11 @@ export function pickNames(count: number, seed: number) {
  * places now: as an svg on screen, and with a canvas path on the shared card.
  */
 export function badgeFor(name: string) {
-  const known = TEAM_NAMES.find((team) => team.name === name);
+  const known = poolEntry(name);
   if (known) return known.badge;
 
   return name
-    .split(/s+/)
+    .split(/\s+/)
     .filter((word) => !/^(los|las|the|fc)$/i.test(word))
     .slice(0, 2)
     .map((word) => word.charAt(0))

@@ -12,8 +12,6 @@ import { LiveBadge } from "@/components/matches/live-badge";
 import { AppLink } from "@/components/ui/app-link";
 import { Icon } from "@/components/ui/icon";
 import { useNow } from "@/hooks/use-now";
-import { fill } from "@/i18n/dictionaries";
-import { formatMoney, rentalShare } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import {
   formatLongDate,
@@ -30,13 +28,10 @@ import type { Match } from "@/types";
 export function MatchHudCard({
   match,
   stacked,
-  onOpenPayments,
 }: {
   match: Match | null;
   /** One item per line, for the centred dialog on a phone. */
   stacked?: boolean;
-  /** Opens the rental ledger. The money pill becomes the button for it. */
-  onOpenPayments?: () => void;
 }) {
   const { t, locale } = useLocale();
   const now = useNow();
@@ -53,16 +48,16 @@ export function MatchHudCard({
   }
 
   const live = now !== null && isLive(match.playedAt, match.endsAt, now);
-  // Net of the no-shows' penalties, which go to the pitch.
-  const share = rentalShare(match);
 
   /**
    * Played and finished. The pitch keeps the match for three days after the
    * whistle so the rental can be collected, so this state is on screen for
    * longer than the match itself.
    */
-  const over = now !== null && now >= match.endsAt;
-  const owing = match.players.length - match.paidPlayerIds.length;
+  // A night closed from the results is over whatever the clock says: the
+  // sandbox can close one before its booked end.
+  const over =
+    match.closedAt !== null || (now !== null && now >= match.endsAt);
 
   return (
     <div className="min-w-0">
@@ -76,18 +71,15 @@ export function MatchHudCard({
       >
         {formatLongDate(match.playedAt, locale)}
 
-        {live ? (
+        {live && match.closedAt === null ? (
           <LiveBadge />
         ) : over ? (
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em]",
-              owing > 0
-                ? "bg-amber-400/15 text-amber-300"
-                : "bg-emerald-400/15 text-emerald-300",
-            )}
-          >
-            {owing > 0 ? fill(t.hud.toPay, { count: owing }) : t.hud.allPaid}
+          /*
+            Over: closed from the results, or simply past its time. What is
+            owed lives in the night's accounts now, not up here.
+          */
+          <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-foreground/80">
+            {match.closedAt !== null ? t.hud.nightClosed : t.hud.finished}
           </span>
         ) : (
           <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
@@ -97,40 +89,6 @@ export function MatchHudCard({
           </span>
         )}
 
-        {/*
-          The split sits at the far right of the date line. It recomputes on
-          every render, so signing someone up updates it with the lineup.
-        */}
-        {share !== null ? (
-          <button
-            type="button"
-            onClick={onOpenPayments}
-            disabled={!onOpenPayments}
-            className={cn(
-              "flex shrink-0 cursor-pointer items-baseline gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 transition-colors",
-              onOpenPayments
-                ? "hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                : "cursor-default",
-              stacked ? "" : "ml-auto",
-            )}
-            title={fill(t.hud.splitTitle, {
-              money: formatMoney(match.venue!.price!),
-              count: match.players.length,
-              players:
-                match.players.length === 1 ? t.common.player : t.common.players,
-            })}
-          >
-            <span className="text-sm tabular-nums text-foreground">
-              {formatMoney(share)}
-            </span>
-            <span className="text-[0.6rem] uppercase tracking-[0.12em] text-muted-foreground">
-              {t.common.each}
-            </span>
-            <span className="text-[0.6rem] tabular-nums text-muted-foreground">
-              {match.paidPlayerIds.length}/{match.players.length}
-            </span>
-          </button>
-        ) : null}
       </p>
 
       <div

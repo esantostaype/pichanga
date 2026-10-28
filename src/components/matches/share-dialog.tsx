@@ -29,14 +29,20 @@ import {
 import { useAction } from "@/hooks/use-action";
 import { fill } from "@/i18n/dictionaries";
 import { formatShortDate } from "@/lib/date";
+import { api } from "@/lib/api-client";
+import { canSettle } from "@/lib/money";
+import { useNow } from "@/hooks/use-now";
 import {
   asPng,
   matchShareText,
   renderMatchCard,
   type ShareScope,
   type ShareWords,
+  accountsShareText,
+  renderAccountsCard,
+  type AccountsWords,
 } from "@/lib/share-card";
-import type { Match } from "@/types";
+import type { Match, MatchLive } from "@/types";
 
 /**
  * The match as something you can send to a chat: a tall image of the lineup, or
@@ -82,7 +88,55 @@ export function ShareDialog({
    * hand.
    */
   const [scope, setScope] = useState<ShareScope>("match");
-  const owing = match ? match.players.length - match.paidPlayerIds.length : 0;
+
+  /*
+   * The accounts only exist once the night is over -- nothing changes hands
+   * before -- so that tab only appears then, and it needs the night itself
+   * (games and goals) to know who won the pot.
+   */
+  const now = useNow(60_000);
+  const settlable = !!match && now !== null && canSettle(match, now);
+  const showing: ShareScope = settlable ? scope : "match";
+  const [live, setLive] = useState<MatchLive | null>(null);
+
+  const accountsWords: AccountsWords = {
+    title: t.share.accTitle,
+    pitchBet: t.share.accPitchBet,
+    pot: t.share.accPot,
+    winners: t.share.accWinners,
+    noWinner: t.share.accNoWinner,
+    toCollect: t.share.accToCollect,
+    toHand: t.share.accToHand,
+    collect: t.share.accCollect,
+    hand: t.share.accHand,
+    square: t.share.accSquare,
+    breakdownWinner: t.share.accBreakdownWinner,
+    breakdown: t.share.accBreakdown,
+    noShow: t.share.accNoShow,
+  };
+
+  useEffect(() => {
+    if (!open || !match || showing !== "payments") return;
+
+    let cancelled = false;
+    void api.matches
+      .live(match.id)
+      .then((next) => {
+        if (!cancelled) setLive(next);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, match, showing]);
+
+  /** What the chat gets: the lineup, or the night's accounts. */
+  const shareText = !match
+    ? ""
+    : showing === "payments" && live
+      ? accountsShareText(match, live, accountsWords, locale)
+      : matchShareText(match, "match", cardWords, locale);
 
   /*
    * Switching tabs redraws the card, which takes a couple of hundred
@@ -92,10 +146,36 @@ export function ShareDialog({
    */
   useEffect(() => {
     if (!open || !match) return;
+    // The accounts card waits for the night to load.
+    if (showing === "payments" && !live) return;
 
     let cancelled = false;
 
-    void renderMatchCard(match, scope, DICTIONARIES[locale].share, locale)
+    const drawing =
+      showing === "payments" && live
+        ? renderAccountsCard(
+            match,
+            live,
+            {
+              title: DICTIONARIES[locale].share.accTitle,
+              pitchBet: DICTIONARIES[locale].share.accPitchBet,
+              pot: DICTIONARIES[locale].share.accPot,
+              winners: DICTIONARIES[locale].share.accWinners,
+              noWinner: DICTIONARIES[locale].share.accNoWinner,
+              toCollect: DICTIONARIES[locale].share.accToCollect,
+              toHand: DICTIONARIES[locale].share.accToHand,
+              collect: DICTIONARIES[locale].share.accCollect,
+              hand: DICTIONARIES[locale].share.accHand,
+              square: DICTIONARIES[locale].share.accSquare,
+              breakdownWinner: DICTIONARIES[locale].share.accBreakdownWinner,
+              breakdown: DICTIONARIES[locale].share.accBreakdown,
+              noShow: DICTIONARIES[locale].share.accNoShow,
+            },
+            locale,
+          )
+        : renderMatchCard(match, "match", DICTIONARIES[locale].share, locale);
+
+    void drawing
       .then((blob) => {
         const url = URL.createObjectURL(blob);
 
@@ -118,7 +198,7 @@ export function ShareDialog({
     };
     // `locale` belongs here: the card has words on it, so it is a different
     // card in the other language.
-  }, [open, match, scope, locale]);
+  }, [open, match, showing, live, locale]);
 
   /** The last card ever drawn, released when the dialog leaves for good. */
   useEffect(
@@ -129,7 +209,7 @@ export function ShareDialog({
   );
 
   const name = match
-    ? `pichanga-${formatShortDate(match.playedAt).replace(/[ ,]+/g, "-").toLowerCase()}${scope === "payments" ? "-payments" : ""}.jpg`
+    ? `pichanga-${formatShortDate(match.playedAt).replace(/[ ,]+/g, "-").toLowerCase()}${showing === "payments" ? "-cuentas" : ""}.jpg`
     : "pichanga.jpg";
 
   const download = () => {
@@ -181,10 +261,9 @@ export function ShareDialog({
           <DialogDescription>
             {!match
               ? t.share.nothing
-              : scope === "payments"
-                ? fill(t.share.stillToPay, {
+              : showing === "payments"
+                ? fill(t.share.accountsLine, {
                     date: formatShortDate(match.playedAt, locale),
-                    count: owing,
                   })
                 : fill(t.share.lineup, {
                     date: formatShortDate(match.playedAt, locale),
@@ -197,18 +276,17 @@ export function ShareDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs
-          ariaLabel={t.share.whatToShare}
-          value={scope}
-          onChange={(next) => setScope(next as ShareScope)}
-          items={[
-            { value: "match", label: t.share.tabMatch },
-            {
-              value: "payments",
-              label: t.share.tabPayments,
-            },
-          ]}
-        />
+        {settlable ? (
+          <Tabs
+            ariaLabel={t.share.whatToShare}
+            value={showing}
+            onChange={(next) => setScope(next as ShareScope)}
+            items={[
+              { value: "match", label: t.share.tabMatch },
+              { value: "payments", label: t.share.tabAccounts },
+            ]}
+          />
+        ) : null}
 
         {/* No frame around it: the card has its own edge and its own ground. */}
         <div className="max-h-[52vh] overflow-y-auto rounded-xl scrollbar-thin">
@@ -250,18 +328,12 @@ export function ShareDialog({
             disabled={!match}
             onClick={() => {
               if (!match) return;
-              if (onPhone) openWhatsApp(match, scope, cardWords, locale);
+              if (onPhone) openWhatsApp(shareText);
               else
-                void copyText(
-                  match,
-                  scope,
-                  {
-                    copied: t.share.copiedLineup,
-                    noClipboard: t.share.noClipboard,
-                  },
-                  cardWords,
-                  locale,
-                );
+                void copyText(shareText, {
+                  copied: t.share.copiedLineup,
+                  noClipboard: t.share.noClipboard,
+                });
             }}
           />
         </div>
@@ -319,16 +391,11 @@ function useCoarsePointer() {
 
 /** The message on the clipboard, ready to paste into whatever chat is open. */
 async function copyText(
-  match: Match,
-  scope: ShareScope,
+  text: string,
   said: { copied: string; noClipboard: string },
-  words: ShareWords,
-  lang: "en" | "es",
 ) {
   try {
-    await navigator.clipboard.writeText(
-      matchShareText(match, scope, words, lang),
-    );
+    await navigator.clipboard.writeText(text);
     toast.success(said.copied);
   } catch {
     toast.error(said.noClipboard);
@@ -342,12 +409,7 @@ async function copyText(
  * scheme for it and its Business API does not address groups at all. The chat
  * is picked in WhatsApp itself, which costs one tap.
  */
-function openWhatsApp(
-  match: Match,
-  scope: ShareScope,
-  words: ShareWords,
-  lang: "en" | "es",
-) {
-  const text = encodeURIComponent(matchShareText(match, scope, words, lang));
+function openWhatsApp(message: string) {
+  const text = encodeURIComponent(message);
   window.open(`https://wa.me/?text=${text}`, "_blank", "noopener,noreferrer");
 }

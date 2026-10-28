@@ -248,7 +248,7 @@ export function LineupLayer({
               width: band.width,
             }}
           >
-            <TeamCrest name={team.name} accent={team.accent} size={30} />
+            <TeamCrest name={team.name} accent={team.accent} badge={team.badge} image={team.crestUrl} size={30} />
             <span
               className="max-w-full truncate px-2 font-display text-lg uppercase tracking-[0.04em]"
               style={{ color: team.accent }}

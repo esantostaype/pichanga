@@ -52,7 +52,8 @@ export default async function ResultsPage({ params }: Props) {
       <NightResults
         match={match}
         initial={live}
-        backHref={`/match/${slug}`}
+        // Closing the night sends everybody home, where its results now live.
+        backHref="/"
         liveHref={`/match/${slug}/live`}
       />
     </PichangaProvider>

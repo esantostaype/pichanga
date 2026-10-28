@@ -1,4 +1,4 @@
-import { removePlayerFromMatch, setPlayerPaid } from "@/db/queries";
+import { getMatch, removePlayerFromMatch, setPlayerPaid } from "@/db/queries";
 import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
@@ -45,6 +45,16 @@ export async function PATCH(request: Request, { params }: Context) {
 export async function DELETE(_request: Request, { params }: Context) {
   return route(async () => {
     const { id, playerId } = await params;
+
+    // The lineup is fixed once the sides are drawn or the match has kicked
+    // off: the draw was made from who turned up, and from kick-off nobody
+    // comes off for anything.
+    const current = await getMatch(id);
+    if (!current) return fail((await messages()).matchNotFound, 404);
+    if (current.teams.length > 0 || Date.now() >= current.playedAt) {
+      return fail((await messages()).lineupLocked, 409);
+    }
+
     const match = await removePlayerFromMatch(id, playerId);
 
     if (!match) return fail((await messages()).matchNotFound, 404);

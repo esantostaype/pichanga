@@ -1,5 +1,6 @@
 import { standings, type Standing } from "./live";
-import type { MatchGame, MatchGoal, MatchTeam } from "@/types";
+import { rentalShare } from "./money";
+import type { Match, MatchGame, MatchGoal, MatchLive, MatchTeam } from "@/types";
 
 export type PrizeRow = {
   team: MatchTeam;
@@ -68,7 +69,14 @@ export function nightPrize(
     0,
   );
 
-  const perWinner = winningPlayers > 0 ? pot / winningPlayers : 0;
+  /*
+   * Down to the ten céntimos: S/ 10.38 is handed over as S/ 10.30. Coins
+   * smaller than that are not changing hands at a pitch, and rounding down
+   * means the pot always covers it -- the few céntimos over stay with whoever
+   * holds the money.
+   */
+  const perWinner =
+    winningPlayers > 0 ? Math.floor((pot / winningPlayers) * 10 + 1e-9) / 10 : 0;
 
   const rows = table.flatMap((standing) => {
     const team = byId.get(standing.teamId);
@@ -107,10 +115,13 @@ export type LedgerRow = {
   /** What a no-show owes; zero for everybody who played. */
   penalty: number;
   /**
-   * What changes hands now: positive is handed to them, negative is collected
-   * from them. The pitch and the bet are both collected at the end of the
-   * night, and for a winner they come off the prize, so a winner is simply
+   * What changes hands at the end of the night: positive is handed to them,
+   * negative is collected from them. The pitch and the bet are both collected
+   * then, and for a winner they come off the prize, so a winner is simply
    * handed less -- or asked for the difference when the prize is smaller.
+   *
+   * The same before and after it is ticked off: `paid` says the money has
+   * changed hands, not that the amount has changed.
    */
   settle: number;
   /** Where the night leaves them, all told: prize less stake less rental. */
@@ -132,8 +143,8 @@ export function playerLedger(
     noShowIds = [],
   }: {
     /**
-     * Each player's share of the pitch, with the penalties already taken off
-     * it (`rentalShare`), or zero when nobody priced it.
+     * Each player's share of the pitch (`rentalShare`), or zero when nobody
+     * priced it. Penalties play no part in it: they go to the anniversary.
      */
     rental: number;
     paidPlayerIds: string[];
@@ -154,7 +165,7 @@ export function playerLedger(
       paid: isPaid,
       noShow: true,
       penalty: prize.bet,
-      settle: isPaid ? 0 : -prize.bet,
+      settle: -prize.bet,
       net: -prize.bet,
     };
   });
@@ -174,16 +185,57 @@ export function playerLedger(
           paid: isPaid,
           noShow: false,
           penalty: 0,
-          settle: won - (isPaid ? 0 : rental + prize.bet),
+          settle: won - rental - prize.bet,
           net: won - prize.bet - rental,
         };
       }),
     )
     .sort(
       (left, right) =>
-        right.prize - left.prize || left.settle - right.settle,
+        // Winners first; within each, whoever is still to settle above whoever
+        // is done, so the list is a to-do that empties from the top.
+        right.prize - left.prize ||
+        Number(left.paid) - Number(right.paid) ||
+        left.settle - right.settle,
     );
 
   // Winners first, then everybody who played, then the ones who did not come.
-  return [...present, ...absent];
+  return [
+    ...present,
+    ...absent.sort((left, right) => Number(left.paid) - Number(right.paid)),
+  ];
+}
+
+/**
+ * The whole night's money in one go: the pot and who won it, each player's
+ * share of the pitch, everybody's row, and the two totals. What the accounts
+ * dialog shows and what the shared accounts card draws, so the two never
+ * disagree about a céntimo.
+ */
+export function nightAccounts(
+  match: Match,
+  live: Pick<MatchLive, "games" | "goals">,
+) {
+  const prize = nightPrize(match.teams, live.games, live.goals, match.bet);
+  const rental = rentalShare(match) ?? 0;
+  const ledger = playerLedger(prize, {
+    rental,
+    paidPlayerIds: match.paidPlayerIds,
+    noShowIds: match.noShows.map((player) => player.id),
+  });
+
+  return {
+    prize,
+    rental,
+    ledger,
+    // Still to do: whoever is ticked off is done with.
+    toHand: ledger.reduce(
+      (sum, row) => sum + (row.paid ? 0 : Math.max(0, row.settle)),
+      0,
+    ),
+    toCollect: ledger.reduce(
+      (sum, row) => sum + (row.paid ? 0 : Math.max(0, -row.settle)),
+      0,
+    ),
+  };
 }

@@ -45,7 +45,8 @@ import { fill } from "@/i18n/dictionaries";
 import { useRealtime } from "@/hooks/use-realtime";
 import { api } from "@/lib/api-client";
 import { GAME_MINUTES_CHOICES, INDEFINITE_GAME } from "@/lib/constants";
-import { recommendedGamePlan } from "@/lib/schedule";
+import { planFrom } from "@/lib/schedule";
+import { useNow } from "@/hooks/use-now";
 import { matchSlug } from "@/lib/date";
 import { currentGame } from "@/lib/live";
 
@@ -66,10 +67,13 @@ export function TeamsDialog({
   open,
   onOpenChange,
   match,
+  startManual = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   match: Match | null;
+  /** Abre en los equipos a mano: así se crean cuando no hay sorteo. */
+  startManual?: boolean;
 }) {
   const {
     isAdmin,
@@ -144,6 +148,16 @@ export function TeamsDialog({
    */
   const [tab, setTab] = useState<"auto" | "manual">("auto");
 
+  /*
+   * Cada vez que se abre, lo hace en la pestaña pedida. Se ajusta durante el
+   * render y no en un efecto, para que el primer cuadro ya sea el correcto y no
+   * se vea un instante el sorteo antes del formulario.
+   */
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setTab(startManual ? "manual" : "auto");
+  }
 
   const shuffle = useAction(
     async () => drawTeams(newSeed(), mixAges, sides ?? undefined),
@@ -193,6 +207,9 @@ export function TeamsDialog({
 
   const teams = match?.teams ?? [];
 
+  /** Creando los equipos a mano, cuando todavía no hay ninguno. */
+  const creating = tab === "manual" && teams.length === 0;
+
   /*
    * Three sides or more with a game on: the gloves stay put. Somebody is
    * waiting to come on and the table is being kept on the result. With two
@@ -211,11 +228,12 @@ export function TeamsDialog({
    * The fair length for this many sides and this long a match -- the one where
    * every side has played as many games as the others when the pot is shared
    * out. It is set on its own when the sides are drawn, and offered among the
-   * usual choices even when it is not one of them (nine, for ninety minutes
-   * with four sides).
+   * usual choices even when it is not one of them. Counted from now when the
+   * night is running late, so the round still fits what is left of it.
    */
+  const now = useNow(60_000);
   const plan = match
-    ? recommendedGamePlan(match.endsAt - match.playedAt, teams.length)
+    ? planFrom(match, teams.length, now ?? match.playedAt)
     : null;
 
   const usual: number[] = [...GAME_MINUTES_CHOICES];
@@ -263,9 +281,13 @@ export function TeamsDialog({
     >
       <DialogContent className={widthFor(teams.length)}>
         <DialogHeader>
-          <DialogTitle>{t.teams.title}</DialogTitle>
+          <DialogTitle>
+            {creating ? t.teams.createTitle : t.teams.title}
+          </DialogTitle>
           <DialogDescription>
-            {teams.length === 0
+            {creating
+              ? t.teams.createLine
+              : teams.length === 0
               ? t.teams.none
               : fill(started ? t.teams.started : t.teams.drawn, {
                   count: teams.length,
@@ -275,7 +297,7 @@ export function TeamsDialog({
               13px glyphs and nobody goes looking for a feature they cannot
               see. It costs one line and saves the question.
             */}
-            {teams.length > 1 && isAdmin && !started
+            {teams.length > 1 && isAdmin && !started && tab === "auto"
               ? ` ${t.teams.moveHint}`
               : ""}
           </DialogDescription>
@@ -300,7 +322,17 @@ export function TeamsDialog({
         ) : null}
 
         {tab === "manual" && match ? (
-          <ManualTeams match={match} onDone={() => setTab("auto")} />
+          <ManualTeams
+            match={match}
+            // Sin equipos no hay nada detrás del formulario a donde volver,
+            // así que cancelar cierra el diálogo.
+            onCancel={() =>
+              teams.length === 0 ? onOpenChange(false) : setTab("auto")
+            }
+            // Al guardar se muestran los equipos como siempre: ahí están el
+            // arquero, los minutos por partido y el acceso al partido en vivo.
+            onSaved={() => setTab("auto")}
+          />
         ) : (
           <>
 
@@ -330,7 +362,7 @@ export function TeamsDialog({
                 }}
               >
                 <header className="flex items-center gap-3">
-                  <TeamCrest name={team.name} accent={team.accent} />
+                  <TeamCrest name={team.name} accent={team.accent} badge={team.badge} image={team.crestUrl} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-display text-lg uppercase tracking-[0.04em]">
                       {team.name}
@@ -435,6 +467,8 @@ export function TeamsDialog({
                                   <TeamCrest
                                     name={side.name}
                                     accent={side.accent}
+                                    badge={side.badge}
+                                    image={side.crestUrl}
                                   />
                                   <span className="min-w-0 flex-1 truncate">
                                     {side.name}

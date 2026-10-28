@@ -93,7 +93,7 @@ export function LineupList({
           drawn.map((team) => (
             <section key={team.id}>
               <header className="mb-2 flex items-center gap-2">
-                <TeamCrest name={team.name} accent={team.accent} />
+                <TeamCrest name={team.name} accent={team.accent} badge={team.badge} image={team.crestUrl} />
                 <span
                   className="min-w-0 truncate font-display text-lg uppercase tracking-[0.04em]"
                   style={{ color: team.accent }}

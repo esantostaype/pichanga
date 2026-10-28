@@ -24,28 +24,33 @@ export const formatMoney = (amount: number) => money.format(amount);
  */
 export function perPlayer(price: number | null | undefined, players: number) {
   if (!price || price <= 0 || players <= 0) return null;
-  return price / players;
+  return roundUp(price / players);
 }
 
 /**
- * Each player's share of the pitch once the no-shows have paid their penalty.
+ * A share rounded up to the ten céntimos: S/ 2.65 is S/ 2.70, S/ 2.91 is S/ 3.
+ * Smaller coins are not changing hands at a pitch, and rounding up rather than
+ * down means the pitch is always covered -- the few céntimos over stay with
+ * whoever paid the venue.
+ */
+export const roundUp = (amount: number) =>
+  Math.round(Math.ceil(amount * 10 - 1e-9)) / 10;
+
+/**
+ * Each player's share of the pitch: the rental split between whoever came.
  *
- * Whoever signed up and never came owes the bet as a penalty, and that money
- * goes to the pitch: the rental left over is what the players who did come
- * split. Never below zero -- a night with more penalties than pitch does not
- * pay anybody to have played.
+ * The no-shows' penalties play no part in it. That money is kept apart -- it
+ * goes towards the pichangas' anniversary -- so it neither lowers the pitch
+ * nor adds to the pot; it is only collected.
  */
 export function rentalShare(match: {
   venue: { price: number | null } | null;
   players: unknown[];
-  noShows: unknown[];
-  bet: number;
 }) {
   const price = match.venue?.price ?? 0;
   if (price <= 0 || match.players.length === 0) return null;
 
-  const penalties = Math.max(0, match.bet) * match.noShows.length;
-  return Math.max(0, price - penalties) / match.players.length;
+  return roundUp(price / match.players.length);
 }
 
 /**

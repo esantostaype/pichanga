@@ -190,6 +190,20 @@
       "when": 1791058197198,
       "tag": "0026_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1793214155128,
+      "tag": "0027_team_crest",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1793215565228,
+      "tag": "0028_saved_teams",
+      "breakpoints": true
     }
   ]
 }

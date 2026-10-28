@@ -4,12 +4,15 @@ import type {
   MatchLive,
   MatchMedia,
   MatchSummary,
+  SavedTeam,
   Venue,
   VenueSuggestion,
   Player,
 } from "@/types";
 import type {
+  ManualSide,
   MatchInput,
+  SavedTeamInput,
   MediaInput,
   VenueInput,
   PlayerInput,
@@ -157,6 +160,12 @@ export const api = {
         method: "PATCH",
         body: body({ paid }),
       }),
+    /** Half an hour more on the rental, or half an hour back. */
+    extend: (id: string, minutes: 30 | -30) =>
+      request<Match>(`/api/matches/${id}/extend`, {
+        method: "POST",
+        body: body({ minutes }),
+      }),
     /** Signed up and did not come -- or did after all. */
     setNoShow: (id: string, playerId: string, noShow: boolean) =>
       request<Match>(`/api/matches/${id}/players/${playerId}/no-show`, {
@@ -180,7 +189,7 @@ export const api = {
         body: body({ seed, mixAges, teams }),
       }),
     /** The whole arrangement at once, as somebody built it by hand. */
-    setTeamsManually: (id: string, sides: string[][]) =>
+    setTeamsManually: (id: string, sides: ManualSide[]) =>
       request<Match>(`/api/matches/${id}/teams/manual`, {
         method: "POST",
         body: body({ sides }),
@@ -246,15 +255,32 @@ export const api = {
       }),
   },
 
+  /** Los equipos guardados, para usarlos de semana en semana. */
+  teams: {
+    list: (demo = false) =>
+      request<SavedTeam[]>(`/api/teams${world(demo)}`),
+    create: (input: SavedTeamInput) =>
+      request<SavedTeam>("/api/teams", { method: "POST", body: body(input) }),
+    update: (id: string, input: SavedTeamInput) =>
+      request<SavedTeam>(`/api/teams/${id}`, {
+        method: "PATCH",
+        body: body(input),
+      }),
+    remove: (id: string) =>
+      request<{ id: string }>(`/api/teams/${id}`, { method: "DELETE" }),
+  },
+
   /** Goals, games and records across every night that has been played. */
   stats: (demo = false) => request<Stats>(`/api/stats${world(demo)}`),
 
   /** Wipes the sandbox and builds a fresh one. Admin only, like the page. */
   resetDemo: () => request<Match>("/api/demo/reset", { method: "POST" }),
 
-  uploadPhoto: (file: File) => {
+  /** Un escudo se sube entero; la foto de un jugador se recorta a su cara. */
+  uploadPhoto: (file: File, kind: "player" | "crest" = "player") => {
     const form = new FormData();
     form.append("file", file);
+    form.append("kind", kind);
 
     return request<{ url: string; publicId: string }>("/api/upload", {
       method: "POST",

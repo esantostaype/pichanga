@@ -37,7 +37,7 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
   // "This tab is open." Anyone visiting is counted, so anyone may say it.
   { method: "POST", pattern: /^\/api\/presence\/?$/ },
   // Drawing the sides, which is the same kind of act as adding a player: it
-  // happens two hours before kick-off with everybody standing around, and the
+  // happens ten minutes before kick-off with everybody standing around, and the
   // endpoint checks that window itself. Clearing them is not here -- undoing
   // somebody's teams is a bigger thing than making them.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/teams\/?$/ },
@@ -75,6 +75,8 @@ const GUEST_WRITES: Array<{ method: string; pattern: RegExp }> = [
   // second checks its own signature, since nobody has a session to show.
   { method: "POST", pattern: /^\/api\/push\/subscribe\/?$/ },
   { method: "POST", pattern: /^\/api\/push\/full-time\/?$/ },
+  // Half an hour more on the pitch: decided out loud by whoever is there.
+  { method: "POST", pattern: /^\/api\/matches\/[^/]+\/extend\/?$/ },
   // The last whistle: the same hands that keep score end the night.
   { method: "POST", pattern: /^\/api\/matches\/[^/]+\/live\/finish\/?$/ },
   // The match gallery: anyone may add a photo or a clip. Deleting one is not

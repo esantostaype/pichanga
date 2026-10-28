@@ -168,6 +168,13 @@ export const matchTeams = sqliteTable(
     name: text("name").notNull(),
     /** Colour of the crest, so a team is recognisable at a glance. */
     accent: text("accent").notNull(),
+    /**
+     * Las dos letras del escudo, si alguien las eligió. Null son las letras
+     * sacadas del nombre, que es lo que lleva todo equipo sorteado.
+     */
+    badge: text("badge"),
+    /** Una imagen para el escudo en lugar de las letras, subida a mano. */
+    crestUrl: text("crest_url"),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("match_teams_slot_idx").on(t.matchId, t.slot)],
@@ -397,6 +404,50 @@ export const visitors = sqliteTable(
     lastSeen: integer("last_seen", { mode: "timestamp_ms" }).notNull(),
   },
   (t) => [index("visitors_last_seen_idx").on(t.lastSeen)],
+);
+
+/* -------------------------------------------------------------------------- */
+/*                              equipos guardados                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Un equipo que se repite de semana en semana: nombre, escudo y quiénes lo
+ * forman. No pertenece a ningún partido; cuando se usa en uno, se copia a
+ * `match_teams`, así que editarlo o borrarlo nunca cambia una noche ya jugada.
+ */
+export const savedTeams = sqliteTable(
+  "saved_teams",
+  {
+    id: id(),
+    name: text("name").notNull(),
+    /** Las dos letras del escudo, si se eligieron; null las saca del nombre. */
+    badge: text("badge"),
+    /** Una imagen para el escudo en lugar de las letras. */
+    crestUrl: text("crest_url"),
+    /** Color del equipo, para que se reconozca de un vistazo. */
+    accent: text("accent").notNull(),
+    /** Fila de la demo: solo la ve la pantalla de demo. */
+    isDemo: integer("is_demo", { mode: "boolean" }).notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [index("saved_teams_name_idx").on(t.isDemo, t.name)],
+);
+
+/** Quiénes forman cada equipo guardado. Borrar al jugador lo saca del equipo. */
+export const savedTeamPlayers = sqliteTable(
+  "saved_team_players",
+  {
+    teamId: text("team_id")
+      .notNull()
+      .references(() => savedTeams.id, { onDelete: "cascade" }),
+    playerId: text("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.teamId, t.playerId] })],
 );
 
 /* -------------------------------------------------------------------------- */

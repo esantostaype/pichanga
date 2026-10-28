@@ -1,4 +1,4 @@
-import { setNoShow } from "@/db/queries";
+import { getMatch, setNoShow } from "@/db/queries";
 import { messages } from "@/i18n/server";
 import { REALTIME } from "@/lib/constants";
 import { fail, json, readJson, route } from "@/lib/http";
@@ -19,6 +19,16 @@ export async function POST(request: Request, { params }: Context) {
   return route(async () => {
     const { id, playerId } = await params;
     const { noShow } = await readJson(request, noShowInputSchema);
+
+    // The lineup is fixed once the sides are drawn or the match has kicked
+    // off: the draw was made from who turned up, and from kick-off nobody
+    // comes off for anything.
+    const current = await getMatch(id);
+    if (!current) return fail((await messages()).matchNotFound, 404);
+    if (current.teams.length > 0 || Date.now() >= current.playedAt) {
+      return fail((await messages()).lineupLocked, 409);
+    }
+
 
     const match = await setNoShow(id, playerId, noShow);
     if (!match) return fail((await messages()).notInMatch, 404);

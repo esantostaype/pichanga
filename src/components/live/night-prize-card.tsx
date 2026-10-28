@@ -85,7 +85,16 @@ export function NightPrizeCard({
         outside or Escape.
       */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl gap-4">
+        {/*
+          The whole screen scrolls it, not only the box: a long list of
+          accounts read with a thumb anywhere on the phone. The box keeps its
+          full height and starts at the top, so nothing ends up out of reach
+          above the fold.
+        */}
+        <DialogContent
+          className="max-h-none max-w-2xl gap-4 self-start overflow-visible"
+          style={{ overflowY: "auto" }}
+        >
           <DialogHeader>
             <DialogTitle className="text-3xl sm:text-4xl">
               {t.results.title}
@@ -107,6 +116,8 @@ export function NightPrizeCard({
                   <TeamCrest
                     name={row.team.name}
                     accent={row.team.accent}
+                    badge={row.team.badge}
+                    image={row.team.crestUrl}
                     size={56}
                   />
                   <span

@@ -8,6 +8,8 @@ const team = (id: string, size: number): MatchTeam => ({
   slot: 0,
   name: id,
   accent: "#c6f432",
+  badge: null,
+  crestUrl: null,
   playerIds: Array.from({ length: size }, (_, index) => `${id}${index}`),
   keeperId: null,
   borrowedKeeper: false,
@@ -109,6 +111,15 @@ describe("nightPrize", () => {
     expect(prize.rows.find((row) => row.team.id === "a")!.prize).toBe(30);
   });
 
+  it("rounds each winner's share down to the ten céntimos", () => {
+    // Twenty-seven at 5 is 135, between seven winners: 19.28... is 19.20.
+    const big = [team("a", 7), team("b", 7), team("c", 7), team("d", 6)];
+    const prize = nightPrize(big, [game("g1", "a", "b")], [goal("g1", "a")], 5);
+
+    expect(prize.pot).toBe(135);
+    expect(prize.perWinner).toBe(19.2);
+  });
+
   it("names no winner before anything is played", () => {
     const prize = nightPrize(sides, [], [], 5);
 
@@ -127,8 +138,9 @@ describe("playerLedger", () => {
     const paidWinner = ledger.find((row) => row.playerId === "a0")!;
     const owingWinner = ledger.find((row) => row.playerId === "a1")!;
 
-    // Already squared up: the whole prize. Not yet: 10 less 4 less 5.
-    expect(paidWinner.settle).toBe(10);
+    // 10 less 4 less 5, ticked off or not: ticking it changes nothing owed.
+    expect(paidWinner.settle).toBe(1);
+    expect(paidWinner.paid).toBe(true);
     expect(owingWinner.settle).toBe(1);
     expect(owingWinner.net).toBe(1);
   });
@@ -138,7 +150,7 @@ describe("playerLedger", () => {
     const paidWinner = ledger.find((row) => row.playerId === "a0")!;
     const owingWinner = ledger.find((row) => row.playerId === "a1")!;
 
-    expect(paidWinner.settle).toBe(10);
+    expect(paidWinner.settle).toBe(-2);
     expect(owingWinner.settle).toBe(-2);
     // Either way the night leaves them 10 - 5 - 7 = -2.
     expect(paidWinner.net).toBe(-2);
@@ -148,7 +160,8 @@ describe("playerLedger", () => {
   it("collects the pitch and the bet from a loser", () => {
     const ledger = playerLedger(prize, { rental: 7, paidPlayerIds: ["b0"] });
 
-    expect(ledger.find((row) => row.playerId === "b0")!.settle).toBe(0);
+    expect(ledger.find((row) => row.playerId === "b0")!.settle).toBe(-12);
+    expect(ledger.find((row) => row.playerId === "b0")!.paid).toBe(true);
     expect(ledger.find((row) => row.playerId === "b1")!.settle).toBe(-12);
     expect(ledger.find((row) => row.playerId === "b1")!.net).toBe(-12);
   });
@@ -173,8 +186,17 @@ describe("playerLedger", () => {
   });
 });
 
+describe("roundUp", () => {
+  it("goes up to the next ten céntimos", async () => {
+    const { roundUp } = await import("./money");
+    expect(roundUp(2.65)).toBe(2.7);
+    expect(roundUp(2.91)).toBe(3);
+    expect(roundUp(2.7)).toBe(2.7);
+  });
+});
+
 describe("rentalShare", () => {
-  it("takes the no-shows' penalties off the pitch before splitting it", async () => {
+  it("splits the pitch between whoever came, penalties aside", async () => {
     const { rentalShare } = await import("./money");
     const match = {
       venue: { price: 100 },
@@ -183,8 +205,11 @@ describe("rentalShare", () => {
       bet: 5,
     };
 
-    // 100 less two penalties of 5, between the ten who came.
-    expect(rentalShare(match)).toBe(9);
-    expect(rentalShare({ ...match, noShows: [] })).toBe(10);
+    // The two penalties go to the anniversary fund, not to the pitch.
+    expect(rentalShare(match)).toBe(10);
+    // Rounded up to the ten céntimos: 80 between 27 is 2.96, which is 3.
+    expect(
+      rentalShare({ venue: { price: 80 }, players: Array.from({ length: 27 }) }),
+    ).toBe(3);
   });
 });

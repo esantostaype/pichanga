@@ -250,6 +250,8 @@ export function StatsDrawer({
                             <TeamCrest
                               name={team.name}
                               accent={team.accent}
+                              badge={team.badge}
+                              image={team.crestUrl}
                               size={20}
                             />
                             <span

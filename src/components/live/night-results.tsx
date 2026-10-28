@@ -2,11 +2,10 @@
 
 import {
   ArrowLeft01Icon,
-  ChampionIcon,
   CheckmarkCircle02Icon,
 } from "@hugeicons/core-free-icons";
 import Image from "next/image";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useScene } from "@/components/layout/scene-transition";
 import { TeamCrest } from "@/components/matches/team-crest";
@@ -40,32 +39,53 @@ export function NightResults({
   initial,
   backHref,
   liveHref,
+  embedded,
+  onTogglePaid,
 }: {
   match: Match;
-  initial: MatchLive;
+  /** The night, when the server already has it. Fetched otherwise. */
+  initial?: MatchLive;
   /** The lineup, where closing the night sends everybody. */
   backHref: string;
   /** Match night, for when somebody wants one more game after all. */
   liveHref: string;
+  /**
+   * Shown in place of the lineup, on the front page of a closed night: the
+   * app's header floats over the top, so the content starts below it, and
+   * the match comes from the page around it -- which is what keeps the paid
+   * marks in step as they are ticked.
+   */
+  embedded?: { topInset: number };
+  /** Ticks somebody off in the accounts. Absent: the accounts are read only. */
+  onTogglePaid?: (playerId: string, paid: boolean) => Promise<unknown>;
 }) {
   const { t } = useLocale();
   const { go } = useScene();
   const [ground, size] = useElementSize<HTMLDivElement>();
 
-  const [match, setMatch] = useState(served);
-  const [live, setLive] = useState(initial);
+  const [own, setOwn] = useState(served);
+  const match = embedded ? served : own;
+  const [live, setLive] = useState<MatchLive | null>(initial ?? null);
   const [confirming, setConfirming] = useState(false);
   const [closing, setClosing] = useState(false);
 
   // A goal taken back or a game ended on another phone moves the podium too.
   const refresh = useCallback(async () => {
     try {
-      setLive(await api.matches.live(match.id));
-      setMatch(await api.matches.get(match.id));
+      setLive(await api.matches.live(served.id));
+      // Embedded, the page around this one keeps the match up to date.
+      if (!embedded) setOwn(await api.matches.get(served.id));
     } catch {
       // The last good table stays up; the next event tries again.
     }
-  }, [match.id]);
+  }, [served.id, embedded]);
+
+  // Nothing handed over by the server: fetch the night once, after mount.
+  useEffect(() => {
+    if (initial) return;
+    const timer = setTimeout(() => void refresh(), 0);
+    return () => clearTimeout(timer);
+  }, [initial, refresh]);
 
   useRealtime({
     "live:changed": (payload) => {
@@ -74,6 +94,8 @@ export function NightResults({
       }
     },
   });
+
+  if (!live) return null;
 
   const closed = match.closedAt !== null;
   const prize = nightPrize(match.teams, live.games, live.goals, match.bet);
@@ -104,25 +126,34 @@ export function NightResults({
   };
 
   return (
-    <main className="relative min-h-svh overflow-x-hidden bg-background">
-      {/* The pitch, fixed behind the whole page: the podium stands on it. */}
-      <div ref={ground} className="fixed inset-0">
+    <main
+      className={cn(
+        "overflow-x-hidden bg-background",
+        embedded ? "absolute inset-0 overflow-y-auto" : "relative min-h-svh",
+      )}
+    >
+      {/*
+        The pitch, fixed behind the whole page: the podium stands on it. It
+        takes no pointer, so a wheel or a thumb over the grass scrolls the page
+        -- a fixed layer catching it would scroll nothing at all.
+      */}
+      <div ref={ground} className="pointer-events-none fixed inset-0">
         <PitchSurface width={size.width} height={size.height || 1} />
         <div aria-hidden className="absolute inset-0 bg-black/45" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-svh w-full max-w-3xl flex-col items-center justify-center gap-6 px-4 py-10">
+      <div
+        className="relative z-10 mx-auto flex min-h-svh w-full max-w-3xl flex-col items-center justify-center gap-6 px-4 py-10"
+        style={embedded ? { paddingTop: embedded.topInset } : undefined}
+      >
         <header className="flex flex-col items-center gap-2 text-center">
-          <span className="grid size-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-lg">
-            <Icon icon={ChampionIcon} size={24} />
-          </span>
           <h1 className="font-display text-4xl uppercase tracking-[0.04em] sm:text-5xl">
             {t.results.title}
           </h1>
 
           {/* The pot: how big, and where it came from. */}
           {prize.bet > 0 ? (
-            <p className="flex flex-wrap items-baseline justify-center gap-x-2 text-sm text-foreground/80">
+            <p className="flex flex-col items-center gap-0.5 text-sm text-foreground/80">
               <span className="font-display text-2xl uppercase tracking-[0.06em] text-primary">
                 {t.results.pot} {formatMoney(prize.pot)}
               </span>
@@ -213,6 +244,8 @@ export function NightResults({
                       <TeamCrest
                         name={row.team.name}
                         accent={row.team.accent}
+                        badge={row.team.badge}
+                        image={row.team.crestUrl}
                         size={20}
                       />
                       <span
@@ -234,7 +267,13 @@ export function NightResults({
             ) : null}
 
             {/* Everybody's money: who is handed what, who still owes. */}
-            {prize.bet > 0 ? <PrizeLedger match={match} prize={prize} /> : null}
+            {prize.bet > 0 ? (
+              <PrizeLedger
+                match={match}
+                prize={prize}
+                onTogglePaid={onTogglePaid}
+              />
+            ) : null}
           </>
         )}
 
@@ -282,9 +321,12 @@ export function NightResults({
                 <Icon icon={CheckmarkCircle02Icon} size={18} className="text-primary" />
                 {t.results.closedLine}
               </p>
-              <Button variant="secondary" onClick={() => go(backHref)}>
-                {t.results.backToPitch}
-              </Button>
+              {/* Embedded, this already is the front page. */}
+              {embedded ? null : (
+                <Button variant="secondary" onClick={() => go(backHref)}>
+                  {t.results.backToPitch}
+                </Button>
+              )}
             </>
           ) : (
             <>
@@ -333,16 +375,16 @@ function Step({ row, showMoney }: { row: PrizeRow; showMoney: boolean }) {
 
   return (
     <div className="flex w-[var(--step)] min-w-0 flex-col items-center gap-2">
-      <TeamCrest name={team.name} accent={team.accent} size={64} />
+      <TeamCrest name={team.name} accent={team.accent} badge={team.badge} image={team.crestUrl} size={64} />
       <p className="w-full truncate text-center font-display text-lg uppercase leading-tight tracking-[0.04em] sm:text-xl">
         {team.name}
       </p>
 
       <div
-        className="flex h-32 w-full flex-col items-center justify-start gap-1 rounded-t-2xl border border-b-0 px-2 pt-3 backdrop-blur-md sm:h-36"
+        className="flex h-32 w-full flex-col items-center justify-start gap-1 rounded-t-2xl border border-b-0 px-2 pt-3 [mask-image:linear-gradient(to_bottom,black_55%,transparent)] sm:h-36"
         style={{
           borderColor: `${team.accent}66`,
-          background: `linear-gradient(180deg, ${team.accent}40 0%, rgba(0,0,0,0.65) 100%)`,
+          background: `linear-gradient(180deg, ${team.accent}40 0%, ${team.accent}00 100%)`,
         }}
       >
         <span

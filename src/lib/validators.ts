@@ -143,6 +143,11 @@ export const pushSubscriptionSchema = z.object({
   matchId: z.string().min(1).nullable(),
 });
 
+/** Half an hour on the rental, or half an hour back. */
+export const extendInputSchema = z.object({
+  minutes: z.union([z.literal(30), z.literal(-30)]),
+});
+
 /** Signed up and did not turn up: true marks it, false takes it back. */
 export const noShowInputSchema = z.object({ noShow: z.boolean() });
 
@@ -197,16 +202,77 @@ export const keeperInputSchema = z.object({
 });
 
 /**
- * The sides as somebody arranged them: every side, in order, with the ids it
- * holds. The whole arrangement rather than a diff -- the server checks that
- * every player in the match appears exactly once, which a diff cannot.
+ * Los equipos como alguien los armó: cada uno, en orden, con su nombre y los
+ * ids de sus jugadores. El armado completo y no solo los cambios, para que el
+ * servidor pueda comprobar que nadie aparece dos veces.
+ *
+ * El nombre es obligatorio: un equipo armado a mano es de alguien, y se le
+ * pone nombre. Dos equipos con el mismo nombre se rechazan, porque la tabla y
+ * el marcador los distinguen por él.
  */
 export const teamsManualInputSchema = z.object({
   sides: z
-    .array(z.array(z.string().min(1)))
+    .array(
+      z.object({
+        name: z.string().trim().min(1, "teams.nameRequired").max(30),
+        /** Color preferido, el de un equipo guardado que se cargó aquí. */
+        accent: z
+          .string()
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .nullish(),
+        /** Dos letras para el escudo; si no hay, se sacan del nombre. */
+        badge: z
+          .string()
+          .trim()
+          .toUpperCase()
+          .min(1)
+          .max(2, "teams.badgeTooLong")
+          .nullish(),
+        /** Solo una imagen subida por esta app: nada de enlaces externos. */
+        crestUrl: z
+          .string()
+          .url()
+          .startsWith("https://res.cloudinary.com/")
+          .nullish(),
+        playerIds: z.array(z.string().min(1)).min(1, "teams.sideNeedsPlayers"),
+      }),
+    )
     .min(2, "teams.needTwoSides")
-    .max(6),
+    .max(6)
+    .refine(
+      (sides) =>
+        new Set(sides.map((side) => side.name.trim().toLowerCase())).size ===
+        sides.length,
+      { message: "teams.nameRepeated" },
+    ),
 });
+
+export type ManualSide = z.infer<typeof teamsManualInputSchema>["sides"][number];
+
+/**
+ * Un equipo guardado, tal como se crea o edita desde su propio panel: nombre,
+ * escudo y quiénes lo forman. Puede no tener jugadores todavía.
+ */
+export const savedTeamInputSchema = z.object({
+  name: z.string().trim().min(1, "teams.nameRequired").max(30),
+  badge: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .min(1)
+    .max(2, "teams.badgeTooLong")
+    .nullish(),
+  crestUrl: z
+    .string()
+    .url()
+    .startsWith("https://res.cloudinary.com/")
+    .nullish(),
+  playerIds: z.array(z.string().min(1)).max(40),
+  /** Fila de la demo: la escribe la pantalla de demo y solo ella la ve. */
+  isDemo: z.boolean().optional(),
+});
+
+export type SavedTeamInput = z.infer<typeof savedTeamInputSchema>;
 
 /** Which player is being moved onto the side in the route. */
 export const teamPlayerInputSchema = z.object({

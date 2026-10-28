@@ -2,8 +2,10 @@
 
 import { useGSAP } from "@gsap/react";
 import {
+  BalanceScaleIcon,
   Invoice01Icon,
   FootballPitchIcon,
+  PencilEdit02Icon,
   PlusSignIcon,
   StopWatchIcon,
   UserGroupIcon,
@@ -19,8 +21,10 @@ import { ShareDialog } from "@/components/matches/share-dialog";
 import { TeamsDialog, newSeed } from "@/components/matches/teams-dialog";
 import { TeamsPreviewDialog } from "@/components/matches/teams-preview-dialog";
 import { NightPrizeCard } from "@/components/live/night-prize-card";
+import { NightResults } from "@/components/live/night-results";
 import { PitchScene } from "@/components/pitch/pitch-scene";
 import { VenuesDrawer } from "@/components/venues/venues-drawer";
+import { SavedTeamsDrawer } from "@/components/teams/saved-teams-drawer";
 import { PlayerCardDialog } from "@/components/players/player-card-dialog";
 import { PlayerFormDialog } from "@/components/players/player-form-dialog";
 import { PlayersDrawer } from "@/components/players/players-drawer";
@@ -29,6 +33,12 @@ import { BirthdaysDrawer } from "@/components/players/birthdays-drawer";
 import { usePichanga } from "@/components/providers/pichanga-provider";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { useAction } from "@/hooks/use-action";
@@ -77,6 +87,8 @@ export function AppShell() {
 
   const [panel, setPanel] = useState<PanelName | null>(null);
   const [teamsDialogOpen, setTeamsDialogOpen] = useState(false);
+  /** Si el diálogo abre en los equipos a mano en vez del sorteo. */
+  const [buildingTeams, setBuildingTeams] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   /*
    * Whose card is open, from a tap on their name anywhere on the pitch.
@@ -95,7 +107,7 @@ export function AppShell() {
     setCardOpen(true);
   }, []);
 
-  // The button turns up two hours before kick-off, so the shell needs a clock.
+  // The button turns up ten minutes before kick-off, so the shell needs a clock.
   const now = useNow(60_000);
 
   const { go } = useScene();
@@ -108,11 +120,24 @@ export function AppShell() {
   const over = !!nextMatch && now !== null && now >= nextMatch.endsAt;
 
   const hasTeams = !over && (nextMatch?.teams.length ?? 0) > 0;
+  /**
+   * The lineup is fixed once the sides are drawn or the match has kicked off,
+   * whichever comes first: from then on nobody comes off, not for missing it
+   * and not for anything else.
+   */
+  /** Closed from the results: the front page is those results now. */
+  const closedNight = !!nextMatch && nextMatch.closedAt !== null;
+
+  const drawnSides =
+    (nextMatch?.teams.length ?? 0) > 0 ||
+    (!!nextMatch && now !== null && now >= nextMatch.playedAt);
   const teamsOpen =
     !over &&
     !!nextMatch &&
     nextMatch.players.length >= 4 &&
-    (hasTeams || (now !== null && now >= nextMatch.playedAt - TEAMS_OPEN_MS));
+    (hasTeams ||
+      demo ||
+      (now !== null && now >= nextMatch.playedAt - TEAMS_OPEN_MS));
 
   /*
    * Before the window, the same button asks a smaller question: not "draw the
@@ -156,8 +181,16 @@ export function AppShell() {
 
   const draw = useAction(async () => drawTeams(newSeed()), {
     success: t.pitch.teamsDrawn,
-    onSuccess: () => setTeamsDialogOpen(true),
+    onSuccess: () => {
+      setBuildingTeams(false);
+      setTeamsDialogOpen(true);
+    },
   });
+
+  const buildTeams = () => {
+    setBuildingTeams(true);
+    setTeamsDialogOpen(true);
+  };
   const [addOpen, setAddOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
   /*
@@ -193,16 +226,19 @@ export function AppShell() {
   const settlable = !!nextMatch && now !== null && canSettle(nextMatch, now);
 
   /*
-   * Somebody can be marked as not having come from the day itself -- two hours
-   * before kick-off, when the sides are drawn -- and only while there is a bet
-   * to charge them, since that is all the mark does beyond dropping them.
+   * Somebody can be marked as not having come in the ten minutes before
+   * kick-off -- when everybody is meant to be there to say so -- until the
+   * sides are drawn or the match starts, and only while there is a bet to
+   * charge them, since that is all the mark does beyond dropping them.
    */
   const noShowOpen =
     !!nextMatch &&
     now !== null &&
     nextMatch.bet > 0 &&
     nextMatch.closedAt === null &&
-    now >= nextMatch.playedAt - TEAMS_OPEN_MS;
+    nextMatch.teams.length === 0 &&
+    now < nextMatch.playedAt &&
+    (demo || now >= nextMatch.playedAt - TEAMS_OPEN_MS);
 
   const markNoShow = useAction(
     async (player: Player) => setNoShow(player.id, true),
@@ -246,26 +282,54 @@ export function AppShell() {
 
   return (
     <main className="relative h-dvh w-full overflow-hidden">
-      <PitchScene
-        match={nextMatch}
-        over={over}
-        // The band is reserved on both edges, so it also has to clear the
-        // floating button sitting at the bottom right.
-        hudInset={Math.max(hudSize.height, FAB_CLEARANCE) + HUD_GAP}
-        // Only the floating button sits down there, so the list keeps just it
-        // clear rather than mirroring the whole HUD.
-        bottomInset={FAB_CLEARANCE + HUD_GAP}
-        onRemovePlayer={setPendingRemoval}
-        onViewPlayer={viewPlayer}
-        onSetKeeper={hasTeams ? handOver : undefined}
-        keeperPending={handing}
-      />
+      {/*
+        A closed night owns the front page as its results: the podium, the pot
+        and everybody's account, with the paid marks right there -- for three
+        days, then the pitch is cleared for next Friday's lineup. Until then
+        there is no lineup to show: the night it belonged to is over.
+      */}
+      {closedNight && nextMatch ? (
+        <NightResults
+          key={nextMatch.id}
+          match={nextMatch}
+          embedded={{ topInset: hudSize.height + HUD_GAP * 2 }}
+          backHref={demo ? "/demo" : "/"}
+          liveHref={
+            demo ? "/demo/live" : `/match/${matchSlug(nextMatch.playedAt)}/live`
+          }
+          onTogglePaid={
+            isAdmin
+              ? (playerId, paid) => tick.run({ playerId, paid })
+              : undefined
+          }
+        />
+      ) : (
+        <PitchScene
+          match={nextMatch}
+          over={over}
+          // The band is reserved on both edges, so it also has to clear the
+          // floating button sitting at the bottom right.
+          hudInset={Math.max(hudSize.height, FAB_CLEARANCE) + HUD_GAP}
+          // Only the floating button sits down there, so the list keeps just it
+          // clear rather than mirroring the whole HUD.
+          bottomInset={FAB_CLEARANCE + HUD_GAP}
+          /*
+            Nobody comes off once the sides are drawn: the draw is made from who
+            turned up, so whoever did not is taken off -- or marked as not having
+            come -- before it. Undoing the sides opens the lineup again.
+          */
+          onRemovePlayer={drawnSides ? undefined : setPendingRemoval}
+          onViewPlayer={viewPlayer}
+          onSetKeeper={hasTeams ? handOver : undefined}
+          keeperPending={handing}
+        />
+      )}
 
       {/*
         The night's accounts, once there is a night to settle: the pot and who
         won it, the pitch, the no-shows, and who is handed or owes what.
       */}
-      {nextMatch && settlable ? (
+      {nextMatch && settlable && !closedNight ? (
         <NightPrizeCard
           key={nextMatch.id}
           match={nextMatch}
@@ -276,7 +340,12 @@ export function AppShell() {
               ? (playerId, paid) => tick.run({ playerId, paid })
               : undefined
           }
-          onUndoNoShow={(playerId) => void undoNoShow.run(playerId)}
+          // Only while there are no sides: after the draw the lineup is fixed.
+          onUndoNoShow={
+            drawnSides
+              ? undefined
+              : (playerId) => void undoNoShow.run(playerId)
+          }
           resultsHref={
             demo
               ? "/demo/results"
@@ -289,11 +358,6 @@ export function AppShell() {
       <AppHeader
         match={nextMatch}
         hudRef={setHud}
-        // The split opens the night's accounts, and only once there is a night
-        // to settle; before that it is an estimate, not a bill.
-        onOpenPayments={
-          settlable ? () => setAccountsOpen(true) : undefined
-        }
         onShare={() => setShareOpen(true)}
         onGallery={() => setGalleryOpen(true)}
         onSelectPanel={setPanel}
@@ -301,6 +365,7 @@ export function AppShell() {
       />
 
       {/* Adding players is the one thing everyone does, so it gets the thumb. */}
+      {closedNight ? null : (
       <div className="pointer-events-none absolute inset-x-0 bottom-4 flex items-end gap-3 p-4">
         {/* Stays out of the way: no background, no pointer events, no chrome. */}
         {isSuperAdmin ? <LiveVisitors /> : null}
@@ -328,15 +393,52 @@ export function AppShell() {
           the bottom they are all under the same thumb.
         */}
         <div className="pointer-events-auto ml-auto flex flex-row items-center gap-3 sm:flex-col sm:items-end">
-          {teamsOpen ? (
+          {teamsOpen && !hasTeams && isAdmin ? (
+            /*
+              Dos formas de armar los equipos, elegidas antes de hacer nada: el
+              sorteo los nivela, y a mano quedan como alguien quiera, con
+              nombre y jugadores elegidos uno a uno. Solo para quien puede
+              guardar equipos a mano; los demás reciben el sorteo directo, como
+              antes.
+            */
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="soft"
+                  size="icon-lg"
+                  aria-label={t.pitch.drawTeams}
+                  disabled={draw.pending}
+                >
+                  {draw.pending ? (
+                    <Spinner />
+                  ) : (
+                    <Icon icon={UserGroupIcon} size={22} />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" side="top">
+                <DropdownMenuItem onSelect={() => void draw.run()}>
+                  <Icon icon={BalanceScaleIcon} />
+                  {t.pitch.drawLevelled}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={buildTeams}>
+                  <Icon icon={PencilEdit02Icon} />
+                  {t.pitch.buildTeams}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : teamsOpen ? (
             <Button
               variant="soft"
               size="icon-lg"
               aria-label={hasTeams ? t.pitch.teams : t.pitch.drawTeams}
               disabled={draw.pending}
               onClick={() => {
-                if (hasTeams) setTeamsDialogOpen(true);
-                else void draw.run();
+                if (hasTeams) {
+                  setBuildingTeams(false);
+                  setTeamsDialogOpen(true);
+                } else void draw.run();
               }}
             >
               {draw.pending ? (
@@ -385,6 +487,7 @@ export function AppShell() {
           </Button>
         </div>
       </div>
+      )}
 
       <MatchesDrawer
         open={panel === "matches"}
@@ -394,6 +497,11 @@ export function AppShell() {
       <PlayersDrawer
         open={panel === "players"}
         onOpenChange={(open) => setPanel(open ? "players" : null)}
+      />
+
+      <SavedTeamsDrawer
+        open={panel === "teams"}
+        onOpenChange={(open) => setPanel(open ? "teams" : null)}
       />
 
       <VenuesDrawer
@@ -436,11 +544,12 @@ export function AppShell() {
         open={teamsDialogOpen}
         onOpenChange={setTeamsDialogOpen}
         match={nextMatch}
+        startManual={buildingTeams}
       />
 
       {/*
         Gated on the window as well as on the flag, so a preview left open as
-        the two hours come round closes itself rather than sitting there beside
+        the ten minutes come round closes itself rather than sitting there beside
         the real draw saying something different.
       */}
       <TeamsPreviewDialog

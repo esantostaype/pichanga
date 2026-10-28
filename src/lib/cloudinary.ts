@@ -28,8 +28,15 @@ export type UploadedPhoto = { url: string; publicId: string };
 /**
  * Uploads the photo already cropped to a face-centered square: pitch tokens
  * are circular, so the crop happens once at upload time.
+ *
+ * El escudo de un equipo es la excepción: es un logo y se muestra entero, así
+ * que solo se achica para que entre, nunca se recorta a un cuadrado alrededor
+ * de lo que parezca una cara.
  */
-export async function uploadPlayerPhoto(file: File): Promise<UploadedPhoto> {
+export async function uploadPlayerPhoto(
+  file: File,
+  kind: "player" | "crest" = "player",
+): Promise<UploadedPhoto> {
   const buffer = Buffer.from(await file.arrayBuffer());
   const sdk = client();
 
@@ -40,7 +47,9 @@ export async function uploadPlayerPhoto(file: File): Promise<UploadedPhoto> {
         resource_type: "image",
         overwrite: true,
         transformation: [
-          { width: 512, height: 512, crop: "fill", gravity: "auto:face" },
+          kind === "crest"
+            ? { width: 512, height: 512, crop: "limit" }
+            : { width: 512, height: 512, crop: "fill", gravity: "auto:face" },
           { quality: "auto", fetch_format: "auto" },
         ],
       },

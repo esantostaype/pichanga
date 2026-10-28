@@ -67,12 +67,30 @@ export type MatchSummary = {
  * be filled, and `borrowedKeeper` says whether the person in goal chose to be
  * there or was the least bad option on the day.
  */
+/**
+ * Un equipo guardado para usarlo de semana en semana, fuera de cualquier
+ * partido. `playerIds` son quienes lo forman, estén o no anotados hoy.
+ */
+export type SavedTeam = {
+  id: string;
+  name: string;
+  badge: string | null;
+  crestUrl: string | null;
+  accent: string;
+  playerIds: string[];
+  isDemo: boolean;
+};
+
 export type MatchTeam = {
   id: string;
   /** Draw order, and the band of the pitch they line up in. */
   slot: number;
   name: string;
   accent: string;
+  /** Las dos letras del escudo, si se eligieron a mano; null las saca del nombre. */
+  badge: string | null;
+  /** Una imagen en el escudo en lugar de las letras. */
+  crestUrl: string | null;
   playerIds: string[];
   keeperId: string | null;
   borrowedKeeper: boolean;

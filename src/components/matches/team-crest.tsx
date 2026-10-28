@@ -1,6 +1,9 @@
 import { badgeFor } from "@/lib/teams";
 import { cn } from "@/lib/utils";
 
+/** El escudo, en la caja de 48x56 donde se dibuja cada uno. */
+export const SHIELD_PATH = "M24 1 46 8v22c0 12-9 20-22 25C11 50 2 42 2 30V8Z";
+
 /**
  * A team's badge: a shield in the team's colour with its short form on it.
  *
@@ -13,19 +16,45 @@ import { cn } from "@/lib/utils";
  * Two letters at most, in the app's display face: a shield is read from the
  * touchline at the size of a thumbnail, and three characters in it are a word
  * nobody can make out.
+ *
+ * Un equipo armado a mano puede elegir sus propias dos letras, o una imagen.
+ * La imagen va sola, entera y sin escudo alrededor: es el escudo propio del
+ * equipo, y recortarlo al nuestro cortaría la mitad de casi cualquier logo.
+ * Ocupa la misma caja que el escudo, así que cambiar uno por otro no mueve
+ * nada de lo que está al lado.
  */
 export function TeamCrest({
   name,
   accent,
+  badge,
+  image,
   size = 40,
   className,
 }: {
   name: string;
   accent: string;
+  /** Letras elegidas a mano; si no hay, se sacan del nombre. */
+  badge?: string | null;
+  /** Una imagen en lugar de las letras. */
+  image?: string | null;
   size?: number;
   className?: string;
 }) {
-  const badge = badgeFor(name);
+  const letters = badge || badgeFor(name);
+
+  if (image) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={image}
+        alt={`${name} crest`}
+        width={size}
+        height={(size / 48) * 56}
+        className={cn("shrink-0 object-contain", className)}
+        style={{ width: size, height: (size / 48) * 56 }}
+      />
+    );
+  }
 
   return (
     <svg
@@ -37,7 +66,7 @@ export function TeamCrest({
       aria-label={`${name} crest`}
     >
       <path
-        d="M24 1 46 8v22c0 12-9 20-22 25C11 50 2 42 2 30V8Z"
+        d={SHIELD_PATH}
         fill={accent}
         fillOpacity={0.16}
         stroke={accent}
@@ -45,14 +74,9 @@ export function TeamCrest({
         strokeLinejoin="round"
       />
       {/*
-        No stripe across it any more: it was there to stop the shield reading
-        as a sticker with letters on it, and the letters do that themselves
-        once they are the scoreboard face and big enough to fill the shield.
-      */}
-      {/*
         No `dominant-baseline`: the baseline is put where the capitals end up
-        straddling the middle of the shield, which is the same in every browser
-        and does not depend on the font's own idea of a centre.
+        straddling the middle of the shield, which is the same in every
+        browser and does not depend on the font's own idea of a centre.
       */}
       <text
         x="24"
@@ -64,7 +88,7 @@ export function TeamCrest({
         letterSpacing={1.5}
         fontFamily="var(--font-display), system-ui, sans-serif"
       >
-        {badge}
+        {letters}
       </text>
     </svg>
   );

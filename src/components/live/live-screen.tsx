@@ -28,6 +28,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TeamCrest } from "@/components/matches/team-crest";
 import { PitchSurface } from "@/components/pitch/pitch-surface";
 import { VenuesDrawer } from "@/components/venues/venues-drawer";
+import { SavedTeamsDrawer } from "@/components/teams/saved-teams-drawer";
 import { PlayerAvatar } from "@/components/players/player-avatar";
 import { PlayersDrawer } from "@/components/players/players-drawer";
 import { StatsDrawer } from "@/components/stats/stats-drawer";
@@ -58,7 +59,7 @@ import { useRealtime } from "@/hooks/use-realtime";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import { api } from "@/lib/api-client";
 import { INDEFINITE_GAME } from "@/lib/constants";
-import { formatTimeRange } from "@/lib/date";
+import { formatTime, formatTimeRange } from "@/lib/date";
 import {
   currentGame,
   gameScore,
@@ -497,11 +498,21 @@ export function LiveScreen({
    * so -- as a suggestion, since the pitch is theirs until the hour is up.
    */
   const playedCount = live.games.filter((one) => one.endedAt !== null).length;
-  const progress = nightProgress(
-    playedCount,
-    match.endsAt - match.playedAt,
-    teams.length,
-  );
+  /*
+   * Where the night stands: games played, the one on, and how many more of the
+   * agreed length still fit in the rental -- so a late start or an extra half
+   * hour moves the count along with it.
+   */
+  const gameEnds = game
+    ? game.startedAt + match.gameMinutes * 60_000
+    : Math.max(now ?? 0, match.playedAt);
+  const progress = nightProgress({
+    played: playedCount,
+    inPlay: !!game,
+    remainingMs: match.endsAt - gameEnds,
+    gameMinutes: match.gameMinutes,
+    teamCount: teams.length,
+  });
 
   /** The two sides on the pitch, or the two about to be. */
   const left = home ?? nextHome;
@@ -549,6 +560,32 @@ export function LiveScreen({
 
   const homeOf = (playerId: string) =>
     teams.find((team) => team.playerIds.includes(playerId));
+
+  /*
+   * Half an hour more on the pitch, or back. Only between games, and the games
+   * still to come come back re-cut to fit (see `extendMatch`), which is worth
+   * saying out loud since the clock on the board changes with it.
+   */
+  const [extending, setExtending] = useState(false);
+  const extend = (minutes: 30 | -30) => {
+    setExtending(true);
+
+    void api.matches
+      .extend(match.id, minutes)
+      .then((next) => {
+        setMatch(next);
+        toast.success(
+          fill(t.live.rentalChanged, {
+            until: formatTime(next.endsAt),
+            minutes: next.gameMinutes,
+          }),
+        );
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : String(error));
+      })
+      .finally(() => setExtending(false));
+  };
 
   const lend = (teamId: string, playerId: string) => {
     if (!loanGame) return;
@@ -624,9 +661,6 @@ export function LiveScreen({
         fixed
         match={match}
         hudRef={hudNode}
-        // No collecting during the night: the accounts are settled together
-        // once it is over, from the lineup.
-        onOpenPayments={undefined}
         onShare={() => setShareOpen(true)}
         onGallery={() => setGalleryOpen(true)}
         onSelectPanel={setPanel}
@@ -660,6 +694,53 @@ export function LiveScreen({
           them, which at that width leaves each side about a hundred pixels.
           From 768 the board moves into the middle where it belongs.
         */}
+        {/*
+          The rental, between games: until when the pitch is booked, how much
+          of it is left, and half an hour either way. During a game it stays
+          out of the way -- that clock is the one on the board.
+        */}
+        {teams.length > 1 && !game && match.closedAt === null ? (
+          <div className="mx-auto mb-3 flex max-w-3xl flex-wrap items-center gap-3 rounded-2xl border border-white/10 bg-black/55 px-4 py-3 backdrop-blur-md">
+            <span className="min-w-0 flex-1">
+              <span className="block font-display text-sm uppercase tracking-[0.1em] text-muted-foreground">
+                {t.live.rentalTitle}
+              </span>
+              <span className="block text-sm">
+                {formatTimeRange(match.playedAt, match.endsAt)}
+                {" · "}
+                {fill(t.live.rentalLength, {
+                  length: lengthLabel(match.endsAt - match.playedAt),
+                })}
+                {now !== null && now > match.playedAt
+                  ? ` · ${fill(t.live.rentalLeft, {
+                      length: lengthLabel(Math.max(0, match.endsAt - now)),
+                    })}`
+                  : ""}
+              </span>
+            </span>
+            <span className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="border border-border/60"
+                disabled={extending}
+                onClick={() => extend(-30)}
+              >
+                {t.live.rentalLess}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={extending}
+                onClick={() => extend(30)}
+              >
+                {extending ? <Spinner /> : null}
+                {t.live.rentalMore}
+              </Button>
+            </span>
+          </div>
+        ) : null}
+
         {/*
           The fair plan is done. Said, not enforced: the pitch is theirs until
           the hour is up, and they may want one more. What it does say is where
@@ -875,6 +956,8 @@ export function LiveScreen({
                           <TeamCrest
                             name={team.name}
                             accent={team.accent}
+                            badge={team.badge}
+                            image={team.crestUrl}
                           />
                         ) : null}
                         <span className="truncate">{team?.name}</span>
@@ -998,7 +1081,7 @@ export function LiveScreen({
                         ) : null}
                       </span>
                       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <TeamCrest name={from.name} accent={from.accent} size={14} />
+                        <TeamCrest name={from.name} accent={from.accent} badge={from.badge} image={from.crestUrl} size={14} />
                         <span className="truncate">{from.name}</span>
                         <span>·</span>
                         <span>{categoryLabel(player.birthDate)}</span>
@@ -1037,6 +1120,11 @@ export function LiveScreen({
       <PlayersDrawer
         open={panel === "players"}
         onOpenChange={(next) => setPanel(next ? "players" : null)}
+      />
+
+      <SavedTeamsDrawer
+        open={panel === "teams"}
+        onOpenChange={(open) => setPanel(open ? "teams" : null)}
       />
 
       <VenuesDrawer
@@ -1160,11 +1248,11 @@ function Board({
           <div className="flex items-center justify-center gap-3 sm:gap-5">
             <Digit value={score?.home ?? 0} accent={home.accent} />
             <div className="flex flex-col items-center gap-1">
-              <TeamCrest name={home.name} accent={home.accent} />
+              <TeamCrest name={home.name} accent={home.accent} badge={home.badge} image={home.crestUrl} />
               <span className="font-display text-[0.625rem] uppercase tracking-[0.2em] text-muted-foreground">
                 {t.common.versus}
               </span>
-              <TeamCrest name={away.name} accent={away.accent} />
+              <TeamCrest name={away.name} accent={away.accent} badge={away.badge} image={away.crestUrl} />
             </div>
             <Digit value={score?.away ?? 0} accent={away.accent} />
           </div>
@@ -1391,7 +1479,7 @@ function TeamSheet({
         }}
       >
         <header className="mb-3 flex items-center gap-2.5">
-          <TeamCrest name={team.name} accent={team.accent} />
+          <TeamCrest name={team.name} accent={team.accent} badge={team.badge} image={team.crestUrl} />
           <p
             className="min-w-0 flex-1 truncate font-display text-lg uppercase tracking-[0.04em]"
             style={{ color: team.accent }}
@@ -1677,6 +1765,15 @@ function Timeline({
 }
 
 /** mm:ss, counting up. Past ten minutes it keeps counting, in red. */
+/** "1 h", "1 h 30 min", "45 min". */
+function lengthLabel(ms: number) {
+  const minutes = Math.round(ms / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest} min`;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
 function clock(elapsed: number) {
   const seconds = Math.max(0, Math.floor(elapsed / 1000));
   const mm = String(Math.floor(seconds / 60)).padStart(2, "0");

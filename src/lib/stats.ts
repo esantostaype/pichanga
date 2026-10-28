@@ -45,6 +45,8 @@ export type MatchStat = {
     id: string;
     name: string;
     accent: string;
+    badge: string | null;
+    crestUrl: string | null;
     points: number;
     goalsFor: number;
     goalsAgainst: number;
@@ -144,6 +146,8 @@ export function buildStats(source: StatsSource): Stats {
         id: row.teamId,
         name: byId.get(row.teamId)?.name ?? "",
         accent: byId.get(row.teamId)?.accent ?? "#c6f432",
+        badge: byId.get(row.teamId)?.badge ?? null,
+        crestUrl: byId.get(row.teamId)?.crestUrl ?? null,
         points: row.points,
         goalsFor: row.goalsFor,
         goalsAgainst: row.goalsAgainst,

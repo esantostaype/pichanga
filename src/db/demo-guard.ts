@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 
 import { db } from "./index";
-import { matches, venues } from "./schema";
+import { matches, savedTeams, venues } from "./schema";
 
 /**
  * Whether an admin-only write only touches the sandbox, so a guest may make it.
@@ -39,9 +39,19 @@ export async function isDemoWrite(request: Request, pathname: string) {
     return row?.isDemo === true;
   }
 
+  // Un equipo guardado de la demo se puede editar o borrar sin sesión.
+  const saved = /^\/api\/teams\/([^/]+)\/?$/.exec(pathname);
+  if (saved) {
+    const [row] = await db
+      .select({ isDemo: savedTeams.isDemo })
+      .from(savedTeams)
+      .where(eq(savedTeams.id, decodeURIComponent(saved[1])));
+    return row?.isDemo === true;
+  }
+
   if (
     request.method === "POST" &&
-    /^\/api\/(matches|venues)\/?$/.test(pathname)
+    /^\/api\/(matches|venues|teams)\/?$/.test(pathname)
   ) {
     try {
       const body = (await request.clone().json()) as { isDemo?: unknown };

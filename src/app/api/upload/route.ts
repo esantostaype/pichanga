@@ -34,6 +34,9 @@ export async function POST(request: Request) {
       );
     }
 
-    return json(await uploadPlayerPhoto(file), 201);
+    // Un escudo conserva su forma entera; todo lo demás es una cara.
+    const kind = form.get("kind") === "crest" ? "crest" : "player";
+
+    return json(await uploadPlayerPhoto(file, kind), 201);
   });
 }

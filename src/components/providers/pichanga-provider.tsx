@@ -16,8 +16,20 @@ import { useLocale } from "@/components/providers/locale-provider";
 import { fill } from "@/i18n/dictionaries";
 import { api } from "@/lib/api-client";
 import { REALTIME } from "@/lib/constants";
-import type { MatchInput, PlayerInput, VenueInput } from "@/lib/validators";
-import type { Match, MatchSummary, Player, Venue } from "@/types";
+import type {
+  ManualSide,
+  MatchInput,
+  PlayerInput,
+  SavedTeamInput,
+  VenueInput,
+} from "@/lib/validators";
+import type {
+  Match,
+  MatchSummary,
+  Player,
+  SavedTeam,
+  Venue,
+} from "@/types";
 
 type PichangaState = {
   nextMatch: Match | null;
@@ -49,6 +61,11 @@ type PichangaState = {
 };
 
 type PichangaContextValue = PichangaState & {
+  /** Los equipos guardados para usarlos de semana en semana. */
+  savedTeams: SavedTeam[];
+  createSavedTeam: (input: SavedTeamInput) => Promise<SavedTeam>;
+  updateSavedTeam: (id: string, input: SavedTeamInput) => Promise<SavedTeam>;
+  deleteSavedTeams: (ids: string[]) => Promise<void>;
   login: (password: string) => Promise<void>;
   logout: () => Promise<void>;
   createPlayer: (input: PlayerInput) => Promise<Player>;
@@ -80,7 +97,7 @@ type PichangaContextValue = PichangaState & {
   /** Moves one player onto another side, leaving the sides themselves alone. */
   setPlayerTeam: (teamId: string, playerId: string) => Promise<void>;
   /** Replaces every side at once, with the arrangement somebody built. */
-  setTeamsManually: (sides: string[][]) => Promise<void>;
+  setTeamsManually: (sides: ManualSide[]) => Promise<void>;
   /** Puts the drawn sides away, back to one squad. */
   clearTeams: () => Promise<void>;
   /** Agrees how long each game runs on the night. */
@@ -114,6 +131,12 @@ export function PichangaProvider({
   const { t } = useLocale();
   const [state, setState] = useState<PichangaState>(initial);
   const [mediaVersion, setMediaVersion] = useState(0);
+  /*
+   * Fuera del estado inicial que arma el servidor: solo los usan el panel de
+   * equipos y el armado a mano, así que se piden al montar y no retrasan la
+   * primera pintura de la cancha.
+   */
+  const [savedTeams, setSavedTeams] = useState<SavedTeam[]>([]);
 
   const patch = useCallback(
     (next: Partial<PichangaState>) =>
@@ -132,6 +155,24 @@ export function PichangaProvider({
     async () => patch({ venues: await api.venues.list(demo) }),
     [patch, demo],
   );
+
+  const refreshSavedTeams = useCallback(
+    async () => setSavedTeams(await api.teams.list(demo)),
+    [demo],
+  );
+
+  useEffect(() => {
+    let alive = true;
+    api.teams
+      .list(demo)
+      .then((list) => {
+        if (alive) setSavedTeams(list);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [demo]);
 
   const refreshMatches = useCallback(
     async () => patch({ matches: await api.matches.list(demo) }),
@@ -156,6 +197,9 @@ export function PichangaProvider({
     },
     [REALTIME.events.venuesChanged]: () => {
       void refreshVenues();
+    },
+    [REALTIME.events.savedTeamsChanged]: () => {
+      void refreshSavedTeams();
     },
     [REALTIME.events.matchesChanged]: () => {
       void refreshMatches();
@@ -247,6 +291,27 @@ export function PichangaProvider({
     return {
       ...state,
       mediaVersion,
+      savedTeams,
+
+      createSavedTeam: async (input) => {
+        const team = await api.teams.create({ ...input, isDemo: demo });
+        await refreshSavedTeams();
+        return team;
+      },
+
+      updateSavedTeam: async (id, input) => {
+        const team = await api.teams.update(id, { ...input, isDemo: demo });
+        await refreshSavedTeams();
+        return team;
+      },
+
+      deleteSavedTeams: async (ids) => {
+        try {
+          await deleteAll(ids, api.teams.remove);
+        } finally {
+          await refreshSavedTeams();
+        }
+      },
 
       login: async (password) => {
         // The password decides the role, so the answer is what flips the UI.
@@ -361,6 +426,8 @@ export function PichangaProvider({
         syncNextMatch(
           await api.matches.setTeamsManually(state.nextMatch.id, sides),
         );
+        // Quedaron también en la lista de equipos guardados.
+        await Promise.all([refreshSavedTeams(), refreshMatches()]);
       },
 
       clearTeams: async () => {
@@ -472,6 +539,8 @@ export function PichangaProvider({
   }, [
     state,
     mediaVersion,
+    savedTeams,
+    refreshSavedTeams,
     demo,
     t,
     patch,

@@ -28,7 +28,7 @@ export async function POST(request: Request, { params }: Context) {
     const current = await getMatch(id);
     if (!current) return fail((await messages()).matchNotFound, 404);
 
-    if (Date.now() < current.playedAt - TEAMS_OPEN_MS) {
+    if (!current.isDemo && Date.now() < current.playedAt - TEAMS_OPEN_MS) {
       return fail((await messages()).teamsWindow, 409);
     }
 

@@ -28,7 +28,6 @@ import { MatchHudCard } from "./match-hud-card";
 export function AppHeader({
   match,
   hudRef,
-  onOpenPayments,
   onShare,
   onGallery,
   onSelectPanel,
@@ -46,8 +45,6 @@ export function AppHeader({
    * header that scrolls away takes the way out with it.
    */
   fixed?: boolean;
-  /** Absent once the ledger is closed: the split becomes a plain figure. */
-  onOpenPayments?: () => void;
   onShare: () => void;
   onGallery: () => void;
   onSelectPanel: (panel: PanelName) => void;
@@ -72,7 +69,7 @@ export function AppHeader({
               className="hidden h-11 w-px shrink-0 bg-white/10 md:block"
             />
             <div className="hidden min-w-0 md:block">
-              <MatchHudCard match={match} onOpenPayments={onOpenPayments} />
+              <MatchHudCard match={match} />
             </div>
           </div>
 
@@ -107,7 +104,7 @@ export function AppHeader({
 
         {match ? (
           <div className="min-w-0 border-t border-white/10 pt-2.5 md:hidden">
-            <MatchHudCard match={match} onOpenPayments={onOpenPayments} />
+            <MatchHudCard match={match} />
           </div>
         ) : null}
       </div>

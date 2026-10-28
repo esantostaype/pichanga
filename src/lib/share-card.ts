@@ -7,7 +7,8 @@ import { venueMapsUrl } from "./maps";
 import { whereLabel } from "./venue";
 import { badgeFor } from "./teams";
 import { initialsOf } from "./utils";
-import type { Match, Player } from "@/types";
+import { nightAccounts } from "./prize";
+import type { Match, MatchLive, Player } from "@/types";
 import { categoryOf } from "./age";
 
 /**
@@ -862,4 +863,290 @@ export async function asPng(jpeg: Blob) {
       "image/png",
     );
   });
+}
+
+/* ---------------------------- the night's money --------------------------- */
+
+/** The words on the accounts card and in its message. */
+export type AccountsWords = {
+  title: string;
+  pitchBet: string;
+  pot: string;
+  winners: string;
+  noWinner: string;
+  toCollect: string;
+  toHand: string;
+  collect: string;
+  hand: string;
+  square: string;
+  breakdownWinner: string;
+  breakdown: string;
+  noShow: string;
+};
+
+const ACCOUNT_ROW = 92;
+const ACCOUNT_PHOTO = 56;
+
+/**
+ * The night's accounts as a picture for the group: the pot and who won it,
+ * then every player with what they owe or are owed, all settled together.
+ *
+ * One column, unlike the lineup: each row carries a name, the sum behind the
+ * amount and the amount itself, and two of those side by side do not fit.
+ */
+export async function renderAccountsCard(
+  match: Match,
+  live: Pick<MatchLive, "games" | "goals">,
+  words: AccountsWords,
+  lang: "en" | "es" = "en",
+): Promise<Blob> {
+  const { prize, rental, ledger, toCollect } = nightAccounts(match, live);
+  const everybody = new Map(
+    [...match.players, ...match.noShows].map((player) => [player.id, player]),
+  );
+  // Only who still owes: what the organizer hands out is between them and
+  // the winners, and whoever has paid has nothing left to be told.
+  const rows = owing(ledger).flatMap((row) => {
+    const player = everybody.get(row.playerId);
+    return player ? [{ row, player }] : [];
+  });
+
+  const headerH = 330;
+  const height = headerH + rows.length * ACCOUNT_ROW + PAD;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = W * SCALE;
+  canvas.height = height * SCALE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("This browser cannot draw the card");
+  ctx.scale(SCALE, SCALE);
+
+  if (document.fonts?.ready) await document.fonts.ready;
+
+  const [logo, photos] = await Promise.all([
+    loadLogo(),
+    Promise.all(rows.map(({ player }) => loadPhoto(player))),
+  ]);
+
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, height);
+
+  /* -------------------------------- header ------------------------------- */
+
+  let y = PAD;
+
+  if (logo) {
+    const logoW = 200;
+    const logoH = (logo.height / logo.width) * logoW;
+    ctx.drawImage(logo, PAD, y, logoW, logoH);
+    y += logoH + 30;
+  }
+
+  ctx.fillStyle = INK;
+  ctx.font = `600 46px "Sofia Sans Extra Condensed", "Sofia Sans", sans-serif`;
+  ctx.fillText(
+    fit(
+      ctx,
+      `${words.title} · ${formatLongDate(match.playedAt, lang)}`.toUpperCase(),
+      W - PAD * 2,
+    ),
+    PAD,
+    y + 34,
+  );
+  y += 70;
+
+  ctx.fillStyle = MUTED;
+  ctx.font = `400 25px "Sofia Sans", sans-serif`;
+  ctx.fillText(
+    fit(
+      ctx,
+      fillWords(words.pitchBet, {
+        pitch: formatMoney(rental),
+        bet: formatMoney(prize.bet),
+      }),
+      W - PAD * 2,
+    ),
+    PAD,
+    y + 20,
+  );
+  y += 44;
+
+  // The pot, and who takes it.
+  const winners = prize.rows.filter((row) =>
+    prize.winnerIds.includes(row.team.id),
+  );
+  ctx.font = `600 29px "Sofia Sans", sans-serif`;
+  ctx.fillStyle = LIME;
+  ctx.fillText(
+    fit(
+      ctx,
+      `${fillWords(words.pot, { money: formatMoney(prize.pot) })} · ${
+        winners.length
+          ? fillWords(words.winners, {
+              teams: winners.map((row) => row.team.name).join(", "),
+              each: formatMoney(prize.perWinner),
+            })
+          : words.noWinner
+      }`,
+      W - PAD * 2,
+    ),
+    PAD,
+    y + 24,
+  );
+  y += 46;
+
+  ctx.font = `500 25px "Sofia Sans", sans-serif`;
+  ctx.fillStyle = OWING;
+  ctx.fillText(
+    fillWords(words.toCollect, { money: formatMoney(toCollect) }),
+    PAD,
+    y + 22,
+  );
+
+  /* -------------------------------- the rows ------------------------------ */
+
+  const teamById = new Map(match.teams.map((team) => [team.id, team]));
+  const amountW = 190;
+
+  rows.forEach(({ row, player }, index) => {
+    const top = headerH + index * ACCOUNT_ROW;
+    const x = PAD;
+    const width = W - PAD * 2;
+
+    ctx.fillStyle = CARD;
+    ctx.beginPath();
+    ctx.roundRect(x, top, width, ACCOUNT_ROW - 12, 16);
+    ctx.fill();
+
+    const photoX = x + 14;
+    const photoY = top + (ACCOUNT_ROW - 12 - ACCOUNT_PHOTO) / 2;
+    const image = photos[index]?.image ?? null;
+
+    ctx.save();
+    circle(ctx, photoX, photoY, ACCOUNT_PHOTO);
+    ctx.clip();
+    if (image) {
+      ctx.drawImage(image, photoX, photoY, ACCOUNT_PHOTO, ACCOUNT_PHOTO);
+    } else {
+      ctx.fillStyle = "#22262a";
+      ctx.fillRect(photoX, photoY, ACCOUNT_PHOTO, ACCOUNT_PHOTO);
+      ctx.fillStyle = MUTED;
+      ctx.font = `600 22px "Sofia Sans", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.fillText(
+        initialsOf(player.firstName, player.lastName),
+        photoX + ACCOUNT_PHOTO / 2,
+        photoY + ACCOUNT_PHOTO / 2 + 8,
+      );
+      ctx.textAlign = "left";
+    }
+    ctx.restore();
+
+    // The side they played for, as a ring; grey for whoever did not come.
+    ctx.strokeStyle = teamById.get(row.teamId)?.accent ?? "#71717a";
+    ctx.lineWidth = 3;
+    circle(ctx, photoX, photoY, ACCOUNT_PHOTO);
+    ctx.stroke();
+
+    const textX = photoX + ACCOUNT_PHOTO + 22;
+    const textW = width - (textX - x) - amountW - 16;
+
+    ctx.fillStyle = INK;
+    ctx.font = `600 26px "Sofia Sans", sans-serif`;
+    ctx.fillText(
+      fit(ctx, `${player.firstName} ${player.lastName}`, textW),
+      textX,
+      top + 36,
+    );
+
+    ctx.fillStyle = MUTED;
+    ctx.font = `400 20px "Sofia Sans", sans-serif`;
+    const breakdown = row.noShow
+      ? fillWords(words.noShow, { money: formatMoney(row.penalty) })
+      : fillWords(row.prize > 0 ? words.breakdownWinner : words.breakdown, {
+          prize: formatMoney(row.prize),
+          pitch: formatMoney(rental),
+          bet: formatMoney(prize.bet),
+        });
+    ctx.fillText(fit(ctx, breakdown, textW), textX, top + 64);
+
+    // The amount, on the right, in the colour of which way it goes.
+    const right = x + width - 20;
+    const owes = row.settle < -0.004;
+    const owed = row.settle > 0.004;
+
+    ctx.textAlign = "right";
+    ctx.font = `500 16px "Sofia Sans", sans-serif`;
+    ctx.fillStyle = owes ? OWING : owed ? PAID : MUTED;
+    ctx.fillText(
+      (owes ? words.collect : owed ? words.hand : words.square).toUpperCase(),
+      right,
+      top + 30,
+    );
+
+    if (owes || owed) {
+      ctx.font = `600 32px "Sofia Sans Extra Condensed", "Sofia Sans", sans-serif`;
+      ctx.fillText(formatMoney(Math.abs(row.settle)), right, top + 64);
+    }
+    ctx.textAlign = "left";
+  });
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) =>
+        blob ? resolve(blob) : reject(new Error("The card could not be drawn")),
+      "image/jpeg",
+      0.94,
+    );
+  });
+}
+
+/** The same accounts as a message, for a chat that wants text. */
+export function accountsShareText(
+  match: Match,
+  live: Pick<MatchLive, "games" | "goals">,
+  words: AccountsWords,
+  lang: "en" | "es" = "en",
+) {
+  const { prize, rental, ledger, toCollect } = nightAccounts(match, live);
+  const everybody = new Map(
+    [...match.players, ...match.noShows].map((player) => [player.id, player]),
+  );
+  const winners = prize.rows.filter((row) =>
+    prize.winnerIds.includes(row.team.id),
+  );
+
+  const lines = [
+    `*${words.title} · ${formatLongDate(match.playedAt, lang)}*`,
+    fillWords(words.pitchBet, {
+      pitch: formatMoney(rental),
+      bet: formatMoney(prize.bet),
+    }),
+    `${fillWords(words.pot, { money: formatMoney(prize.pot) })} · ${
+      winners.length
+        ? fillWords(words.winners, {
+            teams: winners.map((row) => row.team.name).join(", "),
+            each: formatMoney(prize.perWinner),
+          })
+        : words.noWinner
+    }`,
+    fillWords(words.toCollect, { money: formatMoney(toCollect) }),
+    "",
+  ];
+
+  for (const row of owing(ledger)) {
+    const player = everybody.get(row.playerId);
+    if (!player) continue;
+
+    lines.push(
+      `⏳ ${player.firstName} ${player.lastName}: ${formatMoney(-row.settle)}`,
+    );
+  }
+
+  return lines.join("\n");
+}
+
+/** Whoever still has something to pay: a negative balance not yet ticked off. */
+function owing<T extends { settle: number; paid: boolean }>(ledger: T[]) {
+  return ledger.filter((row) => row.settle < -0.004 && !row.paid);
 }

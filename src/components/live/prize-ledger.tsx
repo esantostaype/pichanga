@@ -109,8 +109,15 @@ export function PrizeLedger({
     : sortedIds;
   const teamById = new Map(match.teams.map((team) => [team.id, team]));
 
-  const toHand = ledger.reduce((sum, row) => sum + Math.max(0, row.settle), 0);
-  const toCollect = ledger.reduce((sum, row) => sum + Math.max(0, -row.settle), 0);
+  // Still to do: whoever is ticked off is done with.
+  const toHand = ledger.reduce(
+    (sum, row) => sum + (row.paid ? 0 : Math.max(0, row.settle)),
+    0,
+  );
+  const toCollect = ledger.reduce(
+    (sum, row) => sum + (row.paid ? 0 : Math.max(0, -row.settle)),
+    0,
+  );
 
   return (
     <section
@@ -207,7 +214,7 @@ export function PrizeLedger({
                         : ""}
                       {fill(t.results.pitchOf, { amount: formatMoney(rental) })}
                       {prize.bet > 0
-                        ? ` + ${fill(t.results.betOf, { amount: formatMoney(prize.bet) })}`
+                        ? ` ${row.prize > 0 ? "−" : "+"} ${fill(t.results.betOf, { amount: formatMoney(prize.bet) })}`
                         : ""}
                     </>
                   )}

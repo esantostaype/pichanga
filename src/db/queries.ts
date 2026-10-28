@@ -19,14 +19,17 @@ import {
   DEFAULT_PITCH_FORMAT,
   MATCH_GRACE_MS,
   SUGGESTED_MATCH_LENGTH_MS,
+  TEAM_NAMES,
 } from "@/lib/constants";
 import DEMO from "@/data/demo.json";
 import { matchSlug, toDateInput } from "@/lib/date";
 import { canSettle } from "@/lib/money";
 import type {
+  ManualSide,
   MatchInput,
   MediaInput,
   PlayerInput,
+  SavedTeamInput,
   VenueInput,
 } from "@/lib/validators";
 import type {
@@ -39,21 +42,24 @@ import type {
   MatchSummary,
   Player,
   Recurrence,
+  SavedTeam,
   Venue,
 } from "@/types";
 import { db } from "./index";
 import { buildStats } from "@/lib/stats";
 import type { Stats } from "@/lib/stats";
 import {
+  accentsFor,
   balanceMoves,
   pickKeeper,
   balanceStrength,
   pickNames,
   planTeams,
+  poolEntry,
 } from "@/lib/teams";
 import { shortBy, sideFor } from "@/lib/loans";
 import { nextPairing } from "@/lib/live";
-import { recommendedGamePlan } from "@/lib/schedule";
+import { planFrom, planRest } from "@/lib/schedule";
 import {
   matchGames,
   matchGoals,
@@ -64,6 +70,8 @@ import {
   matches,
   players,
   pushSubscriptions,
+  savedTeamPlayers,
+  savedTeams,
   venues,
 } from "./schema";
 import type {
@@ -183,6 +191,8 @@ const toMatch = (
       slot: team.slot,
       name: team.name,
       accent: team.accent,
+      badge: team.badge,
+      crestUrl: team.crestUrl,
       playerIds: squad.map((entry) => entry.player.id),
       keeperId: keeper?.player.id ?? null,
       // Derived rather than stored: whether the keeper volunteered is a fact
@@ -332,6 +342,227 @@ export async function updateVenue(
 export async function deleteVenue(id: string): Promise<boolean> {
   const rows = await db.delete(venues).where(eq(venues.id, id)).returning();
   return rows.length > 0;
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              equipos guardados                             */
+/* -------------------------------------------------------------------------- */
+
+/** Los equipos guardados de un mundo (la demo o el real), con sus jugadores. */
+export async function listSavedTeams(demo = false): Promise<SavedTeam[]> {
+  const rows = await db
+    .select()
+    .from(savedTeams)
+    .where(eq(savedTeams.isDemo, demo))
+    .orderBy(asc(savedTeams.name));
+
+  if (rows.length === 0) return [];
+
+  const members = await db
+    .select()
+    .from(savedTeamPlayers)
+    .where(
+      inArray(
+        savedTeamPlayers.teamId,
+        rows.map((row) => row.id),
+      ),
+    );
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    badge: row.badge,
+    crestUrl: row.crestUrl,
+    accent: row.accent,
+    isDemo: row.isDemo,
+    playerIds: members
+      .filter((member) => member.teamId === row.id)
+      .map((member) => member.playerId),
+  }));
+}
+
+async function getSavedTeam(id: string): Promise<SavedTeam | null> {
+  const [row] = await db.select().from(savedTeams).where(eq(savedTeams.id, id));
+  if (!row) return null;
+
+  const members = await db
+    .select()
+    .from(savedTeamPlayers)
+    .where(eq(savedTeamPlayers.teamId, id));
+
+  return {
+    id: row.id,
+    name: row.name,
+    badge: row.badge,
+    crestUrl: row.crestUrl,
+    accent: row.accent,
+    isDemo: row.isDemo,
+    playerIds: members.map((member) => member.playerId),
+  };
+}
+
+/** Reemplaza los jugadores de un equipo guardado por los de la lista. */
+async function setSavedTeamPlayers(teamId: string, playerIds: string[]) {
+  await db.delete(savedTeamPlayers).where(eq(savedTeamPlayers.teamId, teamId));
+
+  const unique = [...new Set(playerIds)];
+  if (unique.length > 0) {
+    await db
+      .insert(savedTeamPlayers)
+      .values(unique.map((playerId) => ({ teamId, playerId })));
+  }
+}
+
+/**
+ * El color de un equipo guardado nuevo: el de la lista si el nombre está en
+ * ella; si no, el primero que ningún otro equipo guardado esté usando.
+ */
+async function accentForSaved(name: string, demo: boolean) {
+  const known = poolEntry(name);
+  if (known) return known.accent;
+
+  const used = new Set(
+    (
+      await db
+        .select({ accent: savedTeams.accent })
+        .from(savedTeams)
+        .where(eq(savedTeams.isDemo, demo))
+    ).map((row) => row.accent),
+  );
+
+  return (
+    TEAM_NAMES.map((team) => team.accent).find((one) => !used.has(one)) ??
+    TEAM_NAMES[used.size % TEAM_NAMES.length].accent
+  );
+}
+
+/** Busca un equipo guardado por nombre, sin importar mayúsculas. */
+async function findSavedTeamByName(name: string, demo: boolean) {
+  const [row] = await db
+    .select()
+    .from(savedTeams)
+    .where(
+      and(
+        eq(savedTeams.isDemo, demo),
+        sql`lower(${savedTeams.name}) = ${name.trim().toLowerCase()}`,
+      ),
+    );
+  return row ?? null;
+}
+
+/**
+ * Crea un equipo guardado. Devuelve null si ya hay otro con ese nombre: dos
+ * equipos que se llaman igual no se pueden distinguir en la lista.
+ */
+export async function createSavedTeam(
+  input: SavedTeamInput,
+): Promise<SavedTeam | null> {
+  const demo = input.isDemo ?? false;
+  if (await findSavedTeamByName(input.name, demo)) return null;
+
+  const name = poolEntry(input.name)?.name ?? input.name;
+  const [row] = await db
+    .insert(savedTeams)
+    .values({
+      name,
+      badge: input.badge ?? null,
+      crestUrl: input.crestUrl ?? null,
+      accent: await accentForSaved(name, demo),
+      isDemo: demo,
+    })
+    .returning();
+
+  await setSavedTeamPlayers(row.id, input.playerIds);
+  return getSavedTeam(row.id);
+}
+
+/**
+ * Edita un equipo guardado. `"taken"` si el nombre nuevo ya es de otro equipo,
+ * null si no existe.
+ */
+export async function updateSavedTeam(
+  id: string,
+  input: SavedTeamInput,
+): Promise<SavedTeam | "taken" | null> {
+  const [current] = await db
+    .select()
+    .from(savedTeams)
+    .where(eq(savedTeams.id, id));
+  if (!current) return null;
+
+  const clash = await findSavedTeamByName(input.name, current.isDemo);
+  if (clash && clash.id !== id) return "taken";
+
+  const name = poolEntry(input.name)?.name ?? input.name;
+  await db
+    .update(savedTeams)
+    .set({
+      name,
+      badge: input.badge ?? null,
+      crestUrl: input.crestUrl ?? null,
+      // Un nombre de la lista lleva su color; si no, se queda con el que tenía.
+      accent: poolEntry(name)?.accent ?? current.accent,
+      updatedAt: new Date(),
+    })
+    .where(eq(savedTeams.id, id));
+
+  await setSavedTeamPlayers(id, input.playerIds);
+  return getSavedTeam(id);
+}
+
+export async function deleteSavedTeam(id: string): Promise<boolean> {
+  const rows = await db
+    .delete(savedTeams)
+    .where(eq(savedTeams.id, id))
+    .returning();
+  return rows.length > 0;
+}
+
+/**
+ * Guarda en la lista los equipos armados a mano para un partido, para poder
+ * usarlos otra semana. Se buscan por nombre: si ya existe uno con ese nombre se
+ * actualiza (escudo, color y jugadores); si no, se crea.
+ */
+export async function rememberTeams(
+  sides: Array<{
+    name: string;
+    accent: string;
+    badge: string | null;
+    crestUrl: string | null;
+    playerIds: string[];
+  }>,
+  demo: boolean,
+) {
+  for (const side of sides) {
+    const existing = await findSavedTeamByName(side.name, demo);
+
+    if (existing) {
+      await db
+        .update(savedTeams)
+        .set({
+          name: side.name,
+          badge: side.badge,
+          crestUrl: side.crestUrl,
+          accent: side.accent,
+          updatedAt: new Date(),
+        })
+        .where(eq(savedTeams.id, existing.id));
+      await setSavedTeamPlayers(existing.id, side.playerIds);
+      continue;
+    }
+
+    const [row] = await db
+      .insert(savedTeams)
+      .values({
+        name: side.name,
+        badge: side.badge,
+        crestUrl: side.crestUrl,
+        accent: side.accent,
+        isDemo: demo,
+      })
+      .returning();
+    await setSavedTeamPlayers(row.id, side.playerIds);
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1133,9 +1364,11 @@ export async function drawTeams(
  * `recommendedGamePlan`. Anybody can still pick another length afterwards.
  */
 async function recommendMinutes(match: MatchRow, teamCount: number) {
-  const { minutes } = recommendedGamePlan(
-    endOf(match) - match.playedAt.getTime(),
+  // From now if the draw is late, so the games still fit what is left.
+  const { minutes } = planFrom(
+    { playedAt: match.playedAt.getTime(), endsAt: endOf(match) },
     teamCount,
+    Date.now(),
   );
 
   const [updated] = await db
@@ -1150,18 +1383,24 @@ async function recommendMinutes(match: MatchRow, teamCount: number) {
 /**
  * The sides as somebody arranged them by hand.
  *
- * `sides` is the whole arrangement, in order: every player in the match must
- * appear exactly once, because a lineup that is half-assigned has nowhere to
- * draw the rest -- the pitch groups by side and anybody left out of one would
- * simply not be on it.
+ * `sides` es el armado completo, en orden: nadie repetido y nadie de fuera del
+ * partido. Quien no esté en ningún equipo **sale del partido**, igual que un
+ * jugador sacado de la alineación: no todos los anotados pueden jugar siempre,
+ * y alguien sin equipo no tiene dónde pararse en el campo (que agrupa por
+ * equipo) ni por qué pagar la cancha.
  *
- * Names and colours survive where they can. A side keeps the identity the slot
- * already had, so rearranging two teams leaves them as the same two teams, and
- * only a count that grows reaches into the name pool for the new ones.
+ * Aquí no se nivela nada: los equipos son quienes se pusieron en ellos. Lo
+ * único que se elige solo es el arquero, que se puede cambiar después como
+ * cualquier otra noche.
+ *
+ * Los nombres son los que se escribieron. Los colores se conservan donde se
+ * puede: un nombre de la lista lleva su propio color, un equipo cuyo lugar ya
+ * tenía color lo mantiene (renombrarlo no lo repinta), y solo un equipo nuevo
+ * toma un color que nadie más lleva esa noche.
  */
 export async function setTeamsManually(
   matchId: string,
-  sides: string[][],
+  sides: ManualSide[],
 ): Promise<Match | null> {
   const [match] = await db
     .select()
@@ -1172,17 +1411,18 @@ export async function setTeamsManually(
   const lineup = await loadLineup(matchId);
   const squad = new Map(lineup.map((entry) => [entry.player.id, entry.player]));
 
-  const assigned = sides.flat();
+  const assigned = sides.flatMap((side) => side.playerIds);
   const unique = new Set(assigned);
 
-  // Every player, once each, and nobody from outside the match.
+  // Cada uno una sola vez, y nadie de fuera del partido.
   if (
     assigned.length !== unique.size ||
-    unique.size !== squad.size ||
     assigned.some((id) => !squad.has(id))
   ) {
     return null;
   }
+
+  const leaving = [...squad.keys()].filter((id) => !unique.has(id));
 
   const existing = await db
     .select()
@@ -1190,45 +1430,58 @@ export async function setTeamsManually(
     .where(eq(matchTeams.matchId, matchId))
     .orderBy(asc(matchTeams.slot));
 
-  /*
-   * Names for the sides that did not exist before, skipping the ones that did.
-   * The pool is walked with a stride and knows nothing about what is already on
-   * the table, so going from two sides to three drew a third name that was
-   * sometimes the second one again -- two teams called Viernes FC, in the same
-   * match, telling nobody apart. Asked for more than needed, so there is
-   * something left after the collisions are dropped.
-   */
-  const taken = new Set(
-    existing.slice(0, sides.length).map((team) => team.name),
-  );
-
-  const spare = pickNames(sides.length * 2, Date.now() % 2 ** 31).filter(
-    (one) => !taken.has(one.name),
+  // Se deciden antes de escribir los equipos, para que no se repita ninguno.
+  const accents = accentsFor(
+    sides.map((side) => side.name),
+    existing.map((team) => team.accent),
+    sides.map((side) => side.accent),
   );
 
   await releaseTeams(matchId);
 
+  // Fuera del partido, no solo fuera de los equipos (ver arriba). Los que no
+  // vinieron tienen sus propias filas y no se tocan: no están en `squad`.
+  if (leaving.length > 0) {
+    await db
+      .delete(matchPlayers)
+      .where(
+        and(
+          eq(matchPlayers.matchId, matchId),
+          inArray(matchPlayers.playerId, leaving),
+        ),
+      );
+  }
+
   const rows = await db
     .insert(matchTeams)
     .values(
-      sides.map((_, index) => {
-        const kept = existing[index];
-        // Only reached for a side that is new, so the spares last.
-        const made = kept ? null : spare.shift();
-
-        return {
-          matchId,
-          slot: index,
-          name: kept?.name ?? made?.name ?? `${index + 1}`,
-          accent: kept?.accent ?? made?.accent ?? "#9ae600",
-        };
-      }),
+      sides.map((side, index) => ({
+        matchId,
+        slot: index,
+        // Escrito como sea, un nombre de la lista se guarda como en la lista.
+        name: poolEntry(side.name)?.name ?? side.name,
+        accent: accents[index],
+        badge: side.badge ?? null,
+        crestUrl: side.crestUrl ?? null,
+      })),
     )
     .returning();
 
+  // Quedan también en la lista de equipos guardados, para usarlos otra semana.
+  await rememberTeams(
+    rows.map((row) => ({
+      name: row.name,
+      accent: row.accent,
+      badge: row.badge,
+      crestUrl: row.crestUrl,
+      playerIds: sides[row.slot]?.playerIds ?? [],
+    })),
+    match.isDemo,
+  );
+
   const bySlot = new Map(rows.map((row) => [row.slot, row.id]));
 
-  for (const [index, playerIds] of sides.entries()) {
+  for (const [index, { playerIds }] of sides.entries()) {
     const teamId = bySlot.get(index);
     if (!teamId) continue;
 
@@ -1363,6 +1616,8 @@ export async function getStats(demo = false): Promise<Stats> {
           slot: row.slot,
           name: row.name,
           accent: row.accent,
+          badge: row.badge,
+          crestUrl: row.crestUrl,
           playerIds: (lineupBy.get(match.id) ?? [])
             .filter((entry) => entry.teamId === row.id)
             .map((entry) => entry.playerId),
@@ -1584,6 +1839,8 @@ async function demoMatch(
 export async function resetDemo(): Promise<Match> {
   // The match takes its teams, games, goals and lineup with it.
   await db.delete(matches).where(eq(matches.isDemo, true));
+  // Los equipos guardados de la demo se van con sus jugadores.
+  await db.delete(savedTeams).where(eq(savedTeams.isDemo, true));
   await db.delete(players).where(eq(players.isDemo, true));
   await db.delete(venues).where(eq(venues.isDemo, true));
 
@@ -1932,6 +2189,52 @@ export async function returnPlayer(
     );
 
   return getMatchLive(matchId);
+}
+
+export type ExtendRefusal = "missing" | "closed" | "playing" | "tooShort";
+
+/**
+ * Moves the end of the rental: half an hour more when the pitch is free for
+ * it, half an hour less to take a mis-tap back.
+ *
+ * Only between games -- the clock of a game being played runs on the agreed
+ * length, and changing it under the players is not fair to either side. The
+ * games still to come are re-cut to fit (`planRest`): an hour turned into
+ * ninety minutes plays out the second round with shorter games rather than
+ * leaving it half done. Never so short that the rental ends before now.
+ */
+export async function extendMatch(
+  matchId: string,
+  minutes: number,
+): Promise<Match | ExtendRefusal> {
+  const [row] = await db.select().from(matches).where(eq(matches.id, matchId));
+  if (!row) return "missing";
+  if (row.closedAt) return "closed";
+
+  const live = await getMatchLive(matchId);
+  if (live.games.some((game) => game.endedAt === null)) return "playing";
+
+  const now = Date.now();
+  const endsAt = endOf(row) + minutes * 60_000;
+  if (endsAt <= now + 5 * 60_000 || endsAt <= row.playedAt.getTime()) {
+    return "tooShort";
+  }
+
+  const teams = await loadTeams(matchId);
+  const played = live.games.length;
+  const from = Math.max(now, row.playedAt.getTime());
+
+  const gameMinutes =
+    teams.length > 1 && (row.gameMinutes ?? DEFAULT_GAME_MINUTES) > 0
+      ? planRest(played, endsAt - from, teams.length).minutes
+      : row.gameMinutes;
+
+  await db
+    .update(matches)
+    .set({ endsAt: new Date(endsAt), gameMinutes })
+    .where(eq(matches.id, matchId));
+
+  return (await getMatch(matchId))!;
 }
 
 /**

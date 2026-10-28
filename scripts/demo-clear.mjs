@@ -51,6 +51,7 @@ const before = {
   matches: await count("matches"),
   players: await count("players"),
   venues: await count("venues"),
+  savedTeams: await count("saved_teams"),
   lineup: await owned("match_players"),
   teams: await owned("match_teams"),
   games: await owned("match_games"),
@@ -91,11 +92,16 @@ if (!write) {
 // The match goes first: its teams, games, goals and lineup cascade off it, and
 // the lineup is what points at the players.
 await db.execute("delete from matches where is_demo = 1");
+// Los equipos guardados de la demo, antes que los jugadores que los forman.
+await db.execute("delete from saved_teams where is_demo = 1");
 await db.execute("delete from players where is_demo = 1");
 await db.execute("delete from venues where is_demo = 1");
 
 const left =
-  (await count("matches")) + (await count("players")) + (await count("venues"));
+  (await count("matches")) +
+  (await count("players")) +
+  (await count("venues")) +
+  (await count("saved_teams"));
 
 console.log(
   left === 0

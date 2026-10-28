@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  accentsFor,
+  badgeFor,
   balanceMoves,
   balanceStrength,
   pickNames,
@@ -488,5 +490,36 @@ describe("balanceMoves", () => {
     ];
 
     expect(Array.isArray(balanceMoves(stuck))).toBe(true);
+  });
+});
+
+describe("badgeFor", () => {
+  it("usa la sigla de la lista para un nombre que está en ella", () => {
+    expect(badgeFor("Bar-celona")).toBe("BC");
+  });
+
+  it("toma las iniciales de un nombre escrito a mano, sin los artículos", () => {
+    expect(badgeFor("Los Tigres Sueltos")).toBe("TS");
+    expect(badgeFor("Sporting Cristal")).toBe("SC");
+  });
+});
+
+describe("accentsFor", () => {
+  it("da a un nombre de la lista su propio color, sin importar mayúsculas", () => {
+    expect(accentsFor(["bar-celona", "Los Tigres"], [])[0]).toBe("#38bdf8");
+  });
+
+  it("mantiene el color que ya tenía ese lugar", () => {
+    expect(accentsFor(["Los Tigres", "Las Águilas"], ["#a78bfa", "#fb923c"]))
+      .toEqual(["#a78bfa", "#fb923c"]);
+  });
+
+  it("nunca pinta dos equipos del mismo color", () => {
+    const accents = accentsFor(
+      ["Viernes FC", "Los Tigres", "Otro", "Más"],
+      ["#f472b6", "#f472b6"],
+    );
+
+    expect(new Set(accents).size).toBe(4);
   });
 });
